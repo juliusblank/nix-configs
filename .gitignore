@@ -1,0 +1,16 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfplan
+terraform/tfplan
+
+# Secrets (unencrypted)
+*.age.dec
+
+# OS
+.DS_Store
