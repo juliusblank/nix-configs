@@ -41,7 +41,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Standalone, no dependencies |
 | 2 | Branch + PR workflow with squash merges | Structural foundation for CI |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Depends on branch/PR workflow |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; needs review and hardening |
 | 4 | Nix cache activation | Depends on CI for automation |
 | 5 | Changelog via `git-cliff` | Depends on CI |
 | 6 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
@@ -82,7 +82,7 @@ Tools and config that EVERY host gets:
 
 - **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB)
-- **GitHub Actions** for CI: `nix flake check` on push *(planned — workflow not yet written)*
+- **GitHub Actions** for CI: `nix flake check` on push *(workflow exists in `.github/workflows/ci.yml`; needs review and hardening)*
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) *(planned — not yet wired up; see below)*
 
 ### Nix cache activation (planned)
