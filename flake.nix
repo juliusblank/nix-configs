@@ -103,6 +103,9 @@
               HOOKEOF
               chmod +x .git/hooks/pre-commit
 
+              # Inject GitHub token for gh CLI
+              export GH_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token" 2>/dev/null || true)
+
               echo "nix-configs devShell loaded"
               echo "Run 'just --list' to see available recipes"
             '';
