@@ -70,16 +70,35 @@
             ];
 
             shellHook = ''
-              # Install nixfmt-rfc-style pre-commit hook
+              # Install pre-commit hook
               mkdir -p .git/hooks
               cat > .git/hooks/pre-commit << 'HOOKEOF'
               #!/usr/bin/env bash
               set -e
-              staged=$(git diff --cached --name-only --diff-filter=ACM | grep '\.nix$' || true)
-              if [ -n "$staged" ]; then
-                echo "==> nixfmt-rfc-style: formatting staged .nix files..."
-                echo "$staged" | xargs nixfmt
-                echo "$staged" | xargs git add
+
+              # Format staged .nix files
+              staged_nix=$(git diff --cached --name-only --diff-filter=ACM | grep '\.nix$' || true)
+              if [ -n "$staged_nix" ]; then
+                echo "==> nixfmt: formatting staged .nix files..."
+                echo "$staged_nix" | xargs nixfmt
+                echo "$staged_nix" | xargs git add
+              fi
+
+              # Format staged .tf files
+              staged_tf=$(git diff --cached --name-only --diff-filter=ACM | grep '\.tf$' || true)
+              if [ -n "$staged_tf" ]; then
+                echo "==> tofu fmt: formatting staged .tf files..."
+                echo "$staged_tf" | xargs tofu fmt
+                echo "$staged_tf" | xargs git add
+              fi
+
+              # Ensure flake.lock is staged when flake.nix changes
+              if git diff --cached --name-only | grep -q 'flake\.nix'; then
+                if git diff --name-only | grep -q 'flake\.lock'; then
+                  echo "ERROR: flake.nix is staged but flake.lock has unstaged changes."
+                  echo "Run: git add flake.lock"
+                  exit 1
+                fi
               fi
               HOOKEOF
               chmod +x .git/hooks/pre-commit
