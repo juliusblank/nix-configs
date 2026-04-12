@@ -2,11 +2,14 @@
 
 {
   imports = [
-    ./hardware-configuration.nix  # generate with nixos-generate-config
+    ./hardware-configuration.nix # generate with nixos-generate-config
   ];
 
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
   };
 
   # Networking

@@ -51,9 +51,9 @@ setup-terraform-backend:
         echo "    Table {{lock_table}} created."
     fi
 
-    echo "==> Terraform backend ready."
+    echo "==> OpenTofu backend ready."
 
-# Initialize Terraform and apply GitHub + AWS infrastructure
+# Initialize OpenTofu and apply GitHub + AWS infrastructure
 setup-github:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -68,12 +68,12 @@ setup-github:
     fi
 
     cd terraform
-    terraform init
-    terraform plan -out=tfplan
+    tofu init
+    tofu plan -out=tfplan
     echo ""
     echo "Review the plan above. Apply? (Ctrl+C to cancel)"
     read -r
-    terraform apply tfplan
+    tofu apply tfplan
     rm tfplan
 
 # Generate a nix cache signing key pair (run once)
@@ -106,7 +106,7 @@ build host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        macbook-private|macbook-work)
+        serenity|macbook-work)
             nix build ".#darwinConfigurations.{{host}}.system"
             ;;
         pi-*)
@@ -123,7 +123,7 @@ deploy host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        macbook-private|macbook-work)
+        serenity|macbook-work)
             darwin-rebuild switch --flake ".#{{host}}"
             ;;
         pi-*)
@@ -159,7 +159,7 @@ diff host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        macbook-private|macbook-work)
+        serenity|macbook-work)
             darwin-rebuild build --flake ".#{{host}}"
             nix store diff-closures /run/current-system ./result
             ;;
@@ -169,19 +169,19 @@ diff host:
     esac
 
 # ==============================================================================
-# Terraform
+# OpenTofu
 # ==============================================================================
 
-# Run terraform plan
+# Run tofu plan
 tf-plan:
     #!/usr/bin/env bash
     set -euo pipefail
     export AWS_PROFILE={{aws_profile}}
-    cd terraform && terraform plan
+    cd terraform && tofu plan
 
-# Run terraform apply
+# Run tofu apply
 tf-apply:
     #!/usr/bin/env bash
     set -euo pipefail
     export AWS_PROFILE={{aws_profile}}
-    cd terraform && terraform apply
+    cd terraform && tofu apply

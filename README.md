@@ -6,7 +6,7 @@ Multi-system nix configuration for macOS and NixOS hosts.
 
 | Host            | OS    | Purpose        |
 |-----------------|-------|----------------|
-| macbook-private | macOS | Personal dev   |
+| serenity        | macOS | Personal dev   |
 | macbook-work    | macOS | Work dev       |
 | pi-moodpi       | NixOS | Moodpi service |
 
@@ -38,10 +38,10 @@ Multi-system nix configuration for macOS and NixOS hosts.
 git clone git@github.com:juliusblank/nix-configs.git ~/personal/nix-configs
 cd ~/personal/nix-configs
 
-# Enter the dev shell (provides terraform, awscli, age, etc.)
+# Enter the dev shell (provides tofu, awscli, age, etc.)
 nix develop
 
-# Step 0a: Create S3 backend for Terraform state
+# Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state
 just setup-terraform-backend
 
 # Step 0b: Provision GitHub repo config + AWS OIDC + cache bucket
@@ -52,7 +52,7 @@ just setup-github
 just setup-nix-cache-keys
 
 # Step 1: Deploy to current host
-just deploy macbook-private
+just deploy serenity
 ```
 
 ## Day-to-Day
@@ -77,7 +77,7 @@ just update              # update flake inputs
 │   ├── common.nix         # shared tools + shell config (all hosts)
 │   └── darwin.nix         # macOS-specific home additions
 ├── hosts/
-│   ├── macbook-private/   # nix-darwin + home-manager
+│   ├── serenity/          # nix-darwin + home-manager
 │   ├── macbook-work/      # nix-darwin + home-manager
 │   └── pi-moodpi/         # NixOS + home-manager
 ├── modules/               # reusable nix modules

@@ -17,8 +17,8 @@
       condition = "gitdir:~/work/";
       contents = {
         user = {
-          name = "Julius Blank";       # adjust if work uses different name
-          email = "WORK_EMAIL_HERE";   # replace with work email
+          name = "Julius Blank"; # adjust if work uses different name
+          email = "WORK_EMAIL_HERE"; # replace with work email
         };
       };
     }

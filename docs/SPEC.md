@@ -14,7 +14,7 @@
 
 | Host              | OS         | Manager             | Purpose           |
 |-------------------|------------|----------------------|-------------------|
-| macbook-private   | macOS      | nix-darwin + home-manager | Personal dev     |
+| serenity          | macOS      | nix-darwin + home-manager | Personal dev     |
 | macbook-work      | macOS      | nix-darwin + home-manager | Work dev          |
 | pi-moodpi         | NixOS      | NixOS + home-manager      | Moodpi service   |
 
@@ -24,7 +24,7 @@ More hosts will be added over time.
 
 Tools and config that EVERY host gets:
 
-- Shell: zsh (or bash — TBD) with common aliases and functions
+- Shell: zsh with common aliases and functions
 - Git: personal identity (juliusblank / dev@juliusblank.de)
 - Editor config (TBD)
 - CLI tools: ripgrep, fd, jq, yq, bat, eza, fzf, htop, curl, wget, tree
@@ -32,14 +32,14 @@ Tools and config that EVERY host gets:
 
 ## Host-Specific Config
 
-- **macbook-private**: Homebrew casks (GUI apps), personal SSH keys
+- **serenity**: Homebrew casks (GUI apps), personal SSH keys
 - **macbook-work**: Work-specific tools, work SSH keys, work git identity override for work repos
 - **pi-moodpi**: NixOS system config, moodpi service definition
 
 ## Infrastructure
 
-- **Terraform** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket
-- **S3 backend** for Terraform state (versioned, locked via DynamoDB)
+- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket (switched from Terraform due to BSL 1.1 license)
+- **S3 backend** for OpenTofu state (versioned, locked via DynamoDB)
 - **GitHub Actions** for CI: `nix flake check` on push
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI)
 
