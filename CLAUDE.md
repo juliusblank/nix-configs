@@ -21,6 +21,8 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 2. For small/obvious changes: proceed directly, but mention what was changed and why
 3. Always outline the plan before making changes — wait for a go-ahead before editing files
 4. After implementing: summarise what changed and suggest next steps
+5. **After editing `flake.nix`, `justfile`, or `docs/SPEC.md`**: check `README.md` for
+   consistency and update it in the same commit if anything is stale
 
 ## Commit style
 
