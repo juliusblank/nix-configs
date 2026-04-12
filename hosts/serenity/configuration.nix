@@ -76,8 +76,12 @@
       "homebrew/core"
       "homebrew/cask"
     ];
-    brews = [ "cowsay" ];
+    brews = [
+      "cowsay"
+      "1password-cli"
+    ];
     casks = [
+      "1password"
       "orbstack"
       "rekordbox"
       "audacity"

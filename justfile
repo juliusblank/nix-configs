@@ -3,7 +3,6 @@ default:
     @just --list
 
 # --- Variables ---
-aws_profile := "personal"
 aws_region := "eu-central-1"
 state_bucket := "juliusblank-terraform-state"
 lock_table := "juliusblank-terraform-locks"
@@ -13,12 +12,13 @@ cache_bucket := "juliusblank-nix-cache"
 # Step 0: Infrastructure bootstrap
 # ==============================================================================
 
-# Create the S3 bucket and DynamoDB table for Terraform state (idempotent)
+# Create the S3 bucket and DynamoDB table for OpenTofu state (idempotent)
 setup-terraform-backend:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_PROFILE={{aws_profile}}
-    export AWS_REGION={{aws_region}}
+    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    export AWS_DEFAULT_REGION={{aws_region}}
 
     echo "==> Creating S3 bucket for Terraform state..."
     if aws s3api head-bucket --bucket {{state_bucket}} 2>/dev/null; then
@@ -57,15 +57,10 @@ setup-terraform-backend:
 setup-github:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_PROFILE={{aws_profile}}
-
-    if [ -z "${GITHUB_TOKEN:-}" ]; then
-        echo "ERROR: GITHUB_TOKEN is not set."
-        echo "Create a PAT at https://github.com/settings/tokens"
-        echo "Scopes needed: repo, admin:org (for OIDC), delete_repo (optional)"
-        echo "Then: export GITHUB_TOKEN=ghp_..."
-        exit 1
-    fi
+    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    export AWS_DEFAULT_REGION={{aws_region}}
+    export GITHUB_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
 
     cd terraform
     tofu init
@@ -140,7 +135,9 @@ deploy host:
 push-cache host:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_PROFILE={{aws_profile}}
+    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    export AWS_DEFAULT_REGION={{aws_region}}
     KEY_DIR="$HOME/.config/nix-cache-keys"
     nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" \
         --sign "$KEY_DIR/cache-priv-key.pem" \
@@ -148,7 +145,7 @@ push-cache host:
 
 # Format all nix files
 fmt:
-    nixfmt .
+    find . -name '*.nix' -not -path './.direnv/*' | xargs nixfmt
 
 # Update flake inputs
 update:
@@ -176,12 +173,16 @@ diff host:
 tf-plan:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_PROFILE={{aws_profile}}
+    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    export AWS_DEFAULT_REGION={{aws_region}}
     cd terraform && tofu plan
 
 # Run tofu apply
 tf-apply:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_PROFILE={{aws_profile}}
+    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    export AWS_DEFAULT_REGION={{aws_region}}
     cd terraform && tofu apply

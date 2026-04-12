@@ -45,13 +45,34 @@ Tools and config that EVERY host gets:
 
 ## Secrets Management
 
-> **Planned migration (not yet implemented):** Replace agenix with 1Password.
+- **1Password** is the single password manager across all machines — no secrets stored in the repo
+- **1Password CLI (`op`)** injects secrets at runtime via `op read "op://..."` in justfile recipes
+- **1Password SSH agent** serves SSH keys to all SSH connections via `IdentityAgent` in `~/.ssh/config`
+- `1password` (app) and `1password-cli` installed via Homebrew on all macOS hosts
+- `~/.ssh/config` managed by home-manager; configures `IdentityAgent` to the 1Password socket
 
-- **1Password** is the single password manager across all machines
-- **1Password CLI (`op`)** for secret injection at runtime (no secrets stored in the repo)
-- **1Password SSH agent** for SSH key management on all hosts — eliminates manually managed key files
-- `op` installed as a system package; SSH agent socket configured in nix-darwin
-- agenix and the `secrets/` directory will be removed once migration is complete
+### Vault & item conventions
+
+All infrastructure secrets live in the **Private** vault:
+
+| Secret | Item name | Field(s) |
+|---|---|---|
+| AWS IAM access keys | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| GitHub PAT | `GitHub PAT nix-configs` | `token` |
+
+Secret reference format: `op://Private/<item name>/<field name>`
+
+### Injecting secrets in scripts
+
+Use `op read` inline at the point of use:
+
+```bash
+export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+export GITHUB_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
+```
+
+The `.op-env` file at the repo root documents all required secrets as `op://` references.
 
 ## AWS Isolation
 

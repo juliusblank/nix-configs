@@ -14,11 +14,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    agenix = {
-      url = "github:ryantm/agenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     claude-code.url = "github:sadjow/claude-code-nix";
 
     # Pinned to last commit using ruby_3_4; upgrade together with nixpkgs when moving to 26.05
@@ -39,7 +34,6 @@
       nixpkgs,
       nix-darwin,
       home-manager,
-      agenix,
       nix-homebrew,
       ...
     }:
@@ -65,10 +59,6 @@
               awscli2
               just
 
-              # Secrets
-              age
-              agenix.packages.${system}.default
-
               # Nix tools
               nil # nix LSP
               nixfmt-rfc-style # formatter
@@ -81,7 +71,6 @@
             shellHook = ''
               echo "nix-configs devShell loaded"
               echo "Run 'just --list' to see available recipes"
-              export AWS_PROFILE=personal
             '';
           };
         }
@@ -100,7 +89,6 @@
               home-manager.useUserPackages = true;
               home-manager.users.jbl = import ./hosts/serenity/home.nix;
             }
-            agenix.darwinModules.default
             nix-homebrew.darwinModules.nix-homebrew
             {
               nix-homebrew = {
@@ -128,7 +116,6 @@
               home-manager.useUserPackages = true;
               home-manager.users.julius = import ./hosts/macbook-work/home.nix;
             }
-            agenix.darwinModules.default
           ];
         };
       };

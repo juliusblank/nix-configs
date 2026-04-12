@@ -1,0 +1,10 @@
+# 1Password secret references for use with `op read`
+# This file contains no real secrets — only op:// references resolved at runtime.
+#
+# Required 1Password items (Private vault):
+#   - "AWS Personal"          fields: access_key_id, secret_access_key
+#   - "GitHub PAT nix-configs" field:  token
+
+AWS_ACCESS_KEY_ID=op://Private/AWS Personal/access_key_id
+AWS_SECRET_ACCESS_KEY=op://Private/AWS Personal/secret_access_key
+GITHUB_TOKEN=op://Private/GitHub PAT nix-configs/token

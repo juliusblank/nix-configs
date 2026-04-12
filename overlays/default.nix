@@ -8,3 +8,5 @@
 # final: prev: {
 #   my-tool = final.callPackage ./my-tool.nix { };
 # }
+
+final: prev: { }

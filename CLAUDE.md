@@ -51,6 +51,26 @@ Common scopes: `flake`, `serenity`, `macbook-work`, `home`, `darwin`, `infra`, `
 - **Never change `system.stateVersion` or `home.stateVersion`** — these are set once and must not change
 - When in doubt about a destructive or hard-to-reverse change: ask first
 
+## 1Password & secrets
+
+Secrets are never stored in the repo. All sensitive values live in the **Private** vault in 1Password.
+
+| Secret | Item name | Field(s) |
+|---|---|---|
+| AWS IAM access keys | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| GitHub PAT | `GitHub PAT nix-configs` | `token` |
+
+Inject secrets at the point of use with `op read`:
+
+```bash
+export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+export GITHUB_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
+```
+
+The `.op-env` file at the repo root documents all required `op://` references. SSH keys are served
+by the 1Password SSH agent — `~/.ssh/config` is managed by home-manager and points `IdentityAgent`
+to the 1Password socket.
+
 ## Nix conventions
 
 - Prefer `with pkgs;` in package lists for readability
