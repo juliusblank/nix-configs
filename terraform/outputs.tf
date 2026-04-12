@@ -10,5 +10,5 @@ output "nix_cache_bucket" {
 
 output "repository_url" {
   description = "GitHub repository URL"
-  value       = github_repository.nix_config.html_url
+  value       = github_repository.nix_configs.html_url
 }

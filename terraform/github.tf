@@ -1,6 +1,6 @@
 # --- GitHub Repository ---
 
-resource "github_repository" "nix_config" {
+resource "github_repository" "nix_configs" {
   name        = var.repo_name
   description = "Multi-system nix configuration"
   visibility  = "public"
@@ -19,7 +19,7 @@ resource "github_repository" "nix_config" {
 }
 
 resource "github_branch_protection" "main" {
-  repository_id = github_repository.nix_config.node_id
+  repository_id = github_repository.nix_configs.node_id
   pattern       = "main"
 
   required_status_checks {

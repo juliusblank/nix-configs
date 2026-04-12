@@ -63,14 +63,14 @@ resource "aws_iam_role_policy" "github_actions_nix_cache" {
 
 # Store the role ARN as a GitHub Actions secret
 resource "github_actions_secret" "aws_role_arn" {
-  repository      = github_repository.nix_config.name
+  repository      = github_repository.nix_configs.name
   secret_name     = "AWS_ROLE_ARN"
   plaintext_value = aws_iam_role.github_actions.arn
 }
 
 # Store the nix cache bucket name as a variable
 resource "github_actions_variable" "nix_cache_bucket" {
-  repository    = github_repository.nix_config.name
+  repository    = github_repository.nix_configs.name
   variable_name = "NIX_CACHE_BUCKET"
   value         = aws_s3_bucket.nix_cache.id
 }
