@@ -188,6 +188,7 @@ tf-plan:
     export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
+    export GITHUB_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
     cd terraform && tofu plan
 
 # Run tofu apply
