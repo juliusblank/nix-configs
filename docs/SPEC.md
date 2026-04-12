@@ -47,11 +47,12 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 6 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 7 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 8 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 9 | Tool setup & dotfiles consolidation | Review old repos step by step |
-| 10 | DJ toolchain — rekordbox automation | Process improvements, scripts |
-| 11 | Rekordbox MCP server | Scope and project home TBD |
-| 12 | `pi-moodpi` host config | Lower urgency |
-| 13 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
+| 9 | AWS CLI credential management | Decide on auth approach (profiles, Identity Center, Granted) and implement consistently: devShell injection, justfile recipes, nix-managed config. Currently inconsistent — AWS creds injected per justfile recipe via `op read`, GitHub token injected in devShell. Depends on #8. |
+| 10 | Tool setup & dotfiles consolidation | Review old repos step by step |
+| 11 | DJ toolchain — rekordbox automation | Process improvements, scripts |
+| 12 | Rekordbox MCP server | Scope and project home TBD |
+| 13 | `pi-moodpi` host config | Lower urgency |
+| 14 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
 
 ## Hosts
 
