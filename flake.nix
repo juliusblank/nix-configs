@@ -65,6 +65,7 @@
 
               # General
               git
+              gh
               jq
             ];
 
