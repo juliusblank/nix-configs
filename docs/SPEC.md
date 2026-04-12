@@ -40,8 +40,18 @@ Tools and config that EVERY host gets:
 
 - **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB)
-- **GitHub Actions** for CI: `nix flake check` on push
-- **S3 binary cache** for nix store paths (signed, used by all hosts + CI)
+- **GitHub Actions** for CI: `nix flake check` on push *(planned — workflow not yet written)*
+- **S3 binary cache** for nix store paths (signed, used by all hosts + CI) *(planned — not yet wired up; see below)*
+
+### Nix cache activation (planned)
+
+The S3 cache bucket exists but is not yet active. Steps to enable:
+
+1. Run `just setup-nix-cache-keys` — generates a signing key pair in `~/.config/nix-cache-keys/`
+2. Add the public key to `nix.settings.trusted-public-keys` in `hosts/serenity/configuration.nix`
+3. Uncomment `nix.settings.substituters` in `hosts/serenity/configuration.nix`
+4. Deploy serenity, then run `just push-cache serenity` to populate the cache
+5. Wire up CI to push cache on every build (requires GitHub Actions workflow)
 
 ## Secrets Management
 
@@ -76,9 +86,9 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 
 ## AWS Isolation
 
-- All AWS operations use `AWS_PROFILE=personal` explicitly
-- Never relies on default credentials
-- OIDC role for GitHub Actions is scoped to this repo only
+- AWS credentials are injected at runtime via `op read` — never stored on disk or in env files
+- Never relies on default credentials or AWS profiles
+- OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
 ## Git Identity Isolation
 
