@@ -41,7 +41,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Standalone, no dependencies |
 | 2 | Branch + PR workflow with squash merges | Structural foundation for CI |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; needs review and hardening |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; fix `nix_path` (currently unstable, should match pinned nixpkgs), enforce `check-flake` as required status check, switch dry-runs to actual builds once cache is active |
 | 4 | Nix cache activation | Depends on CI for automation |
 | 5 | Changelog via `git-cliff` | Depends on CI |
 | 6 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
@@ -51,6 +51,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 10 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 11 | Rekordbox MCP server | Scope and project home TBD |
 | 12 | `pi-moodpi` host config | Lower urgency |
+| 13 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin |
 
 ## Hosts
 
