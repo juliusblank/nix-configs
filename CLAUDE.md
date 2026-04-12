@@ -1,7 +1,9 @@
 # Claude Code — Repo conventions
 
+> **REQUIRED: Before doing anything else, read `docs/SPEC.md` in full.
+> Do not proceed until you have done so.**
+
 This repo manages nix-darwin and NixOS system configurations for personal machines.
-See `docs/SPEC.md` for the full specification — read it at the start of every session.
 
 ## Repo context
 
@@ -14,6 +16,7 @@ See `docs/SPEC.md` for the full specification — read it at the start of every 
 
 ## Workflow
 
+0. **Read `docs/SPEC.md`** — required at the start of every session before any task
 1. For non-trivial changes: update `docs/SPEC.md` first, get approval, then edit config files
 2. For small/obvious changes: proceed directly, but mention what was changed and why
 3. Always outline the plan before making changes — wait for a go-ahead before editing files
