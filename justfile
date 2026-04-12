@@ -124,7 +124,7 @@ deploy host:
     set -euo pipefail
     case "{{host}}" in
         serenity|macbook-work)
-            darwin-rebuild switch --flake ".#{{host}}"
+            sudo darwin-rebuild switch --flake ".#{{host}}"
             ;;
         pi-*)
             echo "For remote NixOS hosts, use:"
