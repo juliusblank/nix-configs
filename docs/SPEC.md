@@ -39,9 +39,9 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 
 | # | Item | Notes |
 |---|---|---|
-| 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Standalone, no dependencies |
+| 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; fix `nix_path` (currently unstable, should match pinned nixpkgs), enforce `check-flake` as required status check, switch dry-runs to actual builds once cache is active |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; fix `nix_path` (currently unstable, should match pinned nixpkgs), switch dry-runs to actual builds once cache is active |
 | 4 | Nix cache activation | Depends on CI for automation |
 | 5 | Changelog via `git-cliff` | Depends on CI |
 | 6 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
@@ -180,7 +180,11 @@ PRs are squash-merged to keep a clean commit history on `main`. No review requir
 
 ## Pre-commit Hooks
 
-`nixfmt-rfc-style` runs automatically before every commit when inside the devShell (`nix develop`). It formats all staged `.nix` files and re-stages them.
+Installed automatically when entering the devShell (`nix develop`):
+
+- **nixfmt** — formats all staged `.nix` files and re-stages them
+- **tofu fmt** — formats all staged `.tf` files and re-stages them
+- **flake.lock check** — errors if `flake.nix` is staged but `flake.lock` has unstaged changes (catches forgotten `nix flake lock` runs)
 
 ## Backup
 

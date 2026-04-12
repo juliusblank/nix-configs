@@ -7,4 +7,5 @@
 
 AWS_ACCESS_KEY_ID=op://Private/AWS Personal/access_key_id
 AWS_SECRET_ACCESS_KEY=op://Private/AWS Personal/secret_access_key
-GITHUB_TOKEN=op://Private/GitHub PAT nix-configs/token
+GITHUB_TOKEN=op://Private/GitHub PAT nix-configs/token  # used by OpenTofu GitHub provider
+GH_TOKEN=op://Private/GitHub PAT nix-configs/token      # used by gh CLI (injected in devShell)
