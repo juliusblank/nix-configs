@@ -11,7 +11,7 @@ resource "github_repository" "nix_configs" {
 
   allow_merge_commit = false
   allow_squash_merge = true
-  allow_rebase_merge = true
+  allow_rebase_merge = false
 
   delete_branch_on_merge = true
 
@@ -29,5 +29,9 @@ resource "github_branch_protection" "main" {
     ]
   }
 
-  enforce_admins = false  # allow force-push for solo dev, tighten later if needed
+  required_pull_request_reviews {
+    required_approving_review_count = 0  # PR required, no approvals needed (solo repo)
+  }
+
+  enforce_admins = true  # block direct pushes for everyone, including repo owner
 }
