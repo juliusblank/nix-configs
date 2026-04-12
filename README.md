@@ -4,11 +4,11 @@ Multi-system nix configuration for macOS and NixOS hosts.
 
 ## Hosts
 
-| Host            | OS    | Purpose        |
-|-----------------|-------|----------------|
-| serenity        | macOS | Personal dev   |
-| macbook-work    | macOS | Work dev       |
-| pi-moodpi       | NixOS | Moodpi service |
+| Host            | OS    | Purpose        | Status                   |
+|-----------------|-------|----------------|--------------------------|
+| serenity        | macOS | Personal dev   | active                   |
+| macbook-work    | macOS | Work dev       | planned (not deployed)   |
+| pi-moodpi       | NixOS | Moodpi service | planned (config pending) |
 
 ## Prerequisites
 
@@ -23,13 +23,13 @@ Multi-system nix configuration for macOS and NixOS hosts.
    # or: brew install just
    ```
 
-3. **AWS CLI configured** with a `personal` profile:
+3. **1Password + 1Password CLI** — install the app and CLI, then sign in:
    ```bash
-   aws configure --profile personal
+   brew install 1password 1password-cli
+   op signin
    ```
-
-4. **GitHub PAT** — create at https://github.com/settings/tokens
-   Scopes: `repo`, `admin:org`, `delete_repo` (optional)
+   All secrets (AWS credentials, GitHub PAT) are stored in the **Private** vault and
+   injected at runtime via `op read`. No manual credential export required.
 
 ## Getting Started
 
@@ -38,14 +38,16 @@ Multi-system nix configuration for macOS and NixOS hosts.
 git clone git@github.com:juliusblank/nix-configs.git ~/personal/nix-configs
 cd ~/personal/nix-configs
 
-# Enter the dev shell (provides tofu, awscli, age, etc.)
+# Sign in to 1Password CLI (secrets are injected automatically from here)
+op signin
+
+# Enter the dev shell (provides tofu, awscli, just, etc.)
 nix develop
 
 # Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state
 just setup-terraform-backend
 
 # Step 0b: Provision GitHub repo config + AWS OIDC + cache bucket
-export GITHUB_TOKEN=ghp_your_token_here
 just setup-github
 
 # Step 0c: Generate nix cache signing keys (once per machine)
@@ -78,12 +80,10 @@ just update              # update flake inputs
 │   └── darwin.nix         # macOS-specific home additions
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
-│   ├── macbook-work/      # nix-darwin + home-manager
-│   └── pi-moodpi/         # NixOS + home-manager
-├── modules/               # reusable nix modules
+│   ├── macbook-work/      # nix-darwin + home-manager (planned)
+│   └── pi-moodpi/         # NixOS + home-manager (planned)
 ├── overlays/              # custom packages / overrides
-├── secrets/               # agenix-encrypted secrets
-├── terraform/             # GitHub + AWS infrastructure
+├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
 ├── .github/workflows/     # CI
 └── docs/
     └── SPEC.md            # living specification
@@ -91,9 +91,8 @@ just update              # update flake inputs
 
 ## AWS Isolation
 
-All AWS operations explicitly use `AWS_PROFILE=personal`. The dev shell
-sets this automatically. Never relies on default credentials — safe to
-use on work machines.
+AWS credentials are injected at runtime via `op read` from the 1Password **Private** vault.
+They are never stored on disk, in env files, or in AWS profiles. Safe to use on any machine.
 
 ## Git Identity Isolation
 
@@ -103,8 +102,14 @@ use on work machines.
 
 ## Secrets
 
-Uses [agenix](https://github.com/ryantm/agenix). Secrets are encrypted
-at rest using age keys derived from SSH host keys. See `secrets/` directory.
+All secrets live in the **Private** vault in 1Password and are never stored in the repo.
+The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgent` in
+`~/.ssh/config` (managed by home-manager).
+
+| Secret | 1Password item | Field(s) |
+|---|---|---|
+| AWS IAM access keys | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| GitHub PAT | `GitHub PAT nix-configs` | `token` |
 
 ## Workflow
 

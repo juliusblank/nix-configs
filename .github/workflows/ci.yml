@@ -32,11 +32,11 @@ jobs:
         run: nix flake check --no-build
 
       # Build all configs (catches eval errors)
-      - name: Build macbook-private
-        run: nix build .#darwinConfigurations.macbook-private.system --dry-run
+      - name: Build serenity
+        run: nix build .#darwinConfigurations.serenity.system --dry-run
 
-      - name: Build macbook-work
-        run: nix build .#darwinConfigurations.macbook-work.system --dry-run
+      # - name: Build macbook-work
+      #   run: nix build .#darwinConfigurations.macbook-work.system --dry-run
 
-      - name: Build pi-moodpi
-        run: nix build .#nixosConfigurations.pi-moodpi.config.system.build.toplevel --dry-run
+      # - name: Build pi-moodpi
+      #   run: nix build .#nixosConfigurations.pi-moodpi.config.system.build.toplevel --dry-run
