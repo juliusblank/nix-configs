@@ -69,6 +69,20 @@
             ];
 
             shellHook = ''
+              # Install nixfmt-rfc-style pre-commit hook
+              mkdir -p .git/hooks
+              cat > .git/hooks/pre-commit << 'HOOKEOF'
+              #!/usr/bin/env bash
+              set -e
+              staged=$(git diff --cached --name-only --diff-filter=ACM | grep '\.nix$' || true)
+              if [ -n "$staged" ]; then
+                echo "==> nixfmt-rfc-style: formatting staged .nix files..."
+                echo "$staged" | xargs nixfmt
+                echo "$staged" | xargs git add
+              fi
+              HOOKEOF
+              chmod +x .git/hooks/pre-commit
+
               echo "nix-configs devShell loaded"
               echo "Run 'just --list' to see available recipes"
             '';

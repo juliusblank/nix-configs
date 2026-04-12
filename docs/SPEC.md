@@ -10,6 +10,48 @@
 - **Simple** — minimal nix knowledge needed for day-to-day use
 - **Secure** — secrets encrypted at rest, no long-lived credentials in CI
 
+## Repo Scope & Philosophy
+
+This is a **monorepo for all personal system configuration and tooling**. When in doubt about whether something belongs here, the rule is: if it configures how you work, it belongs here.
+
+**Lives in this repo:**
+- System config (nix-darwin, NixOS, home-manager)
+- Dotfiles and shell setup
+- Infrastructure (AWS, GitHub, CI)
+- Personal automation scripts and tooling (e.g. DJ toolchain, backup)
+- Shared development conventions and AI assistant configuration
+
+**Gets its own repo:**
+- Project-specific code with its own lifecycle (apps, services, libraries)
+- Things published as standalone open-source tools
+
+**Exceptions** are fine when a tool's config is so tightly coupled to a specific project that it has no meaning outside of it. Default to keeping things here.
+
+## Roadmap
+
+The roadmap is the single prioritized backlog for this repo. It is reviewed periodically to stay aligned with inline planned notes throughout this spec and to adapt at a higher planning level. Inline notes provide the *why* and *how*; this list provides the *what* and *when*.
+
+> **Review cadence:** revisit priorities whenever the list grows significantly, a major topic is completed, or the direction shifts.
+
+### Active priorities
+
+**Project conventions & structure** is a cross-cutting concern — improved continuously alongside all other work rather than as a discrete item.
+
+| # | Item | Notes |
+|---|---|---|
+| 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Standalone, no dependencies |
+| 2 | Branch + PR workflow with squash merges | Structural foundation for CI |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Depends on branch/PR workflow |
+| 4 | Nix cache activation | Depends on CI for automation |
+| 5 | Changelog via `git-cliff` | Depends on CI |
+| 6 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
+| 7 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
+| 8 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
+| 9 | Tool setup & dotfiles consolidation | Review old repos step by step |
+| 10 | DJ toolchain — rekordbox automation | Process improvements, scripts |
+| 11 | Rekordbox MCP server | Scope and project home TBD |
+| 12 | `pi-moodpi` host config | Lower urgency |
+
 ## Hosts
 
 | Host              | OS         | Manager             | Purpose           | Status                   |
@@ -140,3 +182,66 @@ Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready cre
 > **Planned:** pre-commit hooks enabled automatically when entering the devShell.
 
 - `nixfmt-rfc-style` — format all `.nix` files before every commit
+
+## Backup
+
+> **Planned.**
+
+Reliable, simple backup of serenity user data to AWS S3.
+
+**Data categories:** music collection, photos, projects (and any other user data identified over time)
+
+**Principles:**
+- Simple enough to run quickly — "just do it" with a single command
+- A backup is only as good as its restore — restore verification is a first-class requirement, not an afterthought
+- S3 as the storage backend (consistent with existing AWS setup)
+- Extensible to other hosts over time
+
+**Open questions:** tool selection (restic, rclone, etc.), restore test strategy (automated schedule vs. on-demand structured process), S3 bucket layout and lifecycle policy.
+
+## Project Conventions & Structure
+
+> **Planned — ongoing improvement.**
+
+Continuously improve the structure of the spec, Claude configuration, and project conventions to maximise efficiency of both developer time and AI resources.
+
+**Scope:**
+- Well-structured, navigable spec that serves as reliable AI context
+- Scoped conventions per directory/topic (e.g. IaC-specific rules in `terraform/`, nix module conventions for `hosts/` and `home/`)
+- `CLAUDE.md` structured to give Claude precise, relevant context without noise
+- Nix module organisation conventions (when to split modules, naming, structure)
+
+This is treated as an ongoing process rather than a one-time task — conventions are added and refined as the project grows.
+
+## Tool Setup & Dotfiles
+
+> **Planned — to be done step by step with AI assistance.**
+
+Consolidate fine-tuned system and shell configuration from old personal repos into this repo.
+
+**Source:** two or three existing repos containing configurations built up over time, primarily on Linux.
+
+**Categories (non-exhaustive):** starship prompt, zsh setup, vim config, and other CLI tool configurations.
+
+**Approach:**
+1. Share old repos in a Claude session
+2. Claude analyses the content and asks what to keep
+3. Integrate selected config into `home/common.nix` (cross-platform) or platform-specific modules
+4. Linux-specific config goes into NixOS host modules; macOS-compatible config into `home/darwin.nix` or `home/common.nix`
+
+## DJ Toolchain
+
+> **Planned.**
+
+Rekordbox and DJ workflow automation lives in this repo — it is part of the personal toolchain, no different from developer or admin tool setup.
+
+**Rekordbox automation & process improvement:**
+- Streamline DJ workflow (library management, preparation, export)
+- Automation scripts for recurring tasks
+- Integration with existing system setup (e.g. file paths, backup)
+
+**Rekordbox MCP server:**
+> Exploratory. Project home and scope TBD pending broader decision on project organisation.
+
+- Experiment with an MCP server interface to rekordbox data/functionality
+- Relevant to AI-assisted DJ workflow tooling
