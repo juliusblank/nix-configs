@@ -12,11 +12,11 @@
 
 ## Hosts
 
-| Host              | OS         | Manager             | Purpose           |
-|-------------------|------------|----------------------|-------------------|
-| serenity          | macOS      | nix-darwin + home-manager | Personal dev     |
-| macbook-work      | macOS      | nix-darwin + home-manager | Work dev          |
-| pi-moodpi         | NixOS      | NixOS + home-manager      | Moodpi service   |
+| Host              | OS         | Manager             | Purpose           | Status                   |
+|-------------------|------------|----------------------|-------------------|--------------------------|
+| serenity          | macOS      | nix-darwin + home-manager | Personal dev     | active                   |
+| macbook-work      | macOS      | nix-darwin + home-manager | Work dev          | planned (not deployed)   |
+| pi-moodpi         | NixOS      | NixOS + home-manager      | Moodpi service   | planned (config pending) |
 
 More hosts will be added over time.
 
