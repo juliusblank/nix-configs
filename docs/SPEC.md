@@ -90,6 +90,18 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 - Never relies on default credentials or AWS profiles
 - OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
+### IAM Identity Center & multi-account setup (planned)
+
+> Current setup uses IAM access keys (stored in 1Password). This is a stepping stone.
+
+Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready credential setup.
+
+- IAM Identity Center provides short-lived credentials via browser-based login — no long-lived keys
+- Investigate whether the **1Password SSH agent + CLI** approach extends naturally to SSO credential caching, or whether a dedicated tool is needed
+- Candidate tool: **[Granted](https://docs.commonfate.io/granted/introduction)** (by Common Fate) — CLI for assuming IAM Identity Center roles across multiple accounts with a clean `assume` workflow
+- Decision to be made: 1Password-native vs Granted, based on multi-account UX and nix integration
+- Once decided: update justfile recipes and remove IAM access keys from 1Password
+
 ## Git Identity Isolation
 
 - Repo-level `.gitconfig` enforces personal identity (Julius Blank / dev@juliusblank.de)
