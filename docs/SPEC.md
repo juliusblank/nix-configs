@@ -51,7 +51,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 10 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 11 | Rekordbox MCP server | Scope and project home TBD |
 | 12 | `pi-moodpi` host config | Lower urgency |
-| 13 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin |
+| 13 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
 
 ## Hosts
 
