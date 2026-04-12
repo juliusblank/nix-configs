@@ -24,6 +24,17 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 5. **After editing `flake.nix`, `justfile`, or `docs/SPEC.md`**: check `README.md` for
    consistency and update it in the same commit if anything is stale
 
+## Branch & PR Workflow
+
+All changes go through a branch + PR — **never commit directly to `main`**.
+
+1. Create a branch: `git checkout -b <type>/<short-description>`
+   (e.g. `feat/serenity-add-tmux`, `fix/flake-ruby-pin`, `docs/spec-backup`)
+2. Make changes, run `just fmt` after any `.nix` edits, run `just check`
+3. Commit with a conventional commit message
+4. Push and open a PR: `gh pr create --fill`
+5. **Do not merge the PR yourself** — leave it for the user to merge via the GitHub UI
+
 ## Commit style
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
@@ -37,16 +48,11 @@ docs(spec): mark 1password migration as complete
 
 Common scopes: `flake`, `serenity`, `macbook-work`, `home`, `darwin`, `infra`, `spec`, `deps`.
 
-> **Planned:** move to a branch + PR workflow (no review required). PRs are squash-merged to keep
-> a clean history on `main`. CI runs `nix flake check` on PR open/update, and auto-updates
-> `CHANGELOG.md` via `git-cliff` on merge to `main`.
-
 ## Formatting
 
 - Always run `just fmt` after editing any `.nix` file
 - `nixfmt-rfc-style` is the formatter — do not hand-format nix files
-
-> **Planned:** pre-commit hook in the devShell runs `nixfmt-rfc-style` automatically before every commit.
+- Pre-commit hook in the devShell runs `nixfmt` automatically before every commit
 
 ## Safety rules
 

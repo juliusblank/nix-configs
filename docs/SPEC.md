@@ -40,7 +40,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | # | Item | Notes |
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Standalone, no dependencies |
-| 2 | Branch + PR workflow with squash merges | Structural foundation for CI |
+| 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
 | 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; fix `nix_path` (currently unstable, should match pinned nixpkgs), enforce `check-flake` as required status check, switch dry-runs to actual builds once cache is active |
 | 4 | Nix cache activation | Depends on CI for automation |
 | 5 | Changelog via `git-cliff` | Depends on CI |
@@ -171,18 +171,15 @@ Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready cre
 1. Update `docs/SPEC.md` with desired changes
 2. Use AI assistant (Claude) with spec as context to generate nix config
 3. Test locally: `just check` or `just build <host>`
-4. Commit and push — CI validates
-5. Deploy: `just deploy <host>`
+4. Open a PR — CI validates (`nix flake check`)
+5. Merge via GitHub UI (squash merge) — branch is auto-deleted
+6. Deploy: `just deploy <host>`
 
-> **Planned:** move to a branch + PR workflow (no review required). PRs are squash-merged
-> to keep a clean commit history on `main`. CI runs on PR open/update (`nix flake check`)
-> and on merge to `main` (update `CHANGELOG.md` via `git-cliff`).
+PRs are squash-merged to keep a clean commit history on `main`. No review required (solo repo). On merge to `main`, CI will auto-update `CHANGELOG.md` via `git-cliff` *(planned — item #5)*.
 
 ## Pre-commit Hooks
 
-> **Planned:** pre-commit hooks enabled automatically when entering the devShell.
-
-- `nixfmt-rfc-style` — format all `.nix` files before every commit
+`nixfmt-rfc-style` runs automatically before every commit when inside the devShell (`nix develop`). It formats all staged `.nix` files and re-stages them.
 
 ## Backup
 
