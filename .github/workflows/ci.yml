@@ -1,3 +1,5 @@
+# CI — runs nix flake check and builds the active host config (serenity) on every push to main
+# and on every pull request targeting main. AWS credentials are obtained via OIDC (no stored keys).
 name: CI
 
 on:

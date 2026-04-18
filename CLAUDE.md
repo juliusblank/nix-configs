@@ -82,9 +82,24 @@ The `.op-env` file at the repo root documents all required `op://` references. S
 by the 1Password SSH agent — `~/.ssh/config` is managed by home-manager and points `IdentityAgent`
 to the 1Password socket.
 
+## Language conventions
+
+Per-language conventions live in scoped `CLAUDE.md` files that are active when working inside
+that directory:
+
+- `terraform/CLAUDE.md` — HCL (OpenTofu)
+- `.github/CLAUDE.md` — YAML (GitHub Actions)
+
+Nix conventions are below (root `CLAUDE.md` covers the whole repo).
+
 ## Nix conventions
 
 - Prefer `with pkgs;` in package lists for readability
 - Keep system packages (`environment.systemPackages`) minimal — prefer home-manager for user-facing tools
 - Pin unstable or incompatible inputs to specific commits and always add a comment explaining why
 - `allowUnfree = true` is set at the system level; no need to set it per-package
+- Public functions and attributes must have a `/**` nixdoc block comment:
+  ```nix
+  /** Builds the unified shell environment for all hosts. */
+  mkShell = { ... }: ...;
+  ```
