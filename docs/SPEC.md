@@ -42,17 +42,19 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
 | 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; fix `nix_path` (currently unstable, should match pinned nixpkgs), switch dry-runs to actual builds once cache is active |
-| 4 | Nix cache activation | Depends on CI for automation |
-| 5 | Changelog via `git-cliff` | Depends on CI |
-| 6 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
-| 7 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
-| 8 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 9 | AWS CLI credential management | Decide on auth approach (profiles, Identity Center, Granted) and implement consistently: devShell injection, justfile recipes, nix-managed config. Currently inconsistent — AWS creds injected per justfile recipe via `op read`, GitHub token injected in devShell. Depends on #8. |
-| 10 | Tool setup & dotfiles consolidation | Review old repos step by step |
-| 11 | DJ toolchain — rekordbox automation | Process improvements, scripts |
-| 12 | Rekordbox MCP server | Scope and project home TBD |
-| 13 | `pi-moodpi` host config | Lower urgency |
-| 14 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
+| 4 | `tf-apply` guardrails | Soft guardrail in justfile: warn + require Enter if (1) not on `main` or (2) working tree is dirty. Prevents accidental infra changes; CI bypasses naturally (always clean, always on main). |
+| 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Replace `tofu apply -auto-approve` with two-step: `tf-plan` saves `tofu plan -out=tfplan`, `tf-apply` runs `tofu apply tfplan`. Apply becomes deterministic (no re-evaluation), works identically in devShell and CI. |
+| 6 | Nix cache activation | Depends on CI for automation |
+| 7 | Changelog via `git-cliff` | Depends on CI |
+| 8 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
+| 9 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
+| 10 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
+| 11 | AWS CLI credential management | Decide on auth approach (profiles, Identity Center, Granted) and implement consistently: devShell injection, justfile recipes, nix-managed config. Currently inconsistent — AWS creds injected per justfile recipe via `op read`, GitHub token injected in devShell. Depends on #10. |
+| 12 | Tool setup & dotfiles consolidation | Review old repos step by step |
+| 13 | DJ toolchain — rekordbox automation | Process improvements, scripts |
+| 14 | Rekordbox MCP server | Scope and project home TBD |
+| 15 | `pi-moodpi` host config | Lower urgency |
+| 16 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
 
 ## Hosts
 
