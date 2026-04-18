@@ -1,16 +1,24 @@
-# --- OIDC Federation: GitHub Actions → AWS ---
-
-# The OIDC provider (one per AWS account, may already exist)
+# OIDC provider for GitHub Actions — one per AWS account, allows token-based role assumption.
+# If this resource already exists in your account, import it:
+#   tofu import aws_iam_openid_connect_provider.github \
+#     arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"] # GitHub's OIDC uses a well-known CA
 
-  # If this resource already exists in your account, import it:
-  # terraform import aws_iam_openid_connect_provider.github arn:aws:iam::oidc-provider/token.actions.githubusercontent.com
+  tags = {
+    project     = "nix-configs"
+    repo        = "juliusblank/nix-configs"
+    environment = "production"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# IAM role that GitHub Actions assumes
+# IAM role assumed by GitHub Actions via OIDC — scoped to this repository only.
 resource "aws_iam_role" "github_actions" {
   name = "nix-configs-github-actions"
 
@@ -35,9 +43,19 @@ resource "aws_iam_role" "github_actions" {
       }
     ]
   })
+
+  tags = {
+    project     = "nix-configs"
+    repo        = "juliusblank/nix-configs"
+    environment = "production"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# Policy: read/write to nix cache bucket only
+# Inline policy granting the CI role read/write access to the nix cache bucket only.
 resource "aws_iam_role_policy" "github_actions_nix_cache" {
   name = "nix-cache-access"
   role = aws_iam_role.github_actions.id
@@ -61,14 +79,14 @@ resource "aws_iam_role_policy" "github_actions_nix_cache" {
   })
 }
 
-# Store the role ARN as a GitHub Actions secret
+# Exposes the CI role ARN to GitHub Actions as a repository secret.
 resource "github_actions_secret" "aws_role_arn" {
   repository      = github_repository.nix_configs.name
   secret_name     = "AWS_ROLE_ARN"
   plaintext_value = aws_iam_role.github_actions.arn
 }
 
-# Store the nix cache bucket name as a variable
+# Exposes the nix cache bucket name to GitHub Actions as a repository variable.
 resource "github_actions_variable" "nix_cache_bucket" {
   repository    = github_repository.nix_configs.name
   variable_name = "NIX_CACHE_BUCKET"

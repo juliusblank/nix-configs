@@ -1,9 +1,19 @@
-# --- S3 Nix Binary Cache ---
-
+# S3 bucket used as a nix binary cache — stores signed store paths shared across all hosts and CI.
 resource "aws_s3_bucket" "nix_cache" {
   bucket = var.nix_cache_bucket_name
+
+  tags = {
+    project     = "nix-configs"
+    repo        = "juliusblank/nix-configs"
+    environment = "production"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
+# Versioning kept enabled so nix cache objects can be recovered if accidentally overwritten.
 resource "aws_s3_bucket_versioning" "nix_cache" {
   bucket = aws_s3_bucket.nix_cache.id
   versioning_configuration {
@@ -11,6 +21,7 @@ resource "aws_s3_bucket_versioning" "nix_cache" {
   }
 }
 
+# Lifecycle rules to bound storage cost — old versions expire after 30 days, entries after 90.
 resource "aws_s3_bucket_lifecycle_configuration" "nix_cache" {
   bucket = aws_s3_bucket.nix_cache.id
 
@@ -40,6 +51,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "nix_cache" {
   }
 }
 
+# Public access fully blocked — cache is accessed via signed requests only.
 resource "aws_s3_bucket_public_access_block" "nix_cache" {
   bucket = aws_s3_bucket.nix_cache.id
 

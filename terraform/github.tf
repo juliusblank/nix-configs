@@ -1,5 +1,4 @@
-# --- GitHub Repository ---
-
+# GitHub repository configuration — manages settings, merge strategy, and branch protection.
 resource "github_repository" "nix_configs" {
   name        = var.repo_name
   description = "Multi-system nix configuration"
@@ -16,22 +15,25 @@ resource "github_repository" "nix_configs" {
   delete_branch_on_merge = true
 
   vulnerability_alerts = true
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
+# Branch protection for main — requires CI to pass; PRs required for everyone including admins.
 resource "github_branch_protection" "main" {
   repository_id = github_repository.nix_configs.node_id
   pattern       = "main"
 
   required_status_checks {
-    strict = true
-    contexts = [
-      "check-flake",
-    ]
+    strict   = true
+    contexts = ["check-flake"]
   }
 
   required_pull_request_reviews {
-    required_approving_review_count = 0  # PR required, no approvals needed (solo repo)
+    required_approving_review_count = 0 # PR required, no approvals needed (solo repo)
   }
 
-  enforce_admins = true  # block direct pushes for everyone, including repo owner
+  enforce_admins = true # block direct pushes for everyone, including repo owner
 }
