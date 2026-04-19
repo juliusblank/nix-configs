@@ -51,35 +51,33 @@ git push -u origin feat/infra-add-s3-logging
 gh pr create --fill
 ```
 
-### 4. Plan and apply after merging
+CI automatically runs `tofu plan` and posts the output as a collapsible comment on the PR.
+Review it there — no local plan step needed.
 
-After the PR is squash-merged into `main`:
+### 4. Merge and let CI apply
+
+After the PR is squash-merged into `main`, the infra workflow runs `tofu plan` followed by
+`tofu apply` automatically. No manual step required.
+
+If you need to verify state after an automated apply, check the Actions run in GitHub.
+
+### Manual plan/apply (optional)
+
+You can still run plan and apply locally if needed — for example, to preview changes before
+pushing, or to recover from a failed CI run:
 
 ```bash
 git checkout main && git pull
 
 # Generate the plan and save it to terraform/tfplan
 just tf-plan
-```
 
-Review the plan output carefully — it shows every resource that will be created, updated, or
-destroyed. When the plan looks correct:
-
-```bash
-# Apply exactly the saved plan, then delete the plan file
+# Review the output, then apply exactly the saved plan
 just tf-apply
 ```
 
 `tf-apply` will error out if no plan file exists, preventing accidental applies without a
 reviewed plan.
-
----
-
-> **TODO (item #6):** Automated CI/CD workflow — on PR, post the plan as a comment; on merge
-> to `main`, run apply automatically via GitHub Actions. Requires the OIDC role to have apply
-> permissions. See `docs/SPEC.md` item 6.
-
----
 
 ## Branch workflow (fixing infra issues)
 

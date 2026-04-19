@@ -86,6 +86,17 @@ resource "github_actions_secret" "aws_role_arn" {
   plaintext_value = aws_iam_role.github_actions.arn
 }
 
+# Exposes the 1Password Service Account token to GitHub Actions.
+# The SA has read-only access to the github/nix-configs vault and is used by
+# 1password/load-secrets-action to fetch live secrets on every CI run.
+# Value comes from op://Private/1Password SA github-actions-nix-configs/token
+# and is injected by the justfile via TF_VAR_op_service_account_token.
+resource "github_actions_secret" "op_service_account_token" {
+  repository      = github_repository.nix_configs.name
+  secret_name     = "OP_SERVICE_ACCOUNT_TOKEN"
+  plaintext_value = var.op_service_account_token
+}
+
 # Exposes the nix cache bucket name to GitHub Actions as a repository variable.
 resource "github_actions_variable" "nix_cache_bucket" {
   repository    = github_repository.nix_configs.name
