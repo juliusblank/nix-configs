@@ -31,5 +31,7 @@ provider "aws" {
 
 provider "github" {
   owner = var.github_owner
-  # Uses GITHUB_TOKEN env var — set a PAT scoped to your personal account
+  # Uses var.github_token (TF_VAR_github_token) rather than GITHUB_TOKEN to avoid
+  # collision with the ephemeral Actions token GitHub injects automatically in CI.
+  token = var.github_token
 }

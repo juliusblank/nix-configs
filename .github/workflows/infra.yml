@@ -1,0 +1,150 @@
+# Infra CI/CD — runs tofu plan on PRs (posts output as a comment) and tofu apply on merge to main.
+# Triggers only when terraform/ files change. AWS auth via OIDC; GitHub provider token fetched
+# live from 1Password via the github-actions-nix-configs service account on every run.
+#
+# Note: this workflow assumes it runs on trusted branches only (direct pushes to main or PRs from
+# this repo). Fork PRs are not expected on this solo repo; if that changes, revisit secret exposure.
+name: Infra
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["terraform/**"]
+  push:
+    branches: [main]
+    paths: ["terraform/**"]
+
+# Prevent concurrent applies racing on the state lock.
+# cancel-in-progress: false ensures a queued apply always completes.
+concurrency:
+  group: infra-apply
+  cancel-in-progress: false
+
+permissions:
+  id-token: write       # OIDC token for AWS role assumption
+  contents: read
+  pull-requests: write  # post plan output as PR comment
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    defaults:
+      run:
+        working-directory: terraform
+    env:
+      TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
+
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.1"
+
+      - name: tofu init
+        run: tofu init
+
+      - name: tofu plan
+        id: plan
+        timeout-minutes: 5
+        run: |
+          tofu plan -no-color -out=tfplan 2>&1 | tee plan.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync('terraform/plan.txt', 'utf8');
+            const MAX = 60000;
+            const truncated = raw.length > MAX
+              ? raw.slice(0, MAX) + '\n\n…output truncated — see Actions log for full plan'
+              : raw;
+            const body = `### tofu plan — \`${{ github.sha }}\`\n\n<details><summary>Plan output</summary>\n\n\`\`\`\n${truncated}\n\`\`\`\n</details>`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith('### tofu plan'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if plan failed
+        if: steps.plan.outputs.exit_code != '0'
+        run: exit 1
+
+  apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: terraform
+    env:
+      TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
+
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.1"
+
+      - name: tofu init
+        run: tofu init
+
+      - name: tofu plan
+        timeout-minutes: 5
+        run: tofu plan -no-color -out=tfplan
+
+      - name: tofu apply
+        run: tofu apply tfplan

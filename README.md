@@ -28,8 +28,9 @@ Multi-system nix configuration for macOS and NixOS hosts.
    brew install 1password 1password-cli
    op signin
    ```
-   All secrets (AWS credentials, GitHub PAT) are stored in the **Private** vault and
-   injected at runtime via `op read`. No manual credential export required.
+   AWS credentials and the 1Password SA token are stored in the **Private** vault.
+   The GitHub PAT lives in the **github_nix-configs** vault.
+   All secrets are injected at runtime via `op read` — no manual credential export required.
 
 ## Getting Started
 
@@ -50,7 +51,12 @@ just setup-terraform-backend
 # Step 0b: Provision GitHub repo config + AWS OIDC + cache bucket
 just setup-github
 
-# Step 0c: Generate nix cache signing keys (once per machine)
+# Step 0c: Create 1Password Service Account for CI and provision OP_SERVICE_ACCOUNT_TOKEN
+# (one-time — see docs/usage/infra.md for full instructions)
+just tf-plan   # review, then:
+just tf-apply
+
+# Step 0d: Generate nix cache signing keys (once per machine)
 just setup-nix-cache-keys
 
 # Step 1: Deploy to current host
@@ -122,10 +128,11 @@ All secrets live in the **Private** vault in 1Password and are never stored in t
 The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgent` in
 `~/.ssh/config` (managed by home-manager).
 
-| Secret | 1Password item | Field(s) |
-|---|---|---|
-| AWS IAM access keys | `AWS Personal` | `access_key_id`, `secret_access_key` |
-| GitHub PAT | `GitHub PAT nix-configs` | `token` |
+| Secret | Vault | 1Password item | Field(s) |
+|---|---|---|---|
+| AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
+| 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
 
 ## Workflow
 
