@@ -195,7 +195,7 @@ tf-plan:
         echo "WARNING: planning from branch '$branch', not main."
     fi
 
-    cd terraform && tofu plan
+    cd terraform && tofu plan -out=tfplan
 
 # Run tofu apply
 tf-apply:
@@ -219,4 +219,9 @@ tf-apply:
         read -r
     fi
 
-    cd terraform && tofu apply -auto-approve
+    if [ ! -f terraform/tfplan ]; then
+        echo "ERROR: no plan file found. Run 'just tf-plan' first."
+        exit 1
+    fi
+
+    cd terraform && tofu apply tfplan && rm tfplan
