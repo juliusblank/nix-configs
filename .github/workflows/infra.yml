@@ -33,6 +33,8 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+    env:
+      TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +52,6 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
-          TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -115,6 +116,8 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+    env:
+      TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -132,7 +135,6 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
-          TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
