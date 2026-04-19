@@ -199,4 +199,18 @@ tf-apply:
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
     export GITHUB_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
+
+    branch=$(git rev-parse --abbrev-ref HEAD)
+
+    if [ "$branch" != "main" ]; then
+        if [ -n "$(git status --porcelain)" ]; then
+            echo "ERROR: cannot apply from branch '$branch' with a dirty working tree."
+            echo "Commit or stash all changes before running tf-apply outside main."
+            exit 1
+        fi
+        echo "WARNING: applying from branch '$branch', not main."
+        echo "Press Enter to continue or Ctrl+C to abort."
+        read -r
+    fi
+
     cd terraform && tofu apply -auto-approve
