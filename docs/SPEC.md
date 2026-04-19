@@ -57,6 +57,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
 | 18 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
+| 19 | add terraform state bucket and dynamodb to terraform config and import existing resources. Ideally add logic to justfile to do that after creation (without causing a chicken-egg) | 
 
 ## Hosts
 
