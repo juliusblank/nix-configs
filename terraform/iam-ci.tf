@@ -105,6 +105,9 @@ resource "aws_iam_role_policy" "github_actions_nix_cache_mgmt" {
           "s3:PutEncryptionConfiguration",
           "s3:GetBucketObjectLockConfiguration",
           "s3:GetBucketLocation",
+          "s3:GetBucketCORS",
+          "s3:PutBucketCORS",
+          "s3:DeleteBucketCORS",
         ]
         Resource = "arn:aws:s3:::${var.nix_cache_bucket_name}"
       }
