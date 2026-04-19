@@ -51,7 +51,12 @@ just setup-terraform-backend
 # Step 0b: Provision GitHub repo config + AWS OIDC + cache bucket
 just setup-github
 
-# Step 0c: Generate nix cache signing keys (once per machine)
+# Step 0c: Create 1Password Service Account for CI and provision OP_SERVICE_ACCOUNT_TOKEN
+# (one-time — see docs/usage/infra.md for full instructions)
+just tf-plan   # review, then:
+just tf-apply
+
+# Step 0d: Generate nix cache signing keys (once per machine)
 just setup-nix-cache-keys
 
 # Step 1: Deploy to current host

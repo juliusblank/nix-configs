@@ -10,6 +10,49 @@ re-evaluation happens at apply time, so what you reviewed is exactly what runs.
 Credentials are injected automatically from 1Password by the `just` recipes — no manual
 `export AWS_ACCESS_KEY_ID=...` is needed.
 
+## One-time bootstrap: 1Password Service Account for CI
+
+The infra CI workflow fetches the GitHub PAT live from 1Password on every run using a
+**1Password Service Account** — a non-human credential scoped to a specific vault. This means
+PAT rotation in 1Password is picked up automatically by the next CI run, with no manual secret
+update in GitHub.
+
+The service account token itself is stored as a GitHub Actions secret (`OP_SERVICE_ACCOUNT_TOKEN`)
+and managed by terraform going forward. The steps below are only needed once, on first setup or
+after re-creating the service account.
+
+### Step 1 — Create the service account in 1Password
+
+1. Go to **1Password.com → Settings → Developer → Service Accounts**
+2. Click **New Service Account** — name it `github-actions-nix-configs`
+3. Grant it **read access** to the `github/nix-configs` vault only
+4. Copy the token (it is shown only once)
+
+### Step 2 — Save the token to 1Password
+
+Store the token as a 1Password item so it can be injected by the justfile:
+
+```bash
+op item create \
+  --vault Private \
+  --category "API Credential" \
+  --title "1Password SA github-actions-nix-configs" \
+  token=<paste token here>
+```
+
+### Step 3 — Provision the GitHub Actions secret via terraform
+
+Run the standard plan/apply cycle — terraform will create the `OP_SERVICE_ACCOUNT_TOKEN`
+secret in GitHub Actions from the value now in 1Password:
+
+```bash
+just tf-plan   # review — expect one new github_actions_secret
+just tf-apply
+```
+
+From this point on, rotating the service account token is the same process: update the item
+in 1Password, then run `just tf-plan && just tf-apply`.
+
 ## Standard workflow (from `main`)
 
 The default path for planned infrastructure changes: edit on a branch, merge, then plan and
