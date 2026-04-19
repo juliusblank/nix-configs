@@ -149,6 +149,10 @@ push-cache host:
     nix store sign --key-file "$KEY_DIR/cache-priv-key.pem" --recursive "$store_path"
     nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" "$store_path"
 
+# Delete unreachable store paths and all old generations
+gc:
+    nix-collect-garbage -d
+
 # Format all nix files
 fmt:
     find . -name '*.nix' -not -path './.direnv/*' | xargs nixfmt
