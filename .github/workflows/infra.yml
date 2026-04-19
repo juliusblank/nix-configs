@@ -49,7 +49,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          GITHUB_TOKEN: op://github/nix-configs/GitHub PAT nix-configs/token
+          GITHUB_TOKEN: op://github_nix-configs/GitHub PAT nix-configs/token
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -127,7 +127,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          GITHUB_TOKEN: op://github/nix-configs/GitHub PAT nix-configs/token
+          GITHUB_TOKEN: op://github_nix-configs/GitHub PAT nix-configs/token
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1

@@ -25,7 +25,7 @@ after re-creating the service account.
 
 1. Go to **1Password.com → Settings → Developer → Service Accounts**
 2. Click **New Service Account** — name it `github-actions-nix-configs`
-3. Grant it **read access** to the `github/nix-configs` vault only
+3. Grant it **read access** to the `github_nix-configs` vault only
 4. Copy the token (it is shown only once)
 
 ### Step 2 — Save the token to 1Password

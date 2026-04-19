@@ -87,7 +87,7 @@ resource "github_actions_secret" "aws_role_arn" {
 }
 
 # Exposes the 1Password Service Account token to GitHub Actions.
-# The SA has read-only access to the github/nix-configs vault and is used by
+# The SA has read-only access to the github_nix-configs vault and is used by
 # 1password/load-secrets-action to fetch live secrets on every CI run.
 # Value comes from op://Private/1Password SA github-actions-nix-configs/token
 # and is injected by the justfile via TF_VAR_op_service_account_token.

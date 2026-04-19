@@ -32,7 +32,7 @@ variable "nix_cache_bucket_name" {
 # Stored in op://Private/1Password SA github-actions-nix-configs/token.
 # Injected by the justfile via TF_VAR_op_service_account_token.
 variable "op_service_account_token" {
-  description = "1Password Service Account token used by GitHub Actions CI to fetch secrets from the github/nix-configs vault."
+  description = "1Password Service Account token used by GitHub Actions CI to fetch secrets from the github_nix-configs vault."
   type        = string
   sensitive   = true
 }

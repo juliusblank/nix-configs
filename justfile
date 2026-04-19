@@ -60,7 +60,7 @@ setup-github:
     export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github/nix-configs/GitHub PAT nix-configs/token")
+    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
 
     cd terraform
@@ -183,7 +183,7 @@ tf-import resource id:
     export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github/nix-configs/GitHub PAT nix-configs/token")
+    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
     cd terraform && tofu import {{resource}} {{id}}
 
@@ -194,7 +194,7 @@ tf-plan:
     export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github/nix-configs/GitHub PAT nix-configs/token")
+    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
 
     branch=$(git rev-parse --abbrev-ref HEAD)
@@ -211,7 +211,7 @@ tf-apply:
     export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github/nix-configs/GitHub PAT nix-configs/token")
+    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
 
     branch=$(git rev-parse --abbrev-ref HEAD)

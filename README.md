@@ -29,7 +29,7 @@ Multi-system nix configuration for macOS and NixOS hosts.
    op signin
    ```
    AWS credentials and the 1Password SA token are stored in the **Private** vault.
-   The GitHub PAT lives in the **github/nix-configs** vault.
+   The GitHub PAT lives in the **github_nix-configs** vault.
    All secrets are injected at runtime via `op read` — no manual credential export required.
 
 ## Getting Started
@@ -131,7 +131,7 @@ The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgen
 | Secret | Vault | 1Password item | Field(s) |
 |---|---|---|---|
 | AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
-| GitHub PAT | `github/nix-configs` | `GitHub PAT nix-configs` | `token` |
+| GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
 
 ## Workflow

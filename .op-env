@@ -5,11 +5,11 @@
 #   - "AWS Personal"                            fields: access_key_id, secret_access_key
 #   - "1Password SA github-actions-nix-configs" field:  token
 #
-# github/nix-configs vault:
+# github_nix-configs vault:
 #   - "GitHub PAT nix-configs"                  field:  token
 
 AWS_ACCESS_KEY_ID=op://Private/AWS Personal/access_key_id
 AWS_SECRET_ACCESS_KEY=op://Private/AWS Personal/secret_access_key
-GITHUB_TOKEN=op://github/nix-configs/GitHub PAT nix-configs/token  # OpenTofu GitHub provider
-GH_TOKEN=op://github/nix-configs/GitHub PAT nix-configs/token      # gh CLI (injected in devShell)
+GITHUB_TOKEN=op://github_nix-configs/GitHub PAT nix-configs/token  # OpenTofu GitHub provider
+GH_TOKEN=op://github_nix-configs/GitHub PAT nix-configs/token      # gh CLI (injected in devShell)
 TF_VAR_op_service_account_token=op://Private/1Password SA github-actions-nix-configs/token
