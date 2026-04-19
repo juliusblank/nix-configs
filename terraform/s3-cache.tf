@@ -51,12 +51,36 @@ resource "aws_s3_bucket_lifecycle_configuration" "nix_cache" {
   }
 }
 
-# Public access fully blocked — cache is accessed via signed requests only.
+# ACL-based public access is blocked; a bucket policy grants public read below.
+# restrict_public_buckets and block_public_policy must be false to allow the policy.
 resource "aws_s3_bucket_public_access_block" "nix_cache" {
   bucket = aws_s3_bucket.nix_cache.id
 
   block_public_acls       = true
-  block_public_policy     = true
   ignore_public_acls      = true
-  restrict_public_buckets = true
+  block_public_policy     = false
+  restrict_public_buckets = false
+}
+
+# Allow unauthenticated reads so nix can use this bucket as a substituter without
+# AWS credentials. Store paths are content-addressed and signature-verified by nix,
+# so public read does not weaken integrity.
+resource "aws_s3_bucket_policy" "nix_cache_public_read" {
+  bucket = aws_s3_bucket.nix_cache.id
+
+  # public_access_block must be applied first to avoid a conflict on creation
+  depends_on = [aws_s3_bucket_public_access_block.nix_cache]
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicRead"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = ["s3:GetObject"]
+        Resource  = "${aws_s3_bucket.nix_cache.arn}/*"
+      }
+    ]
+  })
 }

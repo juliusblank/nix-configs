@@ -1,5 +1,7 @@
 # CI — runs nix flake check and builds the active host config (serenity) on every push to main
 # and on every pull request targeting main. AWS credentials are obtained via OIDC (no stored keys).
+# On merge to main, a separate macos-14 job builds and pushes the full serenity closure to the
+# S3 nix binary cache. The cache signing key is read from 1Password at runtime.
 name: CI
 
 on:
@@ -42,3 +44,46 @@ jobs:
 
       # - name: Build pi-moodpi
       #   run: nix build .#nixosConfigurations.pi-moodpi.config.system.build.toplevel --dry-run
+
+  # Push the serenity closure to the S3 nix binary cache after every merge to main.
+  # Runs on macos-14 (aarch64-darwin) so the build is native and the closure is complete.
+  push-cache:
+    name: Push cache
+    runs-on: macos-14
+    needs: check-flake
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Load signing key from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          NIX_CACHE_SIGNING_KEY: "op://github_nix-configs/Nix Cache Signing Key/private_key"
+
+      - name: Build serenity
+        run: nix build .#darwinConfigurations.serenity.system
+
+      - name: Push closure to S3 cache
+        run: |
+          echo "$NIX_CACHE_SIGNING_KEY" > /tmp/cache-priv-key.pem
+          nix copy \
+            --to "s3://${{ vars.NIX_CACHE_BUCKET }}?region=eu-central-1" \
+            --sign-key /tmp/cache-priv-key.pem \
+            "$(readlink result)"
+          rm /tmp/cache-priv-key.pem
