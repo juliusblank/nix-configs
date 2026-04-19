@@ -85,15 +85,15 @@ resource "aws_iam_role_policy" "github_actions_nix_cache_mgmt" {
     Statement = [
       {
         Effect = "Allow"
+        # s3:Get*/Put*/Delete* covers all bucket-level config actions the AWS provider
+        # reads and writes on refresh — including non-GetBucket* actions like
+        # GetAccelerateConfiguration, GetEncryptionConfiguration, GetLifecycleConfiguration.
         Action = [
           "s3:CreateBucket",
           "s3:DeleteBucket",
-          "s3:GetBucket*",
-          "s3:PutBucket*",
-          "s3:DeleteBucketPolicy",
-          "s3:DeleteBucketCORS",
-          "s3:DeleteBucketLifecycle",
-          "s3:DeleteBucketWebsite",
+          "s3:Get*",
+          "s3:Put*",
+          "s3:Delete*",
         ]
         Resource = "arn:aws:s3:::${var.nix_cache_bucket_name}"
       }
