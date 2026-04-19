@@ -72,6 +72,8 @@ resource "aws_iam_role_policy" "github_actions_iam_management" {
 }
 
 # Allows CI to manage bucket-level configuration for the nix cache S3 bucket.
+# Uses GetBucket*/PutBucket* wildcards to cover all attributes the AWS provider
+# reads/writes on refresh — avoids whack-a-mole with individual actions.
 # Object-level access (GetObject/PutObject/ListBucket) is covered by the
 # existing nix-cache-access policy in oidc.tf.
 resource "aws_iam_role_policy" "github_actions_nix_cache_mgmt" {
@@ -86,28 +88,12 @@ resource "aws_iam_role_policy" "github_actions_nix_cache_mgmt" {
         Action = [
           "s3:CreateBucket",
           "s3:DeleteBucket",
-          "s3:GetBucketVersioning",
-          "s3:PutBucketVersioning",
-          "s3:GetBucketPublicAccessBlock",
-          "s3:PutBucketPublicAccessBlock",
-          "s3:GetBucketTagging",
-          "s3:PutBucketTagging",
-          "s3:GetBucketPolicy",
-          "s3:PutBucketPolicy",
+          "s3:GetBucket*",
+          "s3:PutBucket*",
           "s3:DeleteBucketPolicy",
-          "s3:GetLifecycleConfiguration",
-          "s3:PutLifecycleConfiguration",
-          "s3:GetBucketAcl",
-          "s3:PutBucketAcl",
-          "s3:GetBucketLogging",
-          "s3:PutBucketLogging",
-          "s3:GetEncryptionConfiguration",
-          "s3:PutEncryptionConfiguration",
-          "s3:GetBucketObjectLockConfiguration",
-          "s3:GetBucketLocation",
-          "s3:GetBucketCORS",
-          "s3:PutBucketCORS",
           "s3:DeleteBucketCORS",
+          "s3:DeleteBucketLifecycle",
+          "s3:DeleteBucketWebsite",
         ]
         Resource = "arn:aws:s3:::${var.nix_cache_bucket_name}"
       }
