@@ -57,11 +57,12 @@ setup-terraform-backend:
 setup-github:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
-    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
 
     cd terraform
     tofu init
@@ -180,22 +181,27 @@ diff host:
 tf-import resource id:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
-    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
     cd terraform && tofu import {{resource}} {{id}}
 
 # Run tofu plan
 tf-plan:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
-    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+
+    # Assign before export: `export VAR=$(cmd)` swallows the exit code of cmd,
+    # so a failed op read would silently set an empty variable.
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
 
     branch=$(git rev-parse --abbrev-ref HEAD)
     if [ "$branch" != "main" ]; then
@@ -208,11 +214,12 @@ tf-plan:
 tf-apply:
     #!/usr/bin/env bash
     set -euo pipefail
-    export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
-    export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
-    export GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    export TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
 
     branch=$(git rev-parse --abbrev-ref HEAD)
 
