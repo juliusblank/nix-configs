@@ -117,6 +117,10 @@ build host:
 deploy host:
     #!/usr/bin/env bash
     set -euo pipefail
+    branch=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$branch" != "main" ]; then
+        echo "WARNING: deploying from branch '$branch', not main."
+    fi
     case "{{host}}" in
         serenity|macbook-work)
             sudo darwin-rebuild switch --flake ".#{{host}}"
