@@ -57,6 +57,22 @@ just setup-nix-cache-keys
 just deploy serenity
 ```
 
+## Usage
+
+### System configuration
+
+Manage nix-darwin / NixOS host configuration: editing packages, shell setup, and system
+settings, then building and deploying to a host.
+
+See [docs/usage/nix-system.md](docs/usage/nix-system.md) for the full workflow and examples.
+
+### Infrastructure
+
+Manage AWS and GitHub resources via OpenTofu: plan changes, review them, and apply — either
+from `main` (standard path) or from a branch (for urgent fixes).
+
+See [docs/usage/infra.md](docs/usage/infra.md) for the full workflow and examples.
+
 ## Day-to-Day
 
 ```bash
