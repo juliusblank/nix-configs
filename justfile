@@ -146,9 +146,8 @@ push-cache host:
     export AWS_DEFAULT_REGION={{aws_region}}
     KEY_DIR="$HOME/.config/nix-cache-keys"
     store_path=$(nix build --no-link --print-out-paths ".#darwinConfigurations.{{host}}.system")
-    nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" \
-        --sign-key "$KEY_DIR/cache-priv-key.pem" \
-        "$store_path"
+    nix store sign --key-file "$KEY_DIR/cache-priv-key.pem" --recursive "$store_path"
+    nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" "$store_path"
 
 # Format all nix files
 fmt:

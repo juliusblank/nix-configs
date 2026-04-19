@@ -82,8 +82,7 @@ jobs:
       - name: Push closure to S3 cache
         run: |
           echo "$NIX_CACHE_SIGNING_KEY" > /tmp/cache-priv-key.pem
-          nix copy \
-            --to "s3://${{ vars.NIX_CACHE_BUCKET }}?region=eu-central-1" \
-            --sign-key /tmp/cache-priv-key.pem \
-            "$(readlink result)"
+          store_path=$(readlink result)
+          nix store sign --key-file /tmp/cache-priv-key.pem --recursive "$store_path"
+          nix copy --to "s3://${{ vars.NIX_CACHE_BUCKET }}?region=eu-central-1" "$store_path"
           rm /tmp/cache-priv-key.pem
