@@ -59,9 +59,9 @@ setup-github:
     set -euo pipefail
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
-    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
-    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_github_token TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
 
     cd terraform
@@ -175,6 +175,18 @@ diff host:
 # OpenTofu
 # ==============================================================================
 
+# Force-unlock a stuck OpenTofu state lock
+# Usage: just tf-unlock <lock-id>
+# Lock ID is printed when a plan/apply fails due to an existing lock.
+tf-unlock lock_id:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+    export AWS_DEFAULT_REGION={{aws_region}}
+    cd terraform && tofu force-unlock -force {{lock_id}}
+
 # Import an existing resource into tofu state
 # Usage: just tf-import <resource> <id>
 # Example: just tf-import github_repository.nix_configs nix-configs
@@ -183,9 +195,9 @@ tf-import resource id:
     set -euo pipefail
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
-    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
-    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_github_token TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
     cd terraform && tofu import {{resource}} {{id}}
 
@@ -198,9 +210,9 @@ tf-plan:
     # so a failed op read would silently set an empty variable.
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
-    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
-    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_github_token TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
 
     branch=$(git rev-parse --abbrev-ref HEAD)
@@ -216,9 +228,9 @@ tf-apply:
     set -euo pipefail
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
-    GITHUB_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
-    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN TF_VAR_op_service_account_token
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_github_token TF_VAR_op_service_account_token
     export AWS_DEFAULT_REGION={{aws_region}}
 
     branch=$(git rev-parse --abbrev-ref HEAD)

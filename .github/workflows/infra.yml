@@ -49,7 +49,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          GITHUB_TOKEN: op://github_nix-configs/GitHub PAT nix-configs/token
+          TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -61,6 +61,7 @@ jobs:
 
       - name: tofu plan
         id: plan
+        timeout-minutes: 5
         run: |
           tofu plan -no-color -out=tfplan 2>&1 | tee plan.txt
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
@@ -127,7 +128,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          GITHUB_TOKEN: op://github_nix-configs/GitHub PAT nix-configs/token
+          TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
 
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -138,6 +139,7 @@ jobs:
         run: tofu init
 
       - name: tofu plan
+        timeout-minutes: 5
         run: tofu plan -no-color -out=tfplan
 
       - name: tofu apply
