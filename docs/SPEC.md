@@ -87,9 +87,9 @@ Tools and config that EVERY host gets:
 
 ## Infrastructure
 
-- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket (switched from Terraform due to BSL 1.1 license)
-- **S3 backend** for OpenTofu state (versioned, locked via DynamoDB)
-- **GitHub Actions** for CI: `nix flake check` on push *(workflow exists in `.github/workflows/ci.yml`; needs review and hardening)*
+- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
+- **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
+- **GitHub Actions** for CI: `nix flake check` + real serenity build on every PR and push to main (macos-14); cache push on merge to main
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with substituters and trusted public key; CI pushes closure on every merge to main
 
 ### Nix cache activation
