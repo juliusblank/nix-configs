@@ -57,7 +57,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
 | 18 | nixpkgs upgrade to 26.05 | Scheduled for end of May 2026 when 26.05 releases. Steps: bump `nixpkgs` and `nix-darwin` URLs to `nixpkgs-26.05-darwin` / `nix-darwin-26.05`; drop the nix-homebrew pin (see comment in `flake.nix`); retry `git-hooks.nix` / `pre-commit-hooks.nix` (blocked by missing `cspell` in 25.05). Branch `docs/spec-audit-nixpkgs-2605` reserved for this work. |
-| 19 | add terraform state bucket and dynamodb to terraform config and import existing resources. Ideally add logic to justfile to do that after creation (without causing a chicken-egg) | 
+| 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 
 ## Hosts
 

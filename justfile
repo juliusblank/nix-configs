@@ -52,6 +52,28 @@ setup-terraform-backend:
     fi
 
     echo "==> OpenTofu backend ready."
+    echo "==> Next step: run 'just tf-import-backend' to bring these resources under tofu management."
+
+# Import the state S3 bucket and DynamoDB lock table into tofu state.
+# Run once after `just setup-terraform-backend` to hand ownership to tofu.
+# Safe to re-run — tofu import is idempotent for already-imported resources.
+tf-import-backend:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_github_token TF_VAR_op_service_account_token
+    export AWS_DEFAULT_REGION={{aws_region}}
+
+    echo "==> Importing state backend resources into tofu..."
+    cd terraform
+    tofu import aws_s3_bucket.terraform_state            {{state_bucket}}
+    tofu import aws_s3_bucket_versioning.terraform_state {{state_bucket}}
+    tofu import aws_s3_bucket_public_access_block.terraform_state {{state_bucket}}
+    tofu import aws_dynamodb_table.terraform_locks        {{lock_table}}
+    echo "==> Import complete. Run 'just tf-plan' to confirm no unexpected drift."
 
 # Initialize OpenTofu and apply GitHub + AWS infrastructure
 setup-github:

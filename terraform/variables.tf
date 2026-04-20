@@ -22,6 +22,14 @@ variable "state_bucket_name" {
   default     = "juliusblank-terraform-state"
 }
 
+# Name of the DynamoDB table used for OpenTofu state locking.
+# Created by `just setup-terraform-backend` on first bootstrap; managed by tofu thereafter.
+variable "lock_table_name" {
+  description = "DynamoDB table for OpenTofu state locking"
+  type        = string
+  default     = "juliusblank-terraform-locks"
+}
+
 variable "nix_cache_bucket_name" {
   description = "S3 bucket for nix binary cache"
   type        = string
