@@ -60,6 +60,7 @@
     tree
     direnv
     nix-direnv
+    gnupg
   ];
 
   # --- Direnv (auto-activate devShells) ---
