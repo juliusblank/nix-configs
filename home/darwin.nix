@@ -1,7 +1,9 @@
 { pkgs, ... }:
 
 let
-  onePasswordAgentSock = "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+  # $HOME for shell (zsh expands it); ~ for SSH config (ssh_config doesn't expand $HOME)
+  onePasswordAgentSockShell = "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+  onePasswordAgentSockSsh = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
 in
 {
   # macOS-specific packages
@@ -14,7 +16,7 @@ in
 
   # Point SSH_AUTH_SOCK at the 1Password agent so git SSH signing works
   programs.zsh.initContent = ''
-    export SSH_AUTH_SOCK="${onePasswordAgentSock}"
+    export SSH_AUTH_SOCK="${onePasswordAgentSockShell}"
     eval "$(op completion zsh)"
   '';
 
@@ -37,7 +39,7 @@ in
     includes = [ "~/.orbstack/ssh/config" ];
     extraConfig = ''
       Host *
-        IdentityAgent "${onePasswordAgentSock}"
+        IdentityAgent "${onePasswordAgentSockSsh}"
     '';
   };
 }
