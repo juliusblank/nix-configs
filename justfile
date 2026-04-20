@@ -60,6 +60,7 @@ setup-terraform-backend:
 tf-import-backend:
     #!/usr/bin/env bash
     set -euo pipefail
+    unset AWS_PROFILE
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
@@ -81,6 +82,7 @@ tf-import-backend:
 tf-import-user:
     #!/usr/bin/env bash
     set -euo pipefail
+    unset AWS_PROFILE
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
@@ -226,6 +228,7 @@ diff host:
 tf-unlock lock_id:
     #!/usr/bin/env bash
     set -euo pipefail
+    unset AWS_PROFILE
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
@@ -238,6 +241,7 @@ tf-unlock lock_id:
 tf-import resource id:
     #!/usr/bin/env bash
     set -euo pipefail
+    unset AWS_PROFILE
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
@@ -250,6 +254,7 @@ tf-import resource id:
 tf-plan:
     #!/usr/bin/env bash
     set -euo pipefail
+    unset AWS_PROFILE
 
     # Assign before export: `export VAR=$(cmd)` swallows the exit code of cmd,
     # so a failed op read would silently set an empty variable.
@@ -271,6 +276,7 @@ tf-plan:
 tf-apply:
     #!/usr/bin/env bash
     set -euo pipefail
+    unset AWS_PROFILE
     AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
     AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
