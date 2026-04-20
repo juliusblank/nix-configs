@@ -46,7 +46,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `github_nix-configs`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://Private/1Password SA github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
-| 8 | Nix cache activation | Depends on CI for automation |
+| 8 | Nix cache activation | Infra: S3 bucket public-read policy added (terraform). CI: `push-cache` job wired up (macos-14, pushes closure on merge to main). **Post-merge manual steps:** (1) `just setup-nix-cache-keys`; (2) store private key in 1Password (`op://github_nix-configs/Nix Cache Signing Key/private_key`); (3) fill public key into `hosts/serenity/configuration.nix` and uncomment the cache settings; (4) `just deploy serenity`; (5) `just push-cache serenity` to seed the cache. |
 | 9 | Changelog via `git-cliff` | Depends on CI |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
@@ -92,15 +92,23 @@ Tools and config that EVERY host gets:
 - **GitHub Actions** for CI: `nix flake check` on push *(workflow exists in `.github/workflows/ci.yml`; needs review and hardening)*
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) *(planned — not yet wired up; see below)*
 
-### Nix cache activation (planned)
+### Nix cache activation
 
-The S3 cache bucket exists but is not yet active. Steps to enable:
+The S3 cache bucket exists and is configured for public read. CI pushes the serenity closure on
+every merge to main (`push-cache` job, `macos-14` runner). The following one-time steps remain
+before the cache is live:
 
 1. Run `just setup-nix-cache-keys` — generates a signing key pair in `~/.config/nix-cache-keys/`
-2. Add the public key to `nix.settings.trusted-public-keys` in `hosts/serenity/configuration.nix`
-3. Uncomment `nix.settings.substituters` in `hosts/serenity/configuration.nix`
-4. Deploy serenity, then run `just push-cache serenity` to populate the cache
-5. Wire up CI to push cache on every build (requires GitHub Actions workflow)
+2. Store the private key in 1Password: vault `github_nix-configs`, item `Nix Cache Signing Key`,
+   field `private_key`. Store the public key in the same item under field `public_key`.
+3. Fill the public key into `hosts/serenity/configuration.nix` and uncomment the cache settings
+   block (substituters + trusted-public-keys)
+4. Run `just deploy serenity` to activate the cache config
+5. Run `just push-cache serenity` to seed the cache with the current serenity closure
+
+The CI `push-cache` job reads the signing key from 1Password at runtime via
+`op://github_nix-configs/Nix Cache Signing Key/private_key` using the existing
+`github-actions-nix-configs` service account.
 
 ## Secrets Management
 
@@ -114,10 +122,11 @@ The S3 cache bucket exists but is not yet active. Steps to enable:
 
 All infrastructure secrets live in the **Private** vault:
 
-| Secret | Item name | Field(s) |
-|---|---|---|
-| AWS IAM access keys | `AWS Personal` | `access_key_id`, `secret_access_key` |
-| GitHub PAT | `GitHub PAT nix-configs` | `token` |
+| Secret | Vault | Item name | Field(s) |
+|---|---|---|---|
+| AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| GitHub PAT | `Private` | `GitHub PAT nix-configs` | `token` |
+| Nix cache signing key | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
 
 Secret reference format: `op://Private/<item name>/<field name>`
 

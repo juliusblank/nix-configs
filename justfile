@@ -137,7 +137,7 @@ deploy host:
             ;;
     esac
 
-# Push built paths to S3 nix cache
+# Push the full closure of a built host config to the S3 nix cache
 push-cache host:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -145,9 +145,13 @@ push-cache host:
     export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     export AWS_DEFAULT_REGION={{aws_region}}
     KEY_DIR="$HOME/.config/nix-cache-keys"
-    nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" \
-        --sign "$KEY_DIR/cache-priv-key.pem" \
-        "$(readlink -f result)"
+    store_path=$(nix build --no-link --print-out-paths ".#darwinConfigurations.{{host}}.system")
+    nix store sign --key-file "$KEY_DIR/cache-priv-key.pem" --recursive "$store_path"
+    nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" "$store_path"
+
+# Delete unreachable store paths and all old generations
+gc:
+    nix-collect-garbage -d
 
 # Format all nix files
 fmt:
