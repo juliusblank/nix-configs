@@ -41,12 +41,12 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; fix `nix_path` (currently unstable, should match pinned nixpkgs), switch dry-runs to actual builds once cache is active |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Workflow exists; `nix_path` still set to `nixpkgs-unstable` (should match pinned nixpkgs); serenity build still uses `--dry-run` (switch to real build once cache is confirmed active) |
 | 4 | `tf-apply` guardrails | Done — hard block if not on `main` and working tree is dirty; soft warn (warn + require Enter) if not on `main` but tree is clean; on `main`, runs without interruption. `tf-plan` prints a warning when not on `main`. CI bypasses naturally (always clean, always on main). |
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `github_nix-configs`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://Private/1Password SA github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
-| 8 | Nix cache activation | Infra: S3 bucket public-read policy added (terraform). CI: `push-cache` job wired up (macos-14, pushes closure on merge to main). **Post-merge manual steps:** (1) `just setup-nix-cache-keys`; (2) store private key in 1Password (`op://github_nix-configs/Nix Cache Signing Key/private_key`); (3) fill public key into `hosts/serenity/configuration.nix` and uncomment the cache settings; (4) `just deploy serenity`; (5) `just push-cache serenity` to seed the cache. |
+| 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Depends on CI |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
@@ -56,7 +56,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
-| 18 | nixpkgs upgrade to 26.05 | Revisit end of May 2026 — 26.05 releases then; likely drops the nix-homebrew pin; retry `git-hooks.nix` / `pre-commit-hooks.nix` (currently broken due to missing `cspell` in 25.05) |
+| 18 | nixpkgs upgrade to 26.05 | Scheduled for end of May 2026 when 26.05 releases. Steps: bump `nixpkgs` and `nix-darwin` URLs to `nixpkgs-26.05-darwin` / `nix-darwin-26.05`; drop the nix-homebrew pin (see comment in `flake.nix`); retry `git-hooks.nix` / `pre-commit-hooks.nix` (blocked by missing `cspell` in 25.05). Branch `docs/spec-audit-nixpkgs-2605` reserved for this work. |
 | 19 | add terraform state bucket and dynamodb to terraform config and import existing resources. Ideally add logic to justfile to do that after creation (without causing a chicken-egg) | 
 
 ## Hosts
@@ -90,25 +90,16 @@ Tools and config that EVERY host gets:
 - **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB)
 - **GitHub Actions** for CI: `nix flake check` on push *(workflow exists in `.github/workflows/ci.yml`; needs review and hardening)*
-- **S3 binary cache** for nix store paths (signed, used by all hosts + CI) *(planned — not yet wired up; see below)*
+- **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with substituters and trusted public key; CI pushes closure on every merge to main
 
 ### Nix cache activation
 
-The S3 cache bucket exists and is configured for public read. CI pushes the serenity closure on
-every merge to main (`push-cache` job, `macos-14` runner). The following one-time steps remain
-before the cache is live:
-
-1. Run `just setup-nix-cache-keys` — generates a signing key pair in `~/.config/nix-cache-keys/`
-2. Store the private key in 1Password: vault `github_nix-configs`, item `Nix Cache Signing Key`,
-   field `private_key`. Store the public key in the same item under field `public_key`.
-3. Fill the public key into `hosts/serenity/configuration.nix` and uncomment the cache settings
-   block (substituters + trusted-public-keys)
-4. Run `just deploy serenity` to activate the cache config
-5. Run `just push-cache serenity` to seed the cache with the current serenity closure
-
-The CI `push-cache` job reads the signing key from 1Password at runtime via
-`op://github_nix-configs/Nix Cache Signing Key/private_key` using the existing
-`github-actions-nix-configs` service account.
+Complete. The S3 cache bucket is public-read. The signing key pair was generated via
+`just setup-nix-cache-keys`; the private key is in 1Password (`op://github_nix-configs/Nix Cache
+Signing Key/private_key`) and the public key is committed in `hosts/serenity/configuration.nix`.
+The `push-cache` CI job (`macos-14` runner) pushes the serenity closure to S3 on every merge to
+main using the signing key read from 1Password at runtime via the `github-actions-nix-configs`
+service account.
 
 ## Secrets Management
 
