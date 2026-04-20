@@ -15,6 +15,8 @@ jobs:
   release:
     name: Tag and open release PR
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,5 +68,3 @@ jobs:
             --body "Automated release PR — merges the changelog update for \`${{ steps.tag.outputs.tag }}\` into \`main\`." \
             --base main \
             --head "${branch}"
-        env:
-          GH_TOKEN: ${{ github.token }}
