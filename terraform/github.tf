@@ -22,13 +22,15 @@ resource "github_repository" "nix_configs" {
 }
 
 # Branch protection for main — requires CI to pass; PRs required for everyone including admins.
+# ci-passed is the fan-in aggregator job in ci.yml — it always runs and is the single required
+# check, so the gate works correctly regardless of which jobs are skipped by branch conditions.
 resource "github_branch_protection" "main" {
   repository_id = github_repository.nix_configs.node_id
   pattern       = "main"
 
   required_status_checks {
     strict   = true
-    contexts = ["check-flake"]
+    contexts = ["CI passed"]
   }
 
   required_pull_request_reviews {
