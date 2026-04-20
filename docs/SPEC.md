@@ -236,7 +236,7 @@ The root `CLAUDE.md` covers Nix, which is the primary language of the repo.
 5. Merge via GitHub UI (squash merge) — branch is auto-deleted
 6. Deploy: `just deploy <host>`
 
-PRs are squash-merged to keep a clean commit history on `main`. No review required (solo repo). On merge to `main`, CI will auto-update `CHANGELOG.md` via `git-cliff` *(planned — item #5)*.
+PRs are squash-merged to keep a clean commit history on `main`. No review required (solo repo). On merge to `main`, CI auto-updates `CHANGELOG.md` via `git-cliff`.
 
 ## Pre-commit Hooks
 
