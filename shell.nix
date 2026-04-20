@@ -50,6 +50,13 @@ pkgs.mkShell {
         exit 1
       fi
     fi
+
+    # Regenerate changelog from conventional commits (only when git-cliff is available,
+    # i.e. inside the devShell; silently skipped outside)
+    if command -v git-cliff &>/dev/null; then
+      git-cliff --output CHANGELOG.md 2>/dev/null
+      git add CHANGELOG.md
+    fi
     HOOKEOF
     chmod +x .git/hooks/pre-commit
 
