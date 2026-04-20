@@ -47,7 +47,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `github_nix-configs`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://Private/1Password SA github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
-| 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; `just changelog` for local preview; `just tag` for CalVer (`v<year>.<month>`) tagging; CI `changelog.yml` regenerates `CHANGELOG.md` and commits it on every merge to `main` |
+| 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; `just changelog` for local preview; `release.yml` workflow_dispatch creates CalVer tag + regenerates changelog atomically; `changelog.yml` keeps Unreleased section fresh on every merge to `main` |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 12 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
@@ -180,8 +180,10 @@ breaking/feature/patch semantics don't map onto personal system configuration �
 that the cadence is time-driven, not API-driven.
 
 - Tag after meaningful milestones (roadmap item shipped, major config overhaul, etc.) — not on every merge
-- `just tag` creates and pushes `v<year>.<month>` for the current month
-- If a second tag is needed in the same month: `git tag v2026.04.1 && git push origin v2026.04.1`
+- **Canonical path:** trigger `.github/workflows/release.yml` via `workflow_dispatch` in the GitHub UI
+  — it auto-computes the right CalVer tag, creates it, then regenerates `CHANGELOG.md` so the new
+  section is committed to `main` atomically
+- Auto-increments: `v2026.04` → `v2026.04.1` → `v2026.04.2` if the base tag already exists
 - git-cliff sections the changelog by tag automatically; untagged commits appear under **Unreleased**
 
 ## Code Conventions
