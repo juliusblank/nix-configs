@@ -6,7 +6,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 """
 body = """
 {% if version %}\
-## {{ version | trim_start_matches(pat="v") }} — {{ timestamp | date(format="%Y-%m-%d") }}
+## {{ version }} — {{ timestamp | date(format="%Y-%m-%d") }}
 {% else %}\
 ## Unreleased — {{ now() | date(format="%Y-%m-%d") }}
 {% endif %}\
