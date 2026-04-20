@@ -1,6 +1,17 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.04.7 — 2026-04-20
+
+### Bug Fixes
+- **darwin:** use ~ instead of $HOME in SSH IdentityAgent path (#28)
+- **home:** add gnupg to verify GitHub GPG-signed commits (#29)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.04.6 (#26)
+
+### Features
+- **home:** configure SSH commit signing via 1Password (#27)
 ## v2026.04.6 — 2026-04-20
 
 ### Bug Fixes
