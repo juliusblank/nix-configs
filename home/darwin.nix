@@ -13,7 +13,7 @@ in
   ];
 
   # Point SSH_AUTH_SOCK at the 1Password agent so git SSH signing works
-  programs.zsh.initExtra = ''
+  programs.zsh.initContent = ''
     export SSH_AUTH_SOCK="${onePasswordAgentSock}"
     eval "$(op completion zsh)"
   '';
