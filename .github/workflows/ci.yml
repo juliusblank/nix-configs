@@ -11,6 +11,7 @@ on:
     paths:
       - 'flake.nix'
       - 'flake.lock'
+      - 'shell.nix'
       - 'hosts/**'
       - 'home/**'
       - 'overlays/**'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'flake.nix'
       - 'flake.lock'
+      - 'shell.nix'
       - 'hosts/**'
       - 'home/**'
       - 'overlays/**'
