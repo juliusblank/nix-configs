@@ -112,7 +112,8 @@ just changelog           # regenerate CHANGELOG.md locally
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
 ├── .github/workflows/     # CI
 └── docs/
-    └── SPEC.md            # living specification
+    ├── SPEC.md            # living specification
+    └── ci.md              # CI job graph
 ```
 
 ## AWS Isolation
@@ -128,7 +129,7 @@ They are never stored on disk, in env files, or in AWS profiles. Safe to use on 
 
 ## Secrets
 
-All secrets live in the **Private** vault in 1Password and are never stored in the repo.
+Secrets are never stored in the repo. They live across two 1Password vaults (`Private` and `github_nix-configs`) and are injected at runtime via `op read`.
 The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgent` in
 `~/.ssh/config` (managed by home-manager).
 

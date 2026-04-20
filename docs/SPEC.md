@@ -41,7 +41,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — `nix_path` removed (flake-only, no legacy `<nixpkgs>` needed); `check-flake` moved to `macos-14` so serenity builds for real (not `--dry-run`) on every PR and push to main |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main |
 | 4 | `tf-apply` guardrails | Done — hard block if not on `main` and working tree is dirty; soft warn (warn + require Enter) if not on `main` but tree is clean; on `main`, runs without interruption. `tf-plan` prints a warning when not on `main`. CI bypasses naturally (always clean, always on main). |
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `github_nix-configs`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://Private/1Password SA github-actions-nix-configs/token`. |
@@ -89,8 +89,9 @@ Tools and config that EVERY host gets:
 
 - **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
-- **GitHub Actions** for CI: `nix flake check` + real serenity build on every PR and push to main (macos-14); cache push on merge to main
+- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + serenity build) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main (see [docs/ci.md](ci.md))
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with substituters and trusted public key; CI pushes closure on every merge to main
+
 
 ### Nix cache activation
 
@@ -231,7 +232,7 @@ The root `CLAUDE.md` covers Nix, which is the primary language of the repo.
 1. Update `docs/SPEC.md` with desired changes
 2. Use AI assistant (Claude) with spec as context to generate nix config
 3. Test locally: `just check` or `just build <host>`
-4. Open a PR — CI validates (`nix flake check`)
+4. Open a PR — CI validates (`ci-passed` required status check)
 5. Merge via GitHub UI (squash merge) — branch is auto-deleted
 6. Deploy: `just deploy <host>`
 
@@ -244,6 +245,7 @@ Installed automatically when entering the devShell (`nix develop`):
 - **nixfmt** — formats all staged `.nix` files and re-stages them
 - **tofu fmt** — formats all staged `.tf` files and re-stages them
 - **flake.lock check** — errors if `flake.nix` is staged but `flake.lock` has unstaged changes (catches forgotten `nix flake lock` runs)
+- **git-cliff** — regenerates `CHANGELOG.md` (Unreleased section) and re-stages it on every commit; only runs inside the devShell where `git-cliff` is available
 
 ## Backup
 
