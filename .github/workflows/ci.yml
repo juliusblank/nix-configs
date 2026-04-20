@@ -25,6 +25,8 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
+            substituters = https://cache.nixos.org https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI=
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -60,6 +62,8 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
+            substituters = https://cache.nixos.org https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI=
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
