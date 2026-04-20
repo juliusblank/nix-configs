@@ -25,8 +25,8 @@
     userName = "Julius Blank";
     userEmail = "dev@juliusblank.de";
     signing = {
-      # SSH key for Claude (served by 1Password agent at signing time — private key never leaves 1Password)
-      key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3";
+      # Personal SSH key served by 1Password agent — private key never leaves 1Password
+      key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
       signByDefault = true;
     };
     extraConfig = {
@@ -41,6 +41,7 @@
   # Maps the signing key to the personal email for local signature verification.
   # Not a secret — this is the public key.
   home.file.".ssh/allowed_signers".text = ''
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
   '';
 
