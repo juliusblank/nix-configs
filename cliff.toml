@@ -36,5 +36,7 @@ commit_parsers = [
   { message = "^build", group = "Build" },
 ]
 filter_commits = false
+# CalVer: v<year>.<month> with optional patch suffix (e.g. v2026.04, v2026.04.1)
+tag_pattern = "v[0-9]{4}\\.[0-9]{2}(\\.[0-9]+)?"
 topo_order = false
 sort_commits = "oldest"

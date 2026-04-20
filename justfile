@@ -186,6 +186,23 @@ fmt:
 changelog:
     git-cliff --output CHANGELOG.md
 
+# Create and push a CalVer tag for the current month (v<year>.<month>).
+# If the base tag already exists, append a patch suffix manually:
+#   git tag v$(date +%Y.%m).1 && git push origin v$(date +%Y.%m).1
+tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tag="v$(date +%Y.%m)"
+    if git tag --list | grep -qx "${tag}"; then
+        echo "ERROR: tag ${tag} already exists."
+        echo "For a second release this month use:"
+        echo "  git tag ${tag}.1 && git push origin ${tag}.1"
+        exit 1
+    fi
+    git tag -a "${tag}" -m "Release ${tag}"
+    git push origin "${tag}"
+    echo "==> Tagged and pushed ${tag}"
+
 # Update flake inputs
 update:
     nix flake update

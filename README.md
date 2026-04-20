@@ -94,6 +94,7 @@ just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files
 just update              # update flake inputs
 just changelog           # regenerate CHANGELOG.md locally
+just tag                 # create and push a CalVer tag (v<year>.<month>)
 ```
 
 ## Repo Structure
