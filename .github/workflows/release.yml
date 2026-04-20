@@ -52,7 +52,18 @@ jobs:
           OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
 
+      # PRs opened with GITHUB_TOKEN do not trigger workflow events — use the GitHub PAT instead.
+      - name: Load GitHub PAT from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          GH_PAT: "op://github_nix-configs/GitHub PAT nix-configs/token"
+
       - name: Open release PR
+        env:
+          GH_TOKEN: ${{ env.GH_PAT }}
         run: |
           branch="chore/release-${{ steps.tag.outputs.tag }}"
           git checkout -b "${branch}"
