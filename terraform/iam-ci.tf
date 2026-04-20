@@ -8,7 +8,7 @@
 #
 # The existing nix-cache-access policy (object-level read/write) is left in oidc.tf.
 
-# Allows CI to read/write OpenTofu state in S3 and acquire the DynamoDB state lock.
+# Allows CI to read/write OpenTofu state objects in S3 and acquire the DynamoDB state lock.
 resource "aws_iam_role_policy" "github_actions_tofu_state" {
   name = "tofu-state-access"
   role = aws_iam_role.github_actions.id
@@ -29,7 +29,40 @@ resource "aws_iam_role_policy" "github_actions_tofu_state" {
       {
         Effect   = "Allow"
         Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/juliusblank-terraform-locks"
+        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.lock_table_name}"
+      }
+    ]
+  })
+}
+
+# Allows CI to manage the state S3 bucket and DynamoDB lock table as tofu resources.
+# Needed now that state-backend.tf declares these as managed resources — tofu reads
+# bucket policy, versioning, public-access-block, and table tags/TTL on every refresh.
+# Uses Get*/Put* wildcards on the bucket (not objects) to avoid whack-a-mole with
+# individual bucket-level actions, matching the pattern used for nix-cache-management.
+resource "aws_iam_role_policy" "github_actions_state_backend_mgmt" {
+  name = "state-backend-management"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:Get*", "s3:Put*"]
+        Resource = "arn:aws:s3:::${var.state_bucket_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:DescribeTable",
+          "dynamodb:ListTagsOfResource",
+          "dynamodb:TagResource",
+          "dynamodb:UntagResource",
+          "dynamodb:DescribeTimeToLive",
+          "dynamodb:DescribeContinuousBackups",
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.lock_table_name}"
       }
     ]
   })
@@ -64,6 +97,22 @@ resource "aws_iam_role_policy" "github_actions_iam_management" {
           "iam:DeleteRolePolicy",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
+          # User + managed policy management (nix-configs-infra user and its tofu-access policy)
+          "iam:GetUser",
+          "iam:CreateUser",
+          "iam:DeleteUser",
+          "iam:UpdateUser",
+          "iam:TagUser",
+          "iam:UntagUser",
+          "iam:ListUserTags",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:ListPolicyVersions",
+          "iam:AttachUserPolicy",
+          "iam:DetachUserPolicy",
+          "iam:ListAttachedUserPolicies",
         ]
         Resource = "*"
       }

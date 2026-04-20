@@ -45,8 +45,11 @@ op signin
 # Enter the dev shell (provides tofu, awscli, just, etc.)
 nix develop
 
-# Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state
+# Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state, then bring
+# them (and the IAM user) under tofu management
 just setup-terraform-backend
+just tf-import-backend
+just tf-import-user
 
 # Step 0b: Provision GitHub repo config + AWS OIDC + cache bucket
 just setup-github

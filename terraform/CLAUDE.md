@@ -150,6 +150,60 @@ Tag keys are always lowercase.
   }
   ```
 
+## IAM conventions
+
+### Mirror rule — user permissions and CI permissions must stay in sync
+
+`iam-user.tf` defines what the local `nix-configs-infra` user can do.
+`iam-ci.tf` defines what the CI OIDC role can do.
+
+**Whenever you add a new resource type to this module**, both need updating:
+
+1. Add the read/describe actions for the new resource to the OIDC role's `iam-management`
+   policy in `iam-ci.tf` — otherwise CI can't refresh (plan) that resource.
+2. Add the same actions to `aws_iam_policy.nix_configs_infra` in `iam-user.tf` — otherwise
+   local `just tf-plan` fails too.
+
+If you only update one side, the next CI run will fail with a 403 on the resource refresh.
+
+### Bootstrap ordering for new IAM resources
+
+When adding a new resource that the CI OIDC role must manage (e.g. a new IAM user or policy):
+
+1. Add both the resource definition and the OIDC role permission update in the same commit.
+2. **Apply locally first** (`just tf-plan && just tf-apply`) before pushing to CI.
+3. Only then will CI have the permissions it needs to plan and apply the resource itself.
+
+Skipping step 2 causes CI to fail with 403 on the resource refresh — the role needs to be
+updated (via a local apply) before it can manage the new resource.
+
+### Use managed policies for IAM users, not inline policies
+
+IAM inline user policies cap at **2048 characters** — too small for any non-trivial permission
+set. Always use `aws_iam_policy` (customer-managed) + `aws_iam_user_policy_attachment`:
+
+```hcl
+resource "aws_iam_policy" "example" { ... }
+resource "aws_iam_user_policy_attachment" "example" {
+  user       = aws_iam_user.example.name
+  policy_arn = aws_iam_policy.example.arn
+}
+```
+
+Customer-managed policies allow up to 6144 characters per version.
+
+### AWS profile isolation
+
+The devShell sets `AWS_CONFIG_FILE` to `.aws/config` (a repo-local file) and
+`AWS_PROFILE=nix-configs`. This keeps the project's AWS configuration isolated from
+whatever profiles the host has in `~/.aws/config`.
+
+The `nix-configs` profile only sets the region — credentials are still injected at runtime
+via `op read` in each justfile recipe. Do not add credential fields to `.aws/config`.
+
+If you add a new justfile recipe that calls AWS or tofu, no special handling is needed —
+`AWS_PROFILE` and `AWS_CONFIG_FILE` are already correct from the devShell environment.
+
 ## File organisation
 
 - One `.tf` file per concern (e.g. `oidc.tf`, `s3-cache.tf`, `github.tf`)

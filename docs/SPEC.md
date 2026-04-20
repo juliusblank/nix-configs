@@ -51,13 +51,13 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 12 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 13 | AWS CLI credential management | Decide on auth approach (profiles, Identity Center, Granted) and implement consistently: devShell injection, justfile recipes, nix-managed config. Currently inconsistent — AWS creds injected per justfile recipe via `op read`, GitHub token injected in devShell. Depends on #12. |
+| 13 | AWS CLI credential management | devShell now uses a project-scoped `nix-configs` profile (`.aws/config`) isolated from host profiles; credentials still injected via `op read` per justfile recipe. Once Identity Center is set up (#12), use Commonfate Granted (`assume`) to generate profiles from SSO and update `.aws/config` and the devShell profile accordingly. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
 | 18 | nixpkgs upgrade to 26.05 | Scheduled for end of May 2026 when 26.05 releases. Steps: bump `nixpkgs` and `nix-darwin` URLs to `nixpkgs-26.05-darwin` / `nix-darwin-26.05`; drop the nix-homebrew pin (see comment in `flake.nix`); retry `git-hooks.nix` / `pre-commit-hooks.nix` (blocked by missing `cspell` in 25.05). Branch `docs/spec-audit-nixpkgs-2605` reserved for this work. |
-| 19 | add terraform state bucket and dynamodb to terraform config and import existing resources. Ideally add logic to justfile to do that after creation (without causing a chicken-egg) | 
+| 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 
 ## Hosts
 
@@ -87,9 +87,9 @@ Tools and config that EVERY host gets:
 
 ## Infrastructure
 
-- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket (switched from Terraform due to BSL 1.1 license)
-- **S3 backend** for OpenTofu state (versioned, locked via DynamoDB)
-- **GitHub Actions** for CI: `nix flake check` on push *(workflow exists in `.github/workflows/ci.yml`; needs review and hardening)*
+- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
+- **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
+- **GitHub Actions** for CI: `nix flake check` + real serenity build on every PR and push to main (macos-14); cache push on merge to main
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with substituters and trusted public key; CI pushes closure on every merge to main
 
 ### Nix cache activation
