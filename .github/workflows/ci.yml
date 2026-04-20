@@ -1,7 +1,8 @@
 # CI — runs nix flake check and builds the active host config (serenity) on every push to main
-# and on every pull request targeting main. AWS credentials are obtained via OIDC (no stored keys).
-# On merge to main, a separate macos-14 job builds and pushes the full serenity closure to the
-# S3 nix binary cache. The cache signing key is read from 1Password at runtime.
+# and on every pull request targeting main. Runs on macos-14 so the serenity darwin config can be
+# built for real (not --dry-run). AWS credentials are obtained via OIDC (no stored keys).
+# On merge to main, a separate macos-14 job pushes the full serenity closure to the S3 nix binary
+# cache. The cache signing key is read from 1Password at runtime.
 name: CI
 
 on:
@@ -16,15 +17,16 @@ permissions:
 
 jobs:
   check-flake:
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
       - uses: cachix/install-nix-action@v27
         with:
-          nix_path: nixpkgs=channel:nixpkgs-unstable
           extra_nix_config: |
             experimental-features = nix-command flakes
+            substituters = https://cache.nixos.org https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI=
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -37,7 +39,7 @@ jobs:
 
       # Build all configs (catches eval errors)
       - name: Build serenity
-        run: nix build .#darwinConfigurations.serenity.system --dry-run
+        run: nix build .#darwinConfigurations.serenity.system
 
       # - name: Build macbook-work
       #   run: nix build .#darwinConfigurations.macbook-work.system --dry-run
@@ -58,9 +60,10 @@ jobs:
 
       - uses: cachix/install-nix-action@v27
         with:
-          nix_path: nixpkgs=channel:nixpkgs-unstable
           extra_nix_config: |
             experimental-features = nix-command flakes
+            substituters = https://cache.nixos.org https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI=
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
