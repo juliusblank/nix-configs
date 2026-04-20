@@ -51,7 +51,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 12 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 13 | AWS CLI credential management | devShell now uses a project-scoped `nix-configs` profile (`.aws/config`) isolated from host profiles; credentials still injected via `op read` per justfile recipe. Once Identity Center is set up (#12), use Commonfate Granted (`assume`) to generate profiles from SSO and update `.aws/config` and the devShell profile accordingly. |
+| 13 | AWS CLI credential management | Done — devShell uses a project-scoped `nix-configs` profile (`.aws/config`) isolated from host profiles; AWS and GitHub credentials injected once at shell entry via `op read` in `shell.nix` shellHook (not per-recipe); tofu-specific tokens (`TF_VAR_*`) still injected per-recipe. Once Identity Center is set up (#12), use Commonfate Granted (`assume`) to generate profiles from SSO and update `.aws/config` and the devShell profile accordingly. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -104,39 +104,41 @@ service account.
 ## Secrets Management
 
 - **1Password** is the single password manager across all machines — no secrets stored in the repo
-- **1Password CLI (`op`)** injects secrets at runtime via `op read "op://..."` in justfile recipes
+- **1Password CLI (`op`)** injects secrets via `op read "op://..."`: AWS and GitHub credentials at shell entry in `shell.nix` shellHook; tofu-specific tokens (`TF_VAR_*`) per-recipe in the justfile
 - **1Password SSH agent** serves SSH keys to all SSH connections via `IdentityAgent` in `~/.ssh/config`
 - `1password` (app) and `1password-cli` installed via Homebrew on all macOS hosts
 - `~/.ssh/config` managed by home-manager; configures `IdentityAgent` to the 1Password socket
 
 ### Vault & item conventions
 
-All infrastructure secrets live in the **Private** vault:
+Infrastructure secrets are split across two vaults:
 
 | Secret | Vault | Item name | Field(s) |
 |---|---|---|---|
 | AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
-| GitHub PAT | `Private` | `GitHub PAT nix-configs` | `token` |
+| 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
+| GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | Nix cache signing key | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
 
-Secret reference format: `op://Private/<item name>/<field name>`
+Secret reference format: `op://<vault>/<item name>/<field name>`
 
 ### Injecting secrets in scripts
 
-Use `op read` inline at the point of use:
+AWS and GitHub credentials are injected once at devShell entry via `shell.nix` shellHook.
+Tofu-specific tokens are injected per-recipe in the justfile:
 
 ```bash
-export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
-export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
-export GITHUB_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
+TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+export TF_VAR_github_token TF_VAR_op_service_account_token
 ```
 
 The `.op-env` file at the repo root documents all required secrets as `op://` references.
 
 ## AWS Isolation
 
-- AWS credentials are injected at runtime via `op read` — never stored on disk or in env files
-- Never relies on default credentials or AWS profiles
+- AWS credentials are injected at devShell entry via `op read` in `shell.nix` shellHook — never stored on disk or in env files
+- devShell sets `AWS_PROFILE=nix-configs` and `AWS_CONFIG_FILE=.aws/config` (project-scoped, region only) — isolated from any host-level `~/.aws` profiles
 - OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
 ### IAM Identity Center & multi-account setup (planned)
@@ -149,7 +151,7 @@ Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready cre
 - Investigate whether the **1Password SSH agent + CLI** approach extends naturally to SSO credential caching, or whether a dedicated tool is needed
 - Candidate tool: **[Granted](https://docs.commonfate.io/granted/introduction)** (by Common Fate) — CLI for assuming IAM Identity Center roles across multiple accounts with a clean `assume` workflow
 - Decision to be made: 1Password-native vs Granted, based on multi-account UX and nix integration
-- Once decided: update justfile recipes and remove IAM access keys from 1Password
+- Once decided: update `shell.nix` shellHook and remove IAM access keys from 1Password
 
 ## Git Identity Isolation
 
