@@ -1,7 +1,7 @@
 # release — manually triggered workflow that cuts a CalVer release.
 # Creates the tag first so git-cliff sections the changelog under the new version,
-# then commits the updated CHANGELOG.md to main.
-# Tag format: v<year>.<month> (e.g. v2026.04); auto-increments to v2026.04.1 if base tag exists.
+# then opens a PR with the updated CHANGELOG.md. Merge the PR via the GitHub UI to publish.
+# Tag format: v<year>.<month>.<n> (e.g. v2026.04.1); always increments patch from latest tag.
 name: Release
 
 on:
@@ -9,10 +9,11 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
-    name: Tag and update changelog
+    name: Tag and open release PR
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,14 +24,12 @@ jobs:
         id: tag
         run: |
           base="v$(date +%Y.%m)"
-          if git ls-remote --tags origin "refs/tags/${base}" | grep -q .; then
-            n=1
-            while git ls-remote --tags origin "refs/tags/${base}.${n}" | grep -q .; do
-              n=$((n + 1))
-            done
-            tag="${base}.${n}"
+          latest_n=$(git ls-remote --tags origin "refs/tags/${base}.*" \
+            | grep -oE '[0-9]+$' | sort -n | tail -1)
+          if [ -n "$latest_n" ]; then
+            tag="${base}.$((latest_n + 1))"
           else
-            tag="${base}"
+            tag="${base}.1"
           fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "==> Will create tag: ${tag}"
@@ -51,8 +50,21 @@ jobs:
           OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
 
-      - name: Commit changelog
+      - name: Open release PR
         run: |
+          branch="chore/release-${{ steps.tag.outputs.tag }}"
+          git checkout -b "${branch}"
           git add CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore(changelog): update CHANGELOG.md for ${{ steps.tag.outputs.tag }}"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changelog changes — skipping PR."
+            exit 0
+          fi
+          git commit -m "chore(changelog): update CHANGELOG.md for ${{ steps.tag.outputs.tag }}"
+          git push origin "${branch}"
+          gh pr create \
+            --title "chore(release): ${{ steps.tag.outputs.tag }}" \
+            --body "Automated release PR — merges the changelog update for \`${{ steps.tag.outputs.tag }}\` into \`main\`." \
+            --base main \
+            --head "${branch}"
+        env:
+          GH_TOKEN: ${{ github.token }}
