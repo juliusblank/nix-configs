@@ -25,8 +25,8 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  # Explicit: never use default profile
-  # AWS_PROFILE=personal is set by the devShell and justfile
+  # AWS_PROFILE=nix-configs and AWS_CONFIG_FILE=.aws/config are set by the devShell.
+  # Credentials are injected via op read in justfile recipes — not stored in the config file.
 }
 
 provider "github" {

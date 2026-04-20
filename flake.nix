@@ -108,6 +108,12 @@
                 export GH_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
               fi
 
+              # Use a project-scoped AWS profile so host profiles don't interfere.
+              # Credentials are injected at runtime via `op read` in justfile recipes;
+              # this profile only contributes the region.
+              export AWS_CONFIG_FILE="''${PWD}/.aws/config"
+              export AWS_PROFILE=nix-configs
+
               echo "nix-configs devShell loaded"
               echo "Run 'just --list' to see available recipes"
             '';

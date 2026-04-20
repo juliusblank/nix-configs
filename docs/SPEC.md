@@ -51,7 +51,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 12 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 13 | AWS CLI credential management | Decide on auth approach (profiles, Identity Center, Granted) and implement consistently: devShell injection, justfile recipes, nix-managed config. Currently inconsistent — AWS creds injected per justfile recipe via `op read`, GitHub token injected in devShell. Depends on #12. |
+| 13 | AWS CLI credential management | devShell now uses a project-scoped `nix-configs` profile (`.aws/config`) isolated from host profiles; credentials still injected via `op read` per justfile recipe. Once Identity Center is set up (#12), use Commonfate Granted (`assume`) to generate profiles from SSO and update `.aws/config` and the devShell profile accordingly. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |

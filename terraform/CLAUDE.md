@@ -192,11 +192,17 @@ resource "aws_iam_user_policy_attachment" "example" {
 
 Customer-managed policies allow up to 6144 characters per version.
 
-### AWS_PROFILE interference
+### AWS profile isolation
 
-The devShell sets `AWS_PROFILE` in the environment. All justfile tofu recipes explicitly
-`unset AWS_PROFILE` before running tofu to ensure the `op read` credentials are always used.
-If you add a new tofu recipe, include `unset AWS_PROFILE` at the top.
+The devShell sets `AWS_CONFIG_FILE` to `.aws/config` (a repo-local file) and
+`AWS_PROFILE=nix-configs`. This keeps the project's AWS configuration isolated from
+whatever profiles the host has in `~/.aws/config`.
+
+The `nix-configs` profile only sets the region — credentials are still injected at runtime
+via `op read` in each justfile recipe. Do not add credential fields to `.aws/config`.
+
+If you add a new justfile recipe that calls AWS or tofu, no special handling is needed —
+`AWS_PROFILE` and `AWS_CONFIG_FILE` are already correct from the devShell environment.
 
 ## File organisation
 
