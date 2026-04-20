@@ -75,6 +75,25 @@ tf-import-backend:
     tofu import aws_dynamodb_table.terraform_locks        {{lock_table}}
     echo "==> Import complete. Run 'just tf-plan' to confirm no unexpected drift."
 
+# Import the nix-configs-infra IAM user into tofu state.
+# Run once to hand ownership to tofu. After applying, remove any legacy inline
+# policies that were attached manually before this resource was managed by tofu.
+tf-import-user:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+    AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
+    TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_github_token TF_VAR_op_service_account_token
+    export AWS_DEFAULT_REGION={{aws_region}}
+
+    echo "==> Importing nix-configs-infra IAM user into tofu..."
+    cd terraform
+    tofu import aws_iam_user.nix_configs_infra nix-configs-infra
+    echo "==> Import complete. Run 'just tf-plan' then 'just tf-apply' to create the tofu-access policy."
+    echo "==> Then remove any legacy inline policies from the user in the AWS console."
+
 # Initialize OpenTofu and apply GitHub + AWS infrastructure
 setup-github:
     #!/usr/bin/env bash
