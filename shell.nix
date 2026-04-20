@@ -50,14 +50,15 @@ pkgs.mkShell {
     HOOKEOF
     chmod +x .git/hooks/pre-commit
 
-    # Inject GitHub token for gh CLI (skip in CI where it's provided by the runner)
+    # Inject secrets from 1Password (skip in CI where they are provided by the runner)
     if [ -z "''${CI:-}" ] && command -v op &>/dev/null; then
-      export GH_TOKEN=$(op read "op://Private/GitHub PAT nix-configs/token")
+      export GH_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+      export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+      export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     fi
 
     # Use a project-scoped AWS profile so host profiles don't interfere.
-    # Credentials are injected at runtime via `op read` in justfile recipes;
-    # this profile only contributes the region.
+    # This profile only contributes the region; credentials come from the op read above.
     export AWS_CONFIG_FILE="''${PWD}/.aws/config"
     export AWS_PROFILE=nix-configs
 

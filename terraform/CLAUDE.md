@@ -198,8 +198,10 @@ The devShell sets `AWS_CONFIG_FILE` to `.aws/config` (a repo-local file) and
 `AWS_PROFILE=nix-configs`. This keeps the project's AWS configuration isolated from
 whatever profiles the host has in `~/.aws/config`.
 
-The `nix-configs` profile only sets the region — credentials are still injected at runtime
-via `op read` in each justfile recipe. Do not add credential fields to `.aws/config`.
+The `nix-configs` profile only sets the region — credentials (`AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`) are injected once at devShell entry via `op read` in `shell.nix`'s
+`shellHook`. Do not add credential fields to `.aws/config` and do not re-inject them in
+individual justfile recipes.
 
 If you add a new justfile recipe that calls AWS or tofu, no special handling is needed —
 `AWS_PROFILE` and `AWS_CONFIG_FILE` are already correct from the devShell environment.
