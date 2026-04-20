@@ -25,11 +25,13 @@ resource "aws_iam_user" "nix_configs_infra" {
   }
 }
 
-# Consolidated inline policy granting the local user the same permissions as the CI
-# OIDC role, so local and CI tofu runs have identical access.
-resource "aws_iam_user_policy" "nix_configs_infra" {
-  name = "tofu-access"
-  user = aws_iam_user.nix_configs_infra.name
+# Customer-managed policy granting the local user the same permissions as the CI
+# OIDC role, so local and CI tofu runs have identical access. A managed policy is
+# used instead of an inline policy because IAM inline user policies cap at 2048
+# characters — too small for the full permission set needed here.
+resource "aws_iam_policy" "nix_configs_infra" {
+  name        = "nix-configs-infra-tofu-access"
+  description = "Grants nix-configs-infra the permissions needed to run tofu locally."
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -68,7 +70,7 @@ resource "aws_iam_user_policy" "nix_configs_infra" {
         ]
         Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.lock_table_name}"
       },
-      # Nix cache bucket — object-level access
+      # Nix cache bucket — object-level and bucket-level config management
       {
         Effect = "Allow"
         Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
@@ -77,7 +79,6 @@ resource "aws_iam_user_policy" "nix_configs_infra" {
           "arn:aws:s3:::${var.nix_cache_bucket_name}/*",
         ]
       },
-      # Nix cache bucket — bucket-level config management
       {
         Effect = "Allow"
         Action = [
@@ -89,7 +90,7 @@ resource "aws_iam_user_policy" "nix_configs_infra" {
         ]
         Resource = "arn:aws:s3:::${var.nix_cache_bucket_name}"
       },
-      # IAM management — OIDC provider and CI role (what this tofu module owns)
+      # IAM management — OIDC provider, CI role, and this user + policy
       {
         Effect = "Allow"
         Action = [
@@ -110,7 +111,6 @@ resource "aws_iam_user_policy" "nix_configs_infra" {
           "iam:DeleteRolePolicy",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
-          # Self-management — needed to manage this user and its policy via tofu
           "iam:GetUser",
           "iam:CreateUser",
           "iam:DeleteUser",
@@ -118,13 +118,23 @@ resource "aws_iam_user_policy" "nix_configs_infra" {
           "iam:TagUser",
           "iam:UntagUser",
           "iam:ListUserTags",
-          "iam:GetUserPolicy",
-          "iam:PutUserPolicy",
-          "iam:DeleteUserPolicy",
-          "iam:ListUserPolicies",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:ListPolicyVersions",
+          "iam:AttachUserPolicy",
+          "iam:DetachUserPolicy",
+          "iam:ListAttachedUserPolicies",
         ]
         Resource = "*"
       }
     ]
   })
+}
+
+# Attach the managed policy to the user.
+resource "aws_iam_user_policy_attachment" "nix_configs_infra" {
+  user       = aws_iam_user.nix_configs_infra.name
+  policy_arn = aws_iam_policy.nix_configs_infra.arn
 }
