@@ -1,8 +1,14 @@
-# CI — runs nix flake check and builds the active host config (serenity) on every push to main
-# and on every pull request targeting main. Runs on macos-14 so the serenity darwin config can be
-# built for real (not --dry-run). AWS credentials are obtained via OIDC (no stored keys).
-# On merge to main, a separate macos-14 job pushes the full serenity closure to the S3 nix binary
-# cache. The cache signing key is read from 1Password at runtime.
+# CI — runs on every PR and on nix-relevant pushes to main.
+#
+# Job flow:
+#   changes        — detects which file groups changed (skipped on release branches)
+#   check-flake    — nix flake check + serenity build; only when nix files changed
+#   validate-release — tag + changelog checks; only on chore/release-* branches
+#   ci-passed      — fan-in aggregator; always runs; the single required status check
+#   push-cache     — push nix closure to S3; push-to-main only, after check-flake
+#
+# ci-passed is the required branch-protection status check so PRs are never
+# blocked by a check that didn't fire due to path or branch conditions.
 name: CI
 
 on:
@@ -24,7 +30,35 @@ permissions:
   contents: read
 
 jobs:
+  # Detect which file groups changed. Skipped on release branches since those
+  # only touch CHANGELOG.md and are handled by validate-release instead.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.head_ref, 'chore/release-')"
+    outputs:
+      nix: ${{ steps.filter.outputs.nix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            nix:
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'shell.nix'
+              - 'hosts/**'
+              - 'home/**'
+              - 'overlays/**'
+              - '.github/workflows/ci.yml'
+
+  # Full nix evaluation + serenity build. Skipped when no nix-relevant files changed,
+  # and skipped entirely on release branches (changes job is skipped there).
   check-flake:
+    name: Check flake
+    needs: changes
+    if: needs.changes.outputs.nix == 'true'
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -49,20 +83,75 @@ jobs:
       - name: Build serenity
         run: nix build .#darwinConfigurations.serenity.system
 
-      # - name: Build macbook-work
-      #   run: nix build .#darwinConfigurations.macbook-work.system --dry-run
+  # Fast release-specific checks. Only runs on chore/release-* branches.
+  validate-release:
+    name: Validate release
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'chore/release-')
+    steps:
+      - uses: actions/checkout@v4
 
-      # - name: Build pi-moodpi
-      #   run: nix build .#nixosConfigurations.pi-moodpi.config.system.build.toplevel --dry-run
+      - name: Validate tag and changelog
+        run: |
+          tag="${GITHUB_HEAD_REF#chore/release-}"
+          echo "==> Validating release: ${tag}"
+
+          # Tag must exist on the remote
+          if ! git ls-remote --tags origin "refs/tags/${tag}" | grep -q .; then
+            echo "ERROR: tag ${tag} not found on remote"
+            exit 1
+          fi
+
+          # CHANGELOG.md must contain a section header for this tag
+          if ! grep -q "## ${tag}" CHANGELOG.md; then
+            echo "ERROR: no section for ${tag} found in CHANGELOG.md"
+            exit 1
+          fi
+
+          # No conflict markers
+          if grep -qE '^(<<<<<<<|=======|>>>>>>>)' CHANGELOG.md; then
+            echo "ERROR: conflict markers found in CHANGELOG.md"
+            exit 1
+          fi
+
+          echo "==> All release checks passed for ${tag}"
+
+  # Fan-in aggregator — always runs, always the required status check.
+  # Passes if every job that ran succeeded; skipped jobs count as passing.
+  ci-passed:
+    name: CI passed
+    needs: [changes, check-flake, validate-release]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs passed or were skipped
+        run: |
+          results=(
+            "${{ needs.changes.result }}"
+            "${{ needs.check-flake.result }}"
+            "${{ needs.validate-release.result }}"
+          )
+          for result in "${results[@]}"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "A required job failed or was cancelled"
+              echo "  changes:          ${{ needs.changes.result }}"
+              echo "  check-flake:      ${{ needs.check-flake.result }}"
+              echo "  validate-release: ${{ needs.validate-release.result }}"
+              exit 1
+            fi
+          done
+          echo "  changes:          ${{ needs.changes.result }}"
+          echo "  check-flake:      ${{ needs.check-flake.result }}"
+          echo "  validate-release: ${{ needs.validate-release.result }}"
+          echo "All checks passed or were skipped"
 
   # Push the serenity closure to the S3 nix binary cache after every merge to main.
   # Runs on macos-14 (aarch64-darwin) so the build is native and the closure is complete.
   push-cache:
     name: Push cache
-    runs-on: macos-14
     needs: check-flake
+    runs-on: macos-14
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     steps:
       - uses: actions/checkout@v4
 
