@@ -24,12 +24,25 @@
     enable = true;
     userName = "Julius Blank";
     userEmail = "dev@juliusblank.de";
+    signing = {
+      # SSH key for Claude (served by 1Password agent at signing time — private key never leaves 1Password)
+      key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3";
+      signByDefault = true;
+    };
     extraConfig = {
       init.defaultBranch = "main";
       push.autoSetupRemote = true;
       pull.rebase = true;
+      gpg.format = "ssh";
+      gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
     };
   };
+
+  # Maps the signing key to the personal email for local signature verification.
+  # Not a secret — this is the public key.
+  home.file.".ssh/allowed_signers".text = ''
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
+  '';
 
   # --- Core CLI tools (every machine gets these) ---
   home.packages = with pkgs; [
