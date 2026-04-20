@@ -23,6 +23,11 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 4. After implementing: summarise what changed and suggest next steps
 5. **After editing `flake.nix`, `justfile`, or `docs/SPEC.md`**: check `README.md` for
    consistency and update it in the same commit if anything is stale
+6. **After a PR is merged that completes a roadmap item, or after a meaningful batch of related
+   changes lands on `main`**: remind the user to cut a release via the GitHub Actions
+   `release` workflow (`workflow_dispatch` on `.github/workflows/release.yml`). One sentence
+   is enough — e.g. _"This would be a good point to cut a release — trigger the release
+   workflow in GitHub Actions if you'd like to tag it."_
 
 ## Branch & PR Workflow
 
