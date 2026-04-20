@@ -93,6 +93,7 @@ just diff <host>         # show what would change
 just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files
 just update              # update flake inputs
+just changelog           # regenerate CHANGELOG.md locally
 ```
 
 ## Repo Structure

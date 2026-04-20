@@ -10,6 +10,9 @@ pkgs.mkShell {
     nil # nix LSP
     nixfmt-rfc-style # formatter
 
+    # Changelog
+    git-cliff
+
     # General
     git
     gh

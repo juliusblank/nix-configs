@@ -182,6 +182,10 @@ gc:
 fmt:
     find . -name '*.nix' -not -path './.direnv/*' | xargs nixfmt
 
+# Preview or regenerate CHANGELOG.md locally
+changelog:
+    git-cliff --output CHANGELOG.md
+
 # Update flake inputs
 update:
     nix flake update
