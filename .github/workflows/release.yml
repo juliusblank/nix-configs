@@ -1,0 +1,58 @@
+# release — manually triggered workflow that cuts a CalVer release.
+# Creates the tag first so git-cliff sections the changelog under the new version,
+# then commits the updated CHANGELOG.md to main.
+# Tag format: v<year>.<month> (e.g. v2026.04); auto-increments to v2026.04.1 if base tag exists.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and update changelog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute CalVer tag
+        id: tag
+        run: |
+          base="v$(date +%Y.%m)"
+          if git ls-remote --tags origin "refs/tags/${base}" | grep -q .; then
+            n=1
+            while git ls-remote --tags origin "refs/tags/${base}.${n}" | grep -q .; do
+              n=$((n + 1))
+            done
+            tag="${base}.${n}"
+          else
+            tag="${base}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "==> Will create tag: ${tag}"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.tag.outputs.tag }}" -m "Release ${{ steps.tag.outputs.tag }}"
+          git push origin "${{ steps.tag.outputs.tag }}"
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Commit changelog
+        run: |
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "chore(changelog): update CHANGELOG.md for ${{ steps.tag.outputs.tag }}"
+          git push
