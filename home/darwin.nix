@@ -12,6 +12,7 @@ in
     gnused
     gnugrep
     _1password-cli
+    awscli2
   ];
 
   # Point SSH_AUTH_SOCK at the 1Password agent so git SSH signing works

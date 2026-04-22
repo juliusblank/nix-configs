@@ -50,8 +50,8 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
-| 12 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 13 | AWS CLI credential management | Done — devShell uses a project-scoped `nix-configs` profile (`.aws/config`) isolated from host profiles; AWS and GitHub credentials injected once at shell entry via `op read` in `shell.nix` shellHook (not per-recipe); tofu-specific tokens (`TF_VAR_*`) still injected per-recipe. Once Identity Center is set up (#12), use Commonfate Granted (`assume`) to generate profiles from SSO and update `.aws/config` and the devShell profile accordingly. |
+| 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles in `~/.aws/config` and migrate away from IAM access keys. |
+| 13 | AWS CLI credential management | Done — `awscli2` installed system-wide via `home/darwin.nix` (moved from devShell-only). devShell still uses a project-scoped `nix-configs` profile (`.aws/config`); AWS and GitHub credentials injected at shell entry via `op read` in `shell.nix` shellHook; tofu-specific tokens (`TF_VAR_*`) per-recipe. `assume` alias configured in `home/modules/granted.nix` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -142,17 +142,18 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 - devShell sets `AWS_PROFILE=nix-configs` and `AWS_CONFIG_FILE=.aws/config` (project-scoped, region only) — isolated from any host-level `~/.aws` profiles
 - OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
-### IAM Identity Center & multi-account setup (planned)
+### IAM Identity Center & multi-account setup (in progress)
 
-> Current setup uses IAM access keys (stored in 1Password). This is a stepping stone.
+> Current setup uses IAM access keys (stored in 1Password) alongside Granted for SSO.
 
 Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready credential setup.
 
-- IAM Identity Center provides short-lived credentials via browser-based login — no long-lived keys
-- Investigate whether the **1Password SSH agent + CLI** approach extends naturally to SSO credential caching, or whether a dedicated tool is needed
-- Candidate tool: **[Granted](https://docs.commonfate.io/granted/introduction)** (by Common Fate) — CLI for assuming IAM Identity Center roles across multiple accounts with a clean `assume` workflow
-- Decision to be made: 1Password-native vs Granted, based on multi-account UX and nix integration
-- Once decided: update `shell.nix` shellHook and remove IAM access keys from 1Password
+- **Granted** adopted — installed via homebrew (`granted` + `aws-vault`); reusable module at `home/modules/granted.nix`
+- `assume` alias configured in zsh — sources credentials into the current shell
+- Firefox managed by home-manager with **Multi-Account Containers** + **Granted addon** for isolated AWS console sessions
+- Credential storage: macOS keychain (granted default)
+- **aws-vault** preserved for backward compatibility
+- Next steps: configure SSO profiles in `~/.aws/config`, then remove IAM access keys from 1Password and update `shell.nix` shellHook
 
 ## Git Identity Isolation
 

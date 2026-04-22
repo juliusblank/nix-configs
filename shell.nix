@@ -3,7 +3,6 @@ pkgs.mkShell {
   packages = with pkgs; [
     # Infrastructure
     opentofu
-    awscli2
     just
 
     # Nix tools

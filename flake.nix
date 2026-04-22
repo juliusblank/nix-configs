@@ -16,6 +16,11 @@
 
     claude-code.url = "github:sadjow/claude-code-nix";
 
+    nur = {
+      url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Pinned to brew 5.0.12 for ruby_3_4 compat; upgrade together with nixpkgs when moving to 26.05
     nix-homebrew.url = "github:zhaofengli/nix-homebrew/a5409abd0d5013d79775d3419bcac10eacb9d8c5";
     homebrew-core = {
