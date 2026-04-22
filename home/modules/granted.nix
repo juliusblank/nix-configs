@@ -25,17 +25,24 @@ in
       fi
     '';
 
-    # Declarative granted config — macOS keychain is the default credential store
-    home.file.".granted/config".text =
-      lib.concatStringsSep "\n"
-        (
+    # Seed granted config as a regular writable file if it doesn't exist yet.
+    # Granted writes to this file at runtime, so home.file (read-only symlink) won't work.
+    home.activation.grantedConfig =
+      let
+        configContent = lib.concatStringsSep "\n" (
           [
             ''Ordering = "Frecency"''
             "DefaultExportAllEnvVar = true"
           ]
           ++ lib.optional firefoxEnabled ''DefaultBrowser = "FIREFOX"''
-        )
-      + "\n";
+        );
+      in
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        if [ ! -f "$HOME/.granted/config" ]; then
+          mkdir -p "$HOME/.granted"
+          printf '%s\n' ${lib.escapeShellArg configContent} > "$HOME/.granted/config"
+        fi
+      '';
 
     # Add Granted Firefox extension when Firefox is enabled
     programs.firefox.profiles.default.extensions.packages = lib.mkIf firefoxEnabled (
