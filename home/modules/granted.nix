@@ -15,8 +15,11 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # Shell alias — required for assume to export creds into current shell
-    programs.zsh.shellAliases.assume = "source assume";
+    # Granted requires the alias in ~/.zshenv (not ~/.zshrc) so it can detect
+    # it as already installed and skip the interactive setup prompt.
+    programs.zsh.envExtra = ''
+      alias assume="source assume"
+    '';
 
     # Shell completion
     programs.zsh.initContent = lib.mkAfter ''
@@ -25,23 +28,37 @@ in
       fi
     '';
 
-    # Seed granted config as a regular writable file if it doesn't exist yet.
-    # Granted writes to this file at runtime, so home.file (read-only symlink) won't work.
+    # Granted opens its config for writing on startup, so home.file (read-only symlink) won't work.
+    # Instead, copy a nix-generated file each activation so settings are declarative but the file
+    # remains writable.
     home.activation.grantedConfig =
       let
-        configContent = lib.concatStringsSep "\n" (
-          [
-            ''Ordering = "Frecency"''
-            "DefaultExportAllEnvVar = true"
-          ]
-          ++ lib.optional firefoxEnabled ''DefaultBrowser = "FIREFOX"''
-        );
+        configFile = pkgs.writeText "granted-config" ''
+          Ordering = "Frecency"
+
+          # Export all AWS credential env vars by default (AWS_ACCESS_KEY_ID etc.)
+          DefaultExportAllEnvVar = true
+
+          # Use OAuth PKCE flow for SSO login — skips manual device-code entry,
+          # redirects straight back from the browser. Requires a local browser.
+          UseAuthorizationCode = false
+
+          # Re-authenticate automatically when the SSO token expires.
+          # Safe on a personal machine; do not enable on headless systems.
+          CredentialProcessAutoLogin = false
+
+          # Suppress "assume this profile again later" usage hints.
+          DisableUsageTips = false
+          ${lib.optionalString firefoxEnabled ''
+            DefaultBrowser = "FIREFOX"
+            # Nix store path — kept current on every home-manager switch
+            CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app"
+          ''}
+        '';
       in
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        if [ ! -f "$HOME/.granted/config" ]; then
-          mkdir -p "$HOME/.granted"
-          printf '%s\n' ${lib.escapeShellArg configContent} > "$HOME/.granted/config"
-        fi
+        mkdir -p "$HOME/.granted"
+        install -m 644 ${configFile} "$HOME/.granted/config"
       '';
 
     # Add Granted Firefox extension when Firefox is enabled
