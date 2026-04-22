@@ -38,6 +38,7 @@ in
     enable = true;
     enableDefaultConfig = false;
     includes = [ "~/.orbstack/ssh/config" ];
-    matchBlocks."*".identityAgent = onePasswordAgentSockSsh;
+    # Path contains a space ("Group Containers") — wrap in literal quotes so ssh_config parses it correctly
+    matchBlocks."*".identityAgent = ''"${onePasswordAgentSockSsh}"'';
   };
 }
