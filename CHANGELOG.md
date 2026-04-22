@@ -1,6 +1,11 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## Unreleased — 2026-04-22
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.04.7 (#30)
+- **deps:** upgrade nixpkgs, nix-darwin, home-manager to 25.11
 ## v2026.04.7 — 2026-04-20
 
 ### Bug Fixes

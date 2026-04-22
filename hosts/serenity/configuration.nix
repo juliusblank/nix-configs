@@ -51,7 +51,6 @@
     vim
     neofetch
     firefox
-    gimp-with-plugins
     telegram-desktop
     vscode
     lazygit
@@ -93,6 +92,7 @@
       "splice"
       "vial"
       "whatsapp"
+      "gimp"
       "vlc"
       "font-bebas-neue"
       "font-rubik-dirt"

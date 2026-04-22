@@ -62,6 +62,16 @@
           system = "aarch64-darwin";
           specialArgs = { inherit inputs self; };
           modules = [
+            {
+              # direnv 2.37.x fish-test is SIGKILL'd in the macOS sandbox; skip checks
+              nixpkgs.overlays = [
+                (final: prev: {
+                  direnv = prev.direnv.overrideAttrs (_: {
+                    doCheck = false;
+                  });
+                })
+              ];
+            }
             ./hosts/serenity/configuration.nix
             home-manager.darwinModules.home-manager
             {
