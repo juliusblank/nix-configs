@@ -22,14 +22,14 @@
   # --- Git (personal identity, always) ---
   programs.git = {
     enable = true;
-    userName = "Julius Blank";
-    userEmail = "dev@juliusblank.de";
     signing = {
       # Personal SSH key served by 1Password agent — private key never leaves 1Password
       key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
       signByDefault = true;
     };
-    extraConfig = {
+    settings = {
+      user.name = "Julius Blank";
+      user.email = "dev@juliusblank.de";
       init.defaultBranch = "main";
       push.autoSetupRemote = true;
       pull.rebase = true;

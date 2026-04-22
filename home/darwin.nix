@@ -36,10 +36,8 @@ in
   # OrbStack's include must come first (before any Host blocks)
   programs.ssh = {
     enable = true;
+    enableDefaultConfig = false;
     includes = [ "~/.orbstack/ssh/config" ];
-    extraConfig = ''
-      Host *
-        IdentityAgent "${onePasswordAgentSockSsh}"
-    '';
+    matchBlocks."*".identityAgent = onePasswordAgentSockSsh;
   };
 }

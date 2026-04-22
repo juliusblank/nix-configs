@@ -2,21 +2,21 @@
   description = "juliusblank's multi-system nix configuration";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.05-darwin";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
 
     nix-darwin = {
-      url = "github:nix-darwin/nix-darwin/nix-darwin-25.05";
+      url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager/release-25.05";
+      url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     claude-code.url = "github:sadjow/claude-code-nix";
 
-    # Pinned to last commit using ruby_3_4; upgrade together with nixpkgs when moving to 26.05
+    # Pinned to brew 5.0.12 for ruby_3_4 compat; upgrade together with nixpkgs when moving to 26.05
     nix-homebrew.url = "github:zhaofengli/nix-homebrew/a5409abd0d5013d79775d3419bcac10eacb9d8c5";
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
@@ -62,6 +62,16 @@
           system = "aarch64-darwin";
           specialArgs = { inherit inputs self; };
           modules = [
+            {
+              # direnv 2.37.x fish-test is SIGKILL'd in the macOS sandbox; skip checks
+              nixpkgs.overlays = [
+                (final: prev: {
+                  direnv = prev.direnv.overrideAttrs (_: {
+                    doCheck = false;
+                  });
+                })
+              ];
+            }
             ./hosts/serenity/configuration.nix
             home-manager.darwinModules.home-manager
             {
