@@ -56,7 +56,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
-| 18 | nixpkgs upgrade to 26.05 | Scheduled for end of May 2026 when 26.05 releases. Steps: bump `nixpkgs` and `nix-darwin` URLs to `nixpkgs-26.05-darwin` / `nix-darwin-26.05`; drop the nix-homebrew pin (see comment in `flake.nix`); retry `git-hooks.nix` / `pre-commit-hooks.nix` (blocked by missing `cspell` in 25.05). Branch `docs/spec-audit-nixpkgs-2605` reserved for this work. |
+| 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 
 ## Hosts
