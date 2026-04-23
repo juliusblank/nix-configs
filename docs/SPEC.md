@@ -51,7 +51,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
-| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile naming convention: `<org>_<account>_<user>`. `jbl_root_root` profile on serenity uses `credential_process` backed by 1Password (`op://Private/aws_root/`); `tktliam` is a placeholder on macbook-work. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=jbl_root_root`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshenv` for Granted SSO workflow. |
+| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile naming convention: `<org>_<account>_<user>`. `jbl_root_root` profile on serenity uses `credential_process` backed by 1Password (`op://Private/nix-configs-infra/`); `tktliam` is a placeholder on macbook-work. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=jbl_root_root`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -116,7 +116,7 @@ Infrastructure secrets are split across two vaults:
 
 | Secret | Vault | Item name | Field(s) |
 |---|---|---|---|
-| AWS IAM access keys | `Private` | `aws_root` | `access_key_id`, `secret_access_key` |
+| AWS IAM access keys | `Private` | `nix-configs-infra` | `access_key_id`, `secret_access_key` |
 | 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | Nix cache signing key | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |

@@ -5,9 +5,27 @@ let
   # AWS CLI credential_process expects.
   # TODO: replace with `granted credential-process` once SSO is configured.
   jblRootCredProcess = pkgs.writeShellScript "aws-creds-jbl-root" ''
+    set -euo pipefail
+
+    op=${pkgs._1password-cli}/bin/op
+
+    read_or_die() {
+      local ref=$1
+      local result
+      if ! result=$("$op" read "$ref" 2>&1); then
+        echo "aws-creds-jbl-root: failed to read $ref from 1Password" >&2
+        echo "Make sure 1Password is unlocked and the 'nix-configs-infra' item exists in the Private vault." >&2
+        exit 1
+      fi
+      printf '%s' "$result"
+    }
+
+    id=$(read_or_die 'op://Private/nix-configs-infra/access_key_id')
+    secret=$(read_or_die 'op://Private/nix-configs-infra/secret_access_key')
+
     exec ${pkgs.jq}/bin/jq -cn \
-      --arg id "$(${pkgs._1password-cli}/bin/op read 'op://Private/aws_root/access_key_id')" \
-      --arg secret "$(${pkgs._1password-cli}/bin/op read 'op://Private/aws_root/secret_access_key')" \
+      --arg id "$id" \
+      --arg secret "$secret" \
       '{"Version":1,"AccessKeyId":$id,"SecretAccessKey":$secret}'
   '';
 in
