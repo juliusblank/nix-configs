@@ -4,6 +4,7 @@
   imports = [
     ../../home/common.nix
     ../../home/darwin.nix
+    ../../home/modules/aws.nix
   ];
 
   home.username = "julius";
@@ -30,4 +31,15 @@
   home.packages = with pkgs; [
     # work-specific tools
   ];
+
+  # AWS CLI profiles — credential_process TBD once work AWS access is provisioned
+  custom.aws = {
+    enable = true;
+    profiles = [
+      {
+        name = "tktliam";
+        # TODO: configure credentialProcess once work AWS access is set up
+      }
+    ];
+  };
 }

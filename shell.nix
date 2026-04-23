@@ -62,14 +62,15 @@ pkgs.mkShell {
     # Inject secrets from 1Password (skip in CI where they are provided by the runner)
     if [ -z "''${CI:-}" ] && command -v op &>/dev/null; then
       export GH_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-      export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
-      export AWS_SECRET_ACCESS_KEY=$(op read "op://Private/AWS Personal/secret_access_key")
     fi
 
-    # Use a project-scoped AWS profile so host profiles don't interfere.
-    # This profile only contributes the region; credentials come from the op read above.
-    export AWS_CONFIG_FILE="''${PWD}/.aws/config"
-    export AWS_PROFILE=nix-configs
+    # AWS — credentials sourced via credential_process in ~/.aws/config locally;
+    # in CI, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars take precedence over
+    # credential_process. AWS_DEFAULT_REGION is a fallback for CI where the config
+    # file may not exist.
+    export AWS_CONFIG_FILE="$HOME/.aws/config"
+    export AWS_PROFILE=jbl_root_root
+    export AWS_DEFAULT_REGION=eu-central-1
 
     echo "nix-configs devShell loaded"
     echo "Run 'just --list' to see available recipes"
