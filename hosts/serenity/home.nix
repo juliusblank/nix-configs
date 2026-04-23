@@ -59,7 +59,7 @@ in
     enable = true;
     profiles = [
       {
-        name = "jbl_root_root";
+        name = "nix-configs-infra";
         credentialProcess = "${jblRootCredProcess}";
       }
     ];

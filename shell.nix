@@ -69,7 +69,7 @@ pkgs.mkShell {
     # credential_process. AWS_DEFAULT_REGION is a fallback for CI where the config
     # file may not exist.
     export AWS_CONFIG_FILE="$HOME/.aws/config"
-    export AWS_PROFILE=jbl_root_root
+    export AWS_PROFILE=nix-configs-infra
     export AWS_DEFAULT_REGION=eu-central-1
 
     echo "nix-configs devShell loaded"
