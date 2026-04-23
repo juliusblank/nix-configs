@@ -20,8 +20,8 @@ let
       printf '%s' "$result"
     }
 
-    id=$(read_or_die 'op://Private/nix-configs-infra/access_key_id')
-    secret=$(read_or_die 'op://Private/nix-configs-infra/secret_access_key')
+    id=$(read_or_die 'op://infrastructure/nix-configs-infra/access_key_id')
+    secret=$(read_or_die 'op://infrastructure/nix-configs-infra/secret_access_key')
 
     exec ${pkgs.jq}/bin/jq -cn \
       --arg id "$id" \

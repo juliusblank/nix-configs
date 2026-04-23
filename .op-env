@@ -1,15 +1,15 @@
 # 1Password secret references for use with `op read`
 # This file contains no real secrets — only op:// references resolved at runtime.
 #
-# Private vault:
-#   - "AWS Personal"                            fields: access_key_id, secret_access_key
-#   - "1Password SA github-actions-nix-configs" field:  token
+# infrastructure vault:
+#   - "nix-configs-infra"          fields: access_key_id, secret_access_key
+#   - "github-actions-nix-configs" field:  token
 #
 # github_nix-configs vault:
-#   - "GitHub PAT nix-configs"                  field:  token
+#   - "GitHub PAT nix-configs"     field:  token
 
-AWS_ACCESS_KEY_ID=op://Private/AWS Personal/access_key_id
-AWS_SECRET_ACCESS_KEY=op://Private/AWS Personal/secret_access_key
+AWS_ACCESS_KEY_ID=op://infrastructure/nix-configs-infra/access_key_id
+AWS_SECRET_ACCESS_KEY=op://infrastructure/nix-configs-infra/secret_access_key
 TF_VAR_github_token=op://github_nix-configs/GitHub PAT nix-configs/token  # OpenTofu GitHub provider
 GH_TOKEN=op://github_nix-configs/GitHub PAT nix-configs/token            # gh CLI (injected in devShell)
-TF_VAR_op_service_account_token=op://Private/1Password SA github-actions-nix-configs/token
+TF_VAR_op_service_account_token=op://infrastructure/github-actions-nix-configs/token

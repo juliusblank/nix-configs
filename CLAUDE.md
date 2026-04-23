@@ -80,7 +80,7 @@ Secrets are never stored in the repo. Sensitive values live across two vaults in
 Inject secrets at the point of use with `op read`:
 
 ```bash
-export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+export AWS_ACCESS_KEY_ID=$(op read "op://infrastructure/nix-configs-infra/access_key_id")
 export TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
 ```
 
