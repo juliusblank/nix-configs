@@ -2,14 +2,14 @@
 # This file contains no real secrets — only op:// references resolved at runtime.
 #
 # infrastructure vault:
-#   - "nix-configs-infra"          fields: access_key_id, secret_access_key
+#   - "personal-nix-configs-infra"  fields: access_key_id, secret_access_key
 #   - "github-actions-nix-configs" field:  token
 #
 # github_nix-configs vault:
 #   - "GitHub PAT nix-configs"     field:  token
 
-AWS_ACCESS_KEY_ID=op://infrastructure/nix-configs-infra/access_key_id
-AWS_SECRET_ACCESS_KEY=op://infrastructure/nix-configs-infra/secret_access_key
+AWS_ACCESS_KEY_ID=op://infrastructure/personal-nix-configs-infra/access_key_id
+AWS_SECRET_ACCESS_KEY=op://infrastructure/personal-nix-configs-infra/secret_access_key
 TF_VAR_github_token=op://github_nix-configs/GitHub PAT nix-configs/token  # OpenTofu GitHub provider
 GH_TOKEN=op://github_nix-configs/GitHub PAT nix-configs/token            # gh CLI (injected in devShell)
 TF_VAR_op_service_account_token=op://infrastructure/github-actions-nix-configs/token

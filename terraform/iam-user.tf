@@ -1,6 +1,6 @@
 # IAM user for local tofu operations (just tf-plan, just tf-apply, just tf-import-*).
 # Access keys are NOT managed here — they are created manually and stored in
-# 1Password at op://infrastructure/nix-configs-infra/access_key_id and secret_access_key.
+# 1Password at op://infrastructure/personal-nix-configs-infra/access_key_id and secret_access_key.
 #
 # Import the existing user before applying:
 #   just tf-import aws_iam_user.nix_configs_infra nix-configs-infra

@@ -14,14 +14,14 @@ let
       local result
       if ! result=$("$op" read "$ref" 2>&1); then
         echo "aws-creds-jbl-root: failed to read $ref from 1Password" >&2
-        echo "Make sure 1Password is unlocked and the 'nix-configs-infra' item exists in the Private vault." >&2
+        echo "Make sure 1Password is unlocked and 'personal-nix-configs-infra' exists in the infrastructure vault." >&2
         exit 1
       fi
       printf '%s' "$result"
     }
 
-    id=$(read_or_die 'op://infrastructure/nix-configs-infra/access_key_id')
-    secret=$(read_or_die 'op://infrastructure/nix-configs-infra/secret_access_key')
+    id=$(read_or_die 'op://infrastructure/personal-nix-configs-infra/access_key_id')
+    secret=$(read_or_die 'op://infrastructure/personal-nix-configs-infra/secret_access_key')
 
     exec ${pkgs.jq}/bin/jq -cn \
       --arg id "$id" \
