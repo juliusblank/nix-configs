@@ -116,7 +116,7 @@ Infrastructure secrets are split across two vaults:
 
 | Secret | Vault | Item name | Field(s) |
 |---|---|---|---|
-| AWS IAM access keys | `infrastructure` | `nix-configs-infra` | `access_key_id`, `secret_access_key` |
+| AWS IAM access keys | `infrastructure` | `personal-nix-configs-infra` | `access_key_id`, `secret_access_key` |
 | 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | Nix cache signing key | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
@@ -140,7 +140,7 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 
 - `~/.aws/config` managed declaratively by `home/modules/aws.nix`; never contains secrets
 - Credentials sourced via `credential_process` (1Password locally, OIDC env vars in CI)
-- devShell sets `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=nix-configs-infra`, `AWS_DEFAULT_REGION=eu-central-1`
+- devShell sets `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`, `AWS_DEFAULT_REGION=eu-central-1`
 - OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
 ### IAM Identity Center & multi-account setup (in progress)

@@ -1,10 +1,13 @@
 { pkgs, ... }:
 
 let
-  # Reads static IAM credentials from 1Password and emits the JSON format
-  # AWS CLI credential_process expects.
-  # TODO: replace with `granted credential-process` once SSO is configured.
-  jblRootCredProcess = pkgs.writeShellScript "aws-creds-jbl-root" ''
+  # The 1Password entry name is the single source of truth — the AWS CLI
+  # profile name and op:// references are both derived from it.
+  # TODO: replace credentialProcess with `granted credential-process` once SSO is configured.
+  opVault = "infrastructure";
+  opEntry = "personal-nix-configs-infra";
+
+  credProcess = pkgs.writeShellScript "aws-creds-${opEntry}" ''
     set -euo pipefail
 
     op=${pkgs._1password-cli}/bin/op
@@ -13,15 +16,15 @@ let
       local ref=$1
       local result
       if ! result=$("$op" read "$ref" 2>&1); then
-        echo "aws-creds-jbl-root: failed to read $ref from 1Password" >&2
-        echo "Make sure 1Password is unlocked and 'personal-nix-configs-infra' exists in the infrastructure vault." >&2
+        echo "aws-creds-${opEntry}: failed to read $ref from 1Password" >&2
+        echo "Make sure 1Password is unlocked and '${opEntry}' exists in the ${opVault} vault." >&2
         exit 1
       fi
       printf '%s' "$result"
     }
 
-    id=$(read_or_die 'op://infrastructure/personal-nix-configs-infra/access_key_id')
-    secret=$(read_or_die 'op://infrastructure/personal-nix-configs-infra/secret_access_key')
+    id=$(read_or_die 'op://${opVault}/${opEntry}/access_key_id')
+    secret=$(read_or_die 'op://${opVault}/${opEntry}/secret_access_key')
 
     exec ${pkgs.jq}/bin/jq -cn \
       --arg id "$id" \
@@ -59,8 +62,8 @@ in
     enable = true;
     profiles = [
       {
-        name = "nix-configs-infra";
-        credentialProcess = "${jblRootCredProcess}";
+        name = opEntry;
+        credentialProcess = "${credProcess}";
       }
     ];
   };
