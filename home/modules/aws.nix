@@ -50,7 +50,7 @@ in
           options = {
             name = lib.mkOption {
               type = lib.types.str;
-              description = "Profile name. Convention: <org>_<account>_<user>.";
+              description = "Profile name. Matches the IAM username by convention.";
             };
             region = lib.mkOption {
               type = lib.types.str;
