@@ -15,18 +15,10 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # Granted requires the alias in ~/.zshenv (not ~/.zshrc) so it can detect
-    # it as already installed and skip the interactive setup prompt.
-    programs.zsh.envExtra = ''
-      alias assume="source assume"
-    '';
-
-    # Shell completion
-    programs.zsh.initContent = lib.mkAfter ''
-      if command -v granted &>/dev/null; then
-        eval "$(granted completion --shell zsh)"
-      fi
-    '';
+    # Required for assume to export credentials into the current shell.
+    # Lives in .zshrc (not .zshenv) — home-manager makes .zshenv a read-only
+    # symlink which Granted can't write to, causing a permission error on startup.
+    programs.zsh.shellAliases.assume = "source assume";
 
     # Granted opens its config for writing on startup, so home.file (read-only symlink) won't work.
     # Instead, copy a nix-generated file each activation so settings are declarative but the file
