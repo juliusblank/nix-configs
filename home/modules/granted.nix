@@ -24,7 +24,7 @@ in
     # Shell completion
     programs.zsh.initContent = lib.mkAfter ''
       if command -v granted &>/dev/null; then
-        eval "$(granted completion zsh)"
+        eval "$(granted completion --shell zsh)"
       fi
     '';
 
