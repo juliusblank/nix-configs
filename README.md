@@ -7,15 +7,32 @@ Multi-system nix configuration for macOS and NixOS hosts.
 | Host            | OS    | Purpose        | Status                   |
 |-----------------|-------|----------------|--------------------------|
 | serenity        | macOS | Personal dev   | active                   |
-| concinnity      | macOS | Work dev       | planned (not deployed)   |
+| concinnity      | macOS | Work dev       | active                   |
 | pi-moodpi       | NixOS | Moodpi service | planned (config pending) |
 
 ## Prerequisites
 
-1. **Nix** — install with flakes enabled:
+1. **Nix (macOS)** — multi-user **upstream** Nix with flakes, using the installer from
+   [artifacts.nixos.org](https://artifacts.nixos.org/) (Nix Installer Working Group build;
+   compatible with **nix-darwin** managing **`nix.conf`** — default **`nix.enable`**):
+
    ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   curl -sSfL https://artifacts.nixos.org/nix-installer | sh -s -- install --enable-flakes
    ```
+
+   More context: [`docs/usage/nix-system.md`](docs/usage/nix-system.md#installing-nix-macos).
+
+   **After that install:**
+
+   - Finish the installer’s prompts (including **`sudo`** where asked).
+   - Open a **new** terminal (or `exec $SHELL`) so **`nix`** is on your **`PATH`**; run
+     **`nix --version`** to confirm.
+   - If another Nix distribution is already installed (e.g. a vendor-specific Nix), remove
+     it first so only one daemon and **`/etc/nix/nix.conf`** story remains.
+   - First time **nix-darwin** on this Mac: follow
+     [First-time nix-darwin on macOS](#first-time-nix-darwin-on-macos) (bootstrap with
+     **`just deploy`** or the **`sudo nix run …#darwin-rebuild`** fallback), then a new
+     shell if you like.
 
 2. **Repo devShell** — this flake’s shell (see `shell.nix`) provides **`just`**, OpenTofu,
    `nixfmt`, `git-cliff`, etc. Enter it in either way:
@@ -50,15 +67,29 @@ unless you intentionally use the same 1Password items from that machine (see
 
 ### First-time nix-darwin on macOS
 
-On a Mac with Nix + flakes that has **never** had nix-darwin, run **once** before the
-first **`just deploy <host>`** (matches the `nix-darwin-25.11` pin in `flake.nix`):
+The **`nix-darwin-25.11`** flake does **not** expose **`darwin-installer`** (only
+**`darwin-rebuild`**, **`darwin-uninstaller`**, etc.). Upstream bootstraps with **`darwin-rebuild
+switch`** — see [nix-darwin — Installing nix-darwin](https://github.com/nix-darwin/nix-darwin?tab=readme-ov-file#step-2-installing-nix-darwin).
+
+On a Mac with Nix + flakes and **no** nix-darwin generation yet, from this repo (same
+**`nix-darwin-25.11`** pin as **`flake.nix`** / **`justfile`**):
 
 ```bash
-nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
+cd ~/github/juliusblank/nix-configs
+nix develop   # or: direnv allow — need `just` on PATH for the next lines
+just build <host>    # optional: serenity | concinnity
+just deploy <host>
 ```
 
-Follow the installer prompts, then open a **new** terminal. You can **`just build`**
-before this step; **`just deploy`** needs nix-darwin installed.
+**Without `just`:** from the repo directory:
+
+```bash
+sudo nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild -- switch --flake ".#<host>"
+```
+
+Replace **`<host>`** with **`serenity`** or **`concinnity`** (must match **`darwinConfigurations`**
+in **`flake.nix`**). Then open a **new** terminal if **`darwin-rebuild`** is not on your
+**`PATH`** yet.
 
 ### Getting started: serenity (personal)
 
@@ -117,9 +148,13 @@ just check
 just build concinnity
 ```
 
-**First nix-darwin on this Mac:** if `darwin-rebuild` is not available yet, run the
-installer under [First-time nix-darwin on macOS](#first-time-nix-darwin-on-macos), then
-open a new terminal.
+**First nix-darwin on this Mac:** follow
+[First-time nix-darwin on macOS](#first-time-nix-darwin-on-macos) (**`just deploy`** bootstraps
+nix-darwin; no separate **`darwin-installer`**). You do **not** need **`darwin-rebuild`** on your
+shell **`PATH`** for **`just deploy`**:
+it **`nix build`**s **`nix_darwin_flake#darwin-rebuild`** (see the **`justfile`**, same pin as
+**`flake.nix`**), then runs **`sudo <store>/bin/darwin-rebuild switch`** so activation runs as
+root without **`sudo`** having to resolve the bare **`darwin-rebuild`** name.
 
 Activate:
 
@@ -127,12 +162,17 @@ Activate:
 just deploy concinnity
 ```
 
+**Work laptop — YubiKey:** **`yubikey-manager`** (**`ykman`**) is on **`home.packages`**, and
+**`assume`** / **`login`** in **`hosts/concinnity/home.nix`** prepend that package’s **`bin`**
+to **`PATH`** before **`aws-vault --prompt ykman`**, so the Nix **`ykman`** is used even when
+Homebrew’s **`PATH`** comes first system-wide. Use a **physical YubiKey** when running those commands.
+
 Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
 manage that infrastructure from the work machine with the same 1Password access as
 serenity. The devShell does not export personal `GH_TOKEN` / AWS profile there by
 design.
 
-After the first successful deploy, follow **[docs/usage/concinnity-after-deploy.md](docs/usage/concinnity-after-deploy.md)** (auth, brew cleanup, AWS placeholder, devShells).
+After the first successful deploy, follow **[docs/usage/concinnity-after-deploy.md](docs/usage/concinnity-after-deploy.md)** (auth, brew cleanup, AWS / Granted, devShells).
 
 ## Usage
 
@@ -141,7 +181,9 @@ After the first successful deploy, follow **[docs/usage/concinnity-after-deploy.
 Manage nix-darwin / NixOS host configuration: editing packages, shell setup, and system
 settings, then building and deploying to a host.
 
-See [docs/usage/nix-system.md](docs/usage/nix-system.md) for the full workflow and examples.
+See [docs/usage/nix-system.md](docs/usage/nix-system.md) for the full workflow, examples, and
+[known issues: macOS and nix-darwin](docs/usage/nix-system.md#known-issues-macos-and-nix-darwin)
+(`darwin-rebuild` / `PATH` / `sudo`).
 
 ### Infrastructure
 
@@ -171,10 +213,15 @@ just changelog           # regenerate CHANGELOG.md locally
 ├── justfile               # all task recipes
 ├── home/
 │   ├── common.nix         # shared tools + shell config (all hosts)
-│   └── darwin.nix         # macOS-specific home additions
+│   ├── darwin.nix         # macOS-specific home additions
+│   ├── ghostty.nix        # Ghostty terminal config (imported by darwin.nix)
+│   └── modules/
+│       ├── aws.nix        # declarative ~/.aws/config
+│       ├── granted.nix    # Granted AWS credential manager
+│       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
-│   ├── concinnity/        # nix-darwin + home-manager (planned)
+│   ├── concinnity/        # nix-darwin + home-manager (work Mac)
 │   └── pi-moodpi/         # NixOS + home-manager (planned)
 ├── overlays/              # custom packages / overrides
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
@@ -184,6 +231,7 @@ just changelog           # regenerate CHANGELOG.md locally
     ├── ci.md              # CI job graph
     └── usage/
         ├── nix-system.md
+        ├── infra.md       # OpenTofu day-to-day workflow
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 
@@ -212,9 +260,9 @@ The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgen
 
 | Secret | Vault | 1Password item | Field(s) |
 |---|---|---|---|
-| AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| AWS IAM access keys | `infrastructure` | `personal-nix-configs-infra` | `access_key_id`, `secret_access_key` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
-| 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
+| 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 
 ## Workflow
 

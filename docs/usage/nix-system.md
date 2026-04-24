@@ -10,24 +10,45 @@ user-facing tools and shell setup live in `home/common.nix`; macOS-specific addi
 `home/darwin.nix`. Changes are always made on a branch, validated locally, then deployed after
 merging to `main`.
 
-## First-time nix-darwin (new Mac)
+## Installing Nix (macOS)
 
-If the machine has Nix with flakes but **nix-darwin has never been installed**, run the
-installer from the same branch the flake pins (`nix-darwin-25.11`) **once**, before the
-first **`just deploy <host>`**:
+Canonical command for this repository:
 
 ```bash
-nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
+curl -sSfL https://artifacts.nixos.org/nix-installer | sh -s -- install --enable-flakes
 ```
 
-Then open a **new** terminal.
+This is the [Nix Installer Working Group](https://github.com/NixOS/experimental-nix-installer)
+**upstream** installer (served from `artifacts.nixos.org`), with flakes enabled via
+**`--enable-flakes`**. It is suitable for hosts where **nix-darwin** will manage Nix
+(default **`nix.enable`**).
 
-**Before that:** clone this repo to **`~/github/juliusblank/nix-configs`** (see
-`docs/SPEC.md`), **`cd`** into it, enter the flake devShell (**`nix develop`** or
-**`direnv allow`** with direnv hooked — `.envrc` is `use flake`), then **`just build
-<host>`** to validate the flake. **`just deploy`** requires nix-darwin to be installed.
+**Next:** open a **new** terminal, confirm **`nix`** works, then continue with *First-time
+nix-darwin* below (clone repo → devShell → **`just build`**, **`just deploy`**).
 
-See `README.md` for host-specific steps (serenity vs concinnity).
+## First-time nix-darwin (new Mac)
+
+The **`nix-darwin-25.11`** flake has **no** **`darwin-installer`** attribute (upstream
+removed it from the flake outputs). Install nix-darwin by running **`darwin-rebuild switch`**
+once — [nix-darwin README — Installing nix-darwin](https://github.com/nix-darwin/nix-darwin?tab=readme-ov-file#step-2-installing-nix-darwin).
+
+**From this repo** (same pin as **`flake.nix`** / **`justfile`**): clone to
+**`~/github/juliusblank/nix-configs`**, **`cd`** there, enter the devShell (**`nix develop`**
+or **`direnv allow`**), then:
+
+```bash
+just build <host>    # optional; host = serenity | concinnity
+just deploy <host>   # first activation = same recipe as later deploys
+```
+
+**Without `just`:**
+
+```bash
+cd ~/github/juliusblank/nix-configs
+sudo nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild -- switch --flake ".#<host>"
+```
+
+Then open a **new** terminal if needed. See **`README.md`** for serenity vs concinnity paths.
 
 ## Standard workflow
 
@@ -95,6 +116,10 @@ just diff serenity
 # or: just diff concinnity
 ```
 
+(`just diff` uses **`nix run …#darwin-rebuild build`** (no root); **`just deploy`** uses a
+store-qualified **`darwin-rebuild`** under **`sudo`** for **`switch`** — see *Known issues:
+macOS and nix-darwin* below.)
+
 ### 5. Commit and open a PR
 
 ```bash
@@ -116,7 +141,10 @@ git checkout main && git pull
 just deploy serenity
 ```
 
-`just deploy serenity` runs `sudo darwin-rebuild switch --flake .#serenity` and activates the
+`just deploy serenity` runs **`nix build …#darwin-rebuild --print-out-paths`**, then
+**`sudo <store>/bin/darwin-rebuild switch --flake .#serenity`** (same nix-darwin pin as
+**`flake.nix`** via **`nix_darwin_flake`** in the **`justfile`**; no **`darwin-rebuild`** on
+**`PATH`** required) and activates the
 new configuration immediately. For NixOS hosts the command prints the remote `nixos-rebuild`
 invocation to run instead.
 
@@ -144,7 +172,33 @@ just check               # evaluate and type-check the flake
 just build serenity      # build serenity without activating
 just build concinnity    # build concinnity without activating
 just diff serenity       # show store-path diff vs. active system
-just deploy serenity     # build and activate (runs darwin-rebuild switch)
+just deploy serenity     # build and activate (sudo + store-path darwin-rebuild switch)
 just deploy concinnity    # same for concinnity
 just update              # update flake.lock
 ```
+
+## Known issues: macOS and nix-darwin
+
+- **`darwin-rebuild: command not found` in `just diff`** — Recipes run under non-interactive
+  **`bash`**, so **`PATH`** often omits **`/run/current-system/sw/bin`** and direnv is not
+  applied. **`just diff`** uses **`nix run …#darwin-rebuild build`** with the ref in
+  **`nix_darwin_flake`** in the **`justfile`**. You only need **`nix`** on **`PATH`**.
+
+- **`just deploy` / root and `sudo`** — Current nix-darwin expects **`darwin-rebuild switch`**
+  to run **as root**. **`just deploy`** runs **`nix build …#darwin-rebuild
+  --print-out-paths`**, then **`sudo <that-store>/bin/darwin-rebuild switch`**, so **`sudo`**
+  never has to resolve the bare name **`darwin-rebuild`** (which fails: macOS **`sudo`**
+  **`secure_path`** omits Nix). Keep **`nix_darwin_flake`** in sync with **`inputs.nix-darwin`**
+  in **`flake.nix`** when you bump the pin.
+
+- **Manual `darwin-rebuild switch`** — Prefer **`just deploy <host>`**. If you invoke it by
+  hand, run **`sudo` with the store path** (e.g. from **`nix build --print-out-paths
+  …#darwin-rebuild`**) or ensure an interactive **`PATH`** includes **`darwin-rebuild`**, then
+  follow current nix-darwin’s root requirement for **`switch`**.
+
+- **Nix not managed by nix-darwin** — This flake sets **`nix.settings`** on macOS hosts, so
+  **nix-darwin must manage Nix** (default **`nix.enable`**, i.e. **`true`**). If another
+  installer owns **`nix.conf`** / the daemon and activation refuses to take over, uninstall
+  that stack, reinstall with the **artifacts** one-liner in **`README.md`** (*Prerequisites*
+  → **Nix (macOS)**), then bootstrap with **`just deploy <host>`** (or **`sudo nix run …#darwin-rebuild
+  switch --flake …`**) as in *First-time nix-darwin* above.

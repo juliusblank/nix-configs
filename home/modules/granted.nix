@@ -12,13 +12,21 @@ in
 {
   options.custom.granted = {
     enable = lib.mkEnableOption "Granted AWS credential manager";
+    assumeShellAlias = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        When true, set `programs.zsh.shellAliases.assume` to `source assume` for the Granted
+        CLI. Disable on hosts that define their own `assume` shell function (e.g. aws-vault).
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
     # Required for assume to export credentials into the current shell.
     # Lives in .zshrc (not .zshenv) — home-manager makes .zshenv a read-only
     # symlink which Granted can't write to, causing a permission error on startup.
-    programs.zsh.shellAliases.assume = "source assume";
+    programs.zsh.shellAliases = lib.mkIf cfg.assumeShellAlias { assume = "source assume"; };
 
     # Granted opens its config for writing on startup, so home.file (read-only symlink) won't work.
     # Instead, copy a nix-generated file each activation so settings are declarative but the file

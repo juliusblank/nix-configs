@@ -8,7 +8,7 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 ## Repo context
 
 - `hosts/serenity/` — personal MacBook Pro (Apple Silicon, macOS)
-- `hosts/concinnity/` — work MacBook (config ready, not yet deployed)
+- `hosts/concinnity/` — work MacBook (`just deploy concinnity`; see `docs/usage/nix-system.md`)
 - `hosts/pi-moodpi/` — Raspberry Pi NixOS host (commented out, config pending)
 - `home/common.nix` — shared home-manager config for all hosts
 - `home/darwin.nix` — macOS-specific home-manager additions
