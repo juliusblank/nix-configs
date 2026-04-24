@@ -15,6 +15,13 @@ let
 
   # Nix `yubikey-manager` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
   ykmanBinPath = lib.makeBinPath [ pkgs.yubikey-manager ];
+
+  # Granted `assume` shell script — resolved at build time so the zsh `assume`
+  # function can `source` it without recursion.
+  grantedAssume = "${pkgs.granted}/bin/assume";
+
+  # YubiKey OATH account for AWS MFA (from `ykman oath accounts list`).
+  ykOathAccount = "arn:aws:iam::685159096301:mfa/julius.blankyubikey";
 in
 {
   imports = [
@@ -73,58 +80,96 @@ in
   '';
 
   home.packages = with pkgs; [
-    yubikey-manager # `ykman` for aws-vault --prompt ykman (see zsh initContent below)
-    aws-vault # AWS credential exec/login via assume/login functions
-    granted # AWS credential manager (SSO, credential-process)
+    yubikey-manager # `ykman` for YubiKey TOTP in assume/assume-vault (see zsh initContent below)
+    aws-vault # legacy: assume-vault / login-vault functions
+    granted # primary: assume / login functions (SSO, credential-process)
   ];
 
-  # Granted (config + Firefox) — do not take over the zsh name `assume`; work shell uses
-  # aws-vault `assume` / `login` functions below (same as former ~/.zshrc).
+  # Granted (config + Firefox) — assumeShellAlias is off because we define a custom
+  # `assume` function with YubiKey TOTP integration (see initContent below).
   custom.granted = {
     enable = true;
     assumeShellAlias = false;
   };
 
-  # aws-vault helpers + bash-style `complete` for profile names (migrated from ~/.zshrc).
+  # AWS assume/login helpers + bash-style `complete` for profile names.
   # bashcompinit only — home-manager already runs compinit; a second compinit is slow and
-  # re-scans fpath. bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0). AWS flow from internal Notion.
+  # re-scans fpath. bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0).
+  #
+  # Two paths:
+  #   assume / login        — Granted (primary), YubiKey TOTP via --mfa-token
+  #   assume-vault / login-vault — aws-vault (legacy), --prompt ykman
   programs.zsh.initContent = lib.mkAfter ''
     autoload -U +X bashcompinit && bashcompinit
 
+    # --- Granted (primary) ---
+
     assume() {
-    	if [ -z "$1" ]; then
-    		echo "Usage: assume <profile>";
-    		return 1;
-    	fi;
+      if [ -z "$1" ]; then
+        echo "Usage: assume <profile>"
+        return 1
+      fi
 
-    	profile="$1";
-    	duration="8h";
+      local profile="$1"
+      shift
+      local extra_args=()
 
-    	if [[ "$profile" == *on-call-engineer-write* ]]; then
-    		duration="2h";
-    	fi;
+      local token
+      token=$(PATH="${ykmanBinPath}:$PATH" ykman oath accounts code -s "${ykOathAccount}" 2>/dev/null)
+      if [[ -n "$token" ]]; then
+        extra_args+=(--mfa-token "$token")
+      fi
 
-    	PATH="${ykmanBinPath}:$PATH" aws-vault exec --prompt ykman "$profile" -d "$duration";
+      source "${grantedAssume}" "$profile" "''${extra_args[@]}" "$@"
     }
 
     login() {
-    	if [ -z "$1" ]; then
-    		echo "Usage: login <profile>";
-    		return 1;
-    	fi;
+      if [ -z "$1" ]; then
+        echo "Usage: login <profile>"
+        return 1
+      fi
 
-    	profile="$1";
-    	duration="8h";
+      local profile="$1"
+      shift
 
-    	if [[ "$profile" == *on-call-engineer-write* ]]; then
-    		duration="2h";
-    	fi;
-
-    	PATH="${ykmanBinPath}:$PATH" aws-vault login --prompt ykman "$profile" -d "$duration";
+      source "${grantedAssume}" "$profile" --console "$@"
     }
 
-    complete -W "$(aws configure list-profiles)" assume
-    complete -W "$(aws configure list-profiles)" login
+    # --- aws-vault (legacy) ---
+
+    assume-vault() {
+      if [ -z "$1" ]; then
+        echo "Usage: assume-vault <profile>"
+        return 1
+      fi
+
+      local profile="$1"
+      local duration="8h"
+
+      if [[ "$profile" == *on-call-engineer-write* ]]; then
+        duration="2h"
+      fi
+
+      PATH="${ykmanBinPath}:$PATH" aws-vault exec --prompt ykman "$profile" -d "$duration"
+    }
+
+    login-vault() {
+      if [ -z "$1" ]; then
+        echo "Usage: login-vault <profile>"
+        return 1
+      fi
+
+      local profile="$1"
+      local duration="8h"
+
+      if [[ "$profile" == *on-call-engineer-write* ]]; then
+        duration="2h"
+      fi
+
+      PATH="${ykmanBinPath}:$PATH" aws-vault login --prompt ykman "$profile" -d "$duration"
+    }
+
+    complete -W "$(aws configure list-profiles)" assume assume-vault login login-vault
   '';
 
   # Work signing key for `git log --show-signature` (append to global allowed_signers from common.nix).

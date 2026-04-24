@@ -162,10 +162,11 @@ Activate:
 just deploy concinnity
 ```
 
-**Work laptop — YubiKey:** **`yubikey-manager`** (**`ykman`**) is on **`home.packages`**, and
-**`assume`** / **`login`** in **`hosts/concinnity/home.nix`** prepend that package’s **`bin`**
-to **`PATH`** before **`aws-vault --prompt ykman`**, so the Nix **`ykman`** is used even when
-Homebrew’s **`PATH`** comes first system-wide. Use a **physical YubiKey** when running those commands.
+**Work laptop — YubiKey:** **`yubikey-manager`** (**`ykman`**) is on **`home.packages`**.
+**`assume`** / **`login`** (Granted, primary) read the YubiKey TOTP via **`ykman oath accounts code`**
+and pass it to **`--mfa-token`**. Legacy **`assume-vault`** / **`login-vault`** (aws-vault) use
+**`--prompt ykman`**. Both prepend the Nix **`ykman`** **`bin`** to **`PATH`** so the Nix version
+wins over Homebrew. Use a **physical YubiKey** when running those commands.
 
 Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
 manage that infrastructure from the work machine with the same 1Password access as

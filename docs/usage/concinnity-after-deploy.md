@@ -20,7 +20,7 @@ just deploy concinnity   # if you only built before
 Sanity checks:
 
 - `which nvim`, `which gh`, `which starship`, `which lazygit` resolve under the Nix store / home-manager profile.
-- **`assume`** / **`login`** prepend the Nix **`yubikey-manager`** bin dir to **`PATH`** before calling **`aws-vault --prompt ykman`**, so Touch / OTP uses the store **`ykman`** even when a Homebrew **`ykman`** exists earlier on the system **`PATH`** (see **`hosts/concinnity/home.nix`**). You can still run **`which ykman`** for curiosity; the functions do not rely on global ordering.
+- **`assume`** / **`login`** (Granted, primary) read the YubiKey TOTP via **`ykman oath accounts code`** and pass it to **`--mfa-token`**. Legacy **`assume-vault`** / **`login-vault`** (aws-vault) use **`--prompt ykman`**. All four functions prepend the Nix **`yubikey-manager`** bin dir to **`PATH`** so the Nix **`ykman`** wins even when Homebrew's comes first (see **`hosts/concinnity/home.nix`**).
 - Zsh shows Starship; `direnv` loads in cloned repos with `.envrc`.
 
 ## 2. Auth and Git signing
@@ -58,13 +58,13 @@ brew leaves          # sanity: only what you still want from Homebrew
 brew autoremove      # peel transitive formulae (see SPEC — transitive-only policy)
 ```
 
-Keep **`granted`** and **`aws-vault`** while nix-darwin declares them in **`hosts/concinnity/configuration.nix`**.
+Keep **`granted`** and **`aws-vault`** while nix declares them in **`hosts/concinnity/home.nix`** `home.packages`.
 
 ## 4. AWS on the work laptop
 
 **`tktliam`** — **`~/.aws/config`** is managed by **`home/modules/aws.nix`** with **`credential_process`** pointing at a nix-wrapped **`granted credential-process --profile tktliam`**. Ensure Granted knows this profile (e.g. **`granted login`** / your org’s Granted onboarding). Then test **`aws --profile tktliam sts get-caller-identity`**. Granted may merge extra SSO blocks into **`~/.aws/config`** at runtime; that is expected.
 
-**Shell (aws-vault):** **`assume`** / **`login`** functions ( **`aws-vault exec` / `login`** with **`ykman`** prompts) and bash-style **`complete`** on profile names live in **`hosts/concinnity/home.nix`** via **`programs.zsh.initContent`** — you do **not** need to paste them into **`~/.zshrc`**.
+**Shell functions:** **`assume`** / **`login`** (Granted, primary) and **`assume-vault`** / **`login-vault`** (aws-vault, legacy) live in **`hosts/concinnity/home.nix`** via **`programs.zsh.initContent`** with bash-style **`complete`** on profile names — you do **not** need to paste them into **`~/.zshrc`**.
 
 ### `~/.zshrc` (home-manager)
 
@@ -75,7 +75,7 @@ readlink ~/.zshrc
 head -n 5 ~/.zshrc
 ```
 
-You should see HM’s header (e.g. a “managed by Home Manager” comment). If **`~/.zshrc`** is a plain file you edited by hand, **back it up**, remove it, and run **`home-manager switch`** again so HM can install the symlink. **Remove** duplicate **`assume`** / **`login`** / **`complete`** blocks from any old backup so they are not sourced twice.
+You should see HM’s header (e.g. a “managed by Home Manager” comment). If **`~/.zshrc`** is a plain file you edited by hand, **back it up**, remove it, and run **`home-manager switch`** again so HM can install the symlink. **Remove** duplicate **`assume`** / **`assume-vault`** / **`login`** / **`login-vault`** / **`complete`** blocks from any old backup so they are not sourced twice.
 
 **`home/darwin.nix`** prunes a broken Homebrew **`_brew`** completion from **`fpath`** before **`compinit`** (avoids **`compinit:527: … _brew`**); if it still appears, run **`brew update`** / reinstall **`brew`** completions or **`brew completions link`**.
 
