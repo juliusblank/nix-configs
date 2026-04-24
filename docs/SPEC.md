@@ -59,7 +59,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 20 | Separate infra repo | Move IAM Identity Center, DNSimple, Ionos, and other account-level infrastructure out of this repo into a dedicated `infra` repo. Keep in `nix-configs/terraform/`: nix cache bucket, state backend, GitHub repo settings, OIDC role for this repo's CI, and `personal-nix-configs-infra` IAM user. The infra repo becomes the prerequisite for completing #12 (IAM IC migration). |
 | 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
-| 20 | ghostty setup from work laptop | extract the configuration for ghostty from the work laptop and interactively plan with the user if it needs finetuning, then apply it to both machines |
+| 21 | ghostty setup from work laptop | extract the configuration for ghostty from the work laptop and interactively plan with the user if it needs finetuning, then apply it to both machines |
 
 ## Hosts
 
