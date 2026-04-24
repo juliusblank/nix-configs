@@ -78,7 +78,8 @@
       "granted"
       "aws-vault"
     ];
-    # No casks — GUI apps are managed by IRU (company software distribution)
-    casks = [ ];
+    # GUI apps are generally managed by IRU (company software distribution);
+    # casks here are additive for tools IRU does not provide.
+    casks = [ "ghostty" ];
   };
 }

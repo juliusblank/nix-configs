@@ -15,6 +15,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - fix Determinate Nix installer command to include install subcommand
 - **usage:** add concinnity post-deploy checklist
 - **readme:** streamline concinnity setup around devShell + direnv
+- align spec, readme, and usage docs with implementation
 
 ### Features
 - **home:** starship, global gh, lazygit via common on all hosts

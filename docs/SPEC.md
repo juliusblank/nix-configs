@@ -60,6 +60,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 | 21 | ghostty setup from work laptop | extract the configuration for ghostty from the work laptop and interactively plan with the user if it needs finetuning, then apply it to both machines |
+| 22 | concinnity `~/.aws/config` preservation | `custom.aws` overwrites `~/.aws/config` on every activation, wiping work profiles added by Granted or manually. Options: include-based split (nix base + unmanaged local file), disable `custom.aws` on concinnity, or declare all profiles in nix. |
 
 ## Hosts
 
