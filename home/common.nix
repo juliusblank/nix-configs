@@ -1,6 +1,20 @@
-{ pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+
+let
+  # Public keys only — used for `git log --show-signature` / ssh signing verification.
+  personalAllowedSigners = ''
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
+  '';
+in
+{
+  imports = [ ./modules/extra-allowed-signers.nix ];
+
   # --- Shell ---
   programs.starship = {
     enable = true;
@@ -58,12 +72,13 @@
     };
   };
 
-  # Maps the signing key to the personal email for local signature verification.
-  # Not a secret — this is the public key.
-  home.file.".ssh/allowed_signers".text = ''
-    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS
-    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
-  '';
+  # Maps signing keys to emails for local `git log --show-signature` verification.
+  # Hosts may append via `custom.extraAllowedSigners` (see concinnity).
+  home.file.".ssh/allowed_signers".text =
+    personalAllowedSigners
+    + lib.optionalString (config.custom.extraAllowedSigners != "") (
+      "\n" + config.custom.extraAllowedSigners
+    );
 
   # --- Core CLI tools (every machine gets these) ---
   home.packages = with pkgs; [

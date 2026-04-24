@@ -46,12 +46,12 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `infrastructure`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://infrastructure/github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
-| 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
+| 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key and substituters in **`hosts/serenity/configuration.nix`** via **`nix.settings`**; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. Work clones under `~/github/taktile-org/`; `nix-configs` under `~/github/juliusblank/nix-configs` on all macOS hosts. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md`, *Serenity and concinnity isolation* below. |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
-| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on concinnity. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
+| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); concinnity `tktliam` uses `credential_process` via nix-wrapped `granted credential-process`. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -66,7 +66,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | Host              | OS         | Manager             | Purpose           | Status                   |
 |-------------------|------------|----------------------|-------------------|--------------------------|
 | serenity          | macOS      | nix-darwin + home-manager | Personal dev     | active                   |
-| concinnity        | macOS      | nix-darwin + home-manager | Work dev          | config ready, not yet deployed |
+| concinnity        | macOS      | nix-darwin + home-manager | Work dev          | active |
 | pi-moodpi         | NixOS      | NixOS + home-manager      | Moodpi service   | planned (config pending) |
 
 More hosts will be added over time.
@@ -92,7 +92,7 @@ Tools and config that EVERY host gets:
 - **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
 - **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + serenity build) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main (see [docs/ci.md](ci.md))
-- **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with substituters and trusted public key; CI pushes closure on every merge to main
+- **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with **`nix.settings`** substituters and trusted public key; CI pushes closure on every merge to main
 
 
 ### Nix cache activation
@@ -192,7 +192,10 @@ Use this path in docs, scripts, and muscle memory on every macOS host so `flake`
 URLs and examples stay consistent.
 
 Nothing in nix-darwin/home-manager embeds the clone path; only commands you run do
-(e.g. `darwin-rebuild switch --flake ~/github/juliusblank/nix-configs#serenity`).
+(e.g. **`just deploy serenity`** from **`~/github/juliusblank/nix-configs`**, or a manual
+**`sudo "$(nix build --no-link --print-out-paths …#darwin-rebuild)/bin/darwin-rebuild" switch --flake …`**
+with the same flake path and nix-darwin pin as **`flake.nix`** / **`justfile`** — see
+**`docs/usage/nix-system.md`**).
 
 ## Serenity and concinnity isolation
 
@@ -208,6 +211,7 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |
 | Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed |
 | AWS profiles | `custom.aws` + 1Password `credential_process` for personal infra | Work profiles / placeholders (`custom.aws`); work-generated config is a follow-up |
+| YubiKey + aws-vault | As needed | **`yubikey-manager`** (CLI **`ykman`**) on **`PATH`** via **`hosts/concinnity/home.nix`** for **`aws-vault --prompt ykman`** in zsh **`assume`** / **`login`** |
 
 **Work project devShells:** live in a **separate flake repo** on the work GitHub account.
 Each work repo uses `direnv` + `use flake …` pointing at that flake (`nix-direnv` is in

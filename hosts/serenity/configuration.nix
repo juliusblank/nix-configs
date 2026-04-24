@@ -11,9 +11,8 @@
     "flakes"
   ];
 
-  # Nix binary cache — uncomment after running `just setup-nix-cache-keys` and
-  # storing the private key in 1Password (op://github_nix-configs/Nix Cache Signing Key/private_key).
-  # Replace the placeholder below with the contents of ~/.config/nix-cache-keys/cache-pub-key.pem.
+  # Nix binary cache — signing key for `nix copy` / `just push-cache` in 1Password
+  # (op://github_nix-configs/Nix Cache Signing Key/private_key).
   nix.settings.substituters = [ "https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com" ];
   nix.settings.trusted-public-keys = [
     "juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI="
@@ -90,6 +89,7 @@
     ];
     casks = [
       "1password"
+      "ghostty"
       "orbstack"
       "rekordbox"
       "audacity"
