@@ -55,7 +55,6 @@
     neofetch
     telegram-desktop
     vscode
-    lazygit
     claude-code
   ];
 

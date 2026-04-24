@@ -2,6 +2,18 @@
 
 {
   # --- Shell ---
+  programs.starship = {
+    enable = true;
+    enableZshIntegration = true;
+    settings = {
+      add_newline = false;
+      character = {
+        success_symbol = "[❯](bold green)";
+        error_symbol = "[❯](bold red)";
+      };
+    };
+  };
+
   programs.zsh = {
     enable = true;
     autosuggestion.enable = true;
@@ -17,6 +29,14 @@
       gc = "git commit";
       gp = "git push";
     };
+  };
+
+  # --- GitHub CLI (global; config + credential helper via home-manager) ---
+  # Auth: run `gh auth login` once per machine — tokens live in Keychain / gh state,
+  # not in this repo. `hosts` below are optional; omit to manage hosts.yml only via CLI.
+  programs.gh = {
+    enable = true;
+    settings.git_protocol = "ssh";
   };
 
   # --- Git (personal identity, always) ---
@@ -47,6 +67,7 @@
 
   # --- Core CLI tools (every machine gets these) ---
   home.packages = with pkgs; [
+    lazygit
     ripgrep
     fd
     jq

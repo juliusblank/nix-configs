@@ -28,7 +28,7 @@ as below. See `README.md` for full getting-started steps.
 ### 1. Create a branch
 
 ```bash
-git checkout -b feat/serenity-add-starship
+git checkout -b feat/home-tweak-example
 ```
 
 ### 2. Edit configuration
@@ -37,7 +37,7 @@ Common files:
 
 | File | What it controls |
 |---|---|
-| `home/common.nix` | Shell, CLI tools, git identity — applies to every host |
+| `home/common.nix` | Shell, Starship, `gh`, CLI tools, git identity — applies to every host |
 | `home/darwin.nix` | macOS-specific home-manager additions |
 | `hosts/serenity/configuration.nix` | System-level config for serenity (nix-darwin) |
 | `hosts/serenity/home.nix` | home-manager config specific to serenity |
@@ -51,9 +51,11 @@ Example — adding a package to all hosts:
 home.packages = with pkgs; [
   ripgrep
   fd
-  starship   # <-- add here
+  hyperfine # <-- example package
 ];
 ```
+
+Starship is enabled via `programs.starship` in `home/common.nix` (not `home.packages`).
 
 ### 3. Format and validate
 
@@ -91,8 +93,8 @@ just diff serenity
 
 ```bash
 git add -p
-git commit -m "feat(home): add starship to common packages"
-git push -u origin feat/serenity-add-starship
+git commit -m "feat(home): add hyperfine to common packages"
+git push -u origin feat/home-tweak-example
 gh pr create --fill
 ```
 

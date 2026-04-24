@@ -44,7 +44,6 @@
   # System-level packages — keep minimal; most GUI apps are managed by IRU
   environment.systemPackages = with pkgs; [
     vim
-    lazygit
     claude-code
   ];
 
