@@ -214,6 +214,12 @@ Each work repo uses `direnv` + `use flake …` pointing at that flake (`nix-dire
 `home/common.nix`). This repo only provides the shared user environment that makes
 that pattern work — not the work-specific package sets.
 
+Once those work devShells are in place, **concinnity** can uninstall redundant Homebrew
+CLIs that duplicate devShell or nix coverage: `mise`, `pyenv`, `pipx`, `prek` (pre-commit
+via project shells), `tfenv`, `mkcert`, `lsd`. Brew **Python@** formulae may remain until
+unused. **Neovim** is provided via `programs.neovim` in `home/common.nix` (placeholder
+`init.lua` — extend in-repo when ready).
+
 ## Claude Configuration
 
 - `CLAUDE.md` at the repo root: conventions, nix style guide, commit style, and repo-specific instructions for Claude Code sessions

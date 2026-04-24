@@ -84,6 +84,18 @@
     gnupg
   ];
 
+  # --- Neovim (shared; expand in-tree over time) ---
+  programs.neovim = {
+    enable = true;
+    package = pkgs.neovim;
+    defaultEditor = false;
+    extraLuaConfig = ''
+      -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
+      vim.opt.number = true
+      vim.opt.relativenumber = true
+    '';
+  };
+
   # --- Direnv (auto-activate devShells) ---
   programs.direnv = {
     enable = true;
