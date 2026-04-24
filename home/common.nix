@@ -87,7 +87,8 @@
   # --- Neovim (shared; expand in-tree over time) ---
   programs.neovim = {
     enable = true;
-    package = pkgs.neovim;
+    # home-manager wraps this itself; must be *-unwrapped (has `.lua`) — not `pkgs.neovim`.
+    package = pkgs.neovim-unwrapped;
     defaultEditor = false;
     extraLuaConfig = ''
       -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
