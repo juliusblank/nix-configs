@@ -1,11 +1,17 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-22
+## v2026.04.8 — 2026-04-24
+
+### Bug Fixes
+- **home:** quote IdentityAgent path to handle space in "Group Containers" (#32)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.7 (#30)
-- **deps:** upgrade nixpkgs, nix-darwin, home-manager to 25.11
+- **deps:** upgrade nixpkgs, nix-darwin, home-manager to 25.11 (#31)
+
+### Features
+- **home:** declarative AWS CLI config via home/modules/aws.nix (#33)
 ## v2026.04.7 — 2026-04-20
 
 ### Bug Fixes
