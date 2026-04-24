@@ -88,21 +88,25 @@ in
 
         [[ ! -f "$lock_file" ]] && return
 
-        local now mtime age_days
-        now=$(date +%s)
+        local mtime age_days
         mtime=$(stat -f %m "$lock_file" 2>/dev/null) || return
-        age_days=$(( (now - mtime) / 86400 ))
+        age_days=$(( ($(date +%s) - mtime) / 86400 ))
 
         # flake.lock is recent enough — no reminder needed
         [[ $age_days -lt ${toString cfg.staleDays} ]] && return
 
         # Decide whether to re-run the upstream check
-        local last_checked=0
+        local now last_checked hours_since_check
+        now=$(date +%s)
+        last_checked=0
         [[ -f "$timestamp_file" ]] && last_checked=$(cat "$timestamp_file" 2>/dev/null || echo 0)
-        local hours_since_check=$(( (now - last_checked) / 3600 ))
+        hours_since_check=$(( (now - last_checked) / 3600 ))
 
         if [[ $hours_since_check -ge ${toString cfg.recheckHours} ]]; then
-          ${checkScript}/bin/nix-update-check
+          # Run in background — never block the prompt
+          echo "  checking nix-configs for updates..."
+          ${checkScript}/bin/nix-update-check &
+          return
         fi
 
         # flake.lock updated since last check — user already ran just update
