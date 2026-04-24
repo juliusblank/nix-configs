@@ -117,9 +117,8 @@ in
       shift
       local extra_args=()
 
-      echo "[i] Touch your YubiKey for MFA..." >&2
       local token
-      token=$(PATH="${ykmanBinPath}:$PATH" ykman oath accounts code -s "${ykOathAccount}" 2>/dev/null)
+      token=$(PATH="${ykmanBinPath}:$PATH" ykman oath accounts code -s "${ykOathAccount}")
       if [[ -n "$token" ]]; then
         extra_args+=(--mfa-token "$token")
       else
