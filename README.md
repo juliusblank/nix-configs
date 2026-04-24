@@ -35,7 +35,10 @@ Multi-system nix configuration for macOS and NixOS hosts.
 ## Getting Started
 
 **Clone path (both macOS hosts):** `~/github/juliusblank/nix-configs` — see
-`docs/SPEC.md` (*Canonical clone path for nix-configs*).
+`docs/SPEC.md` (*Canonical clone path for nix-configs*, *GitHub checkout layout*).
+
+**concinnity — work repos:** clone the `taktile` org under `~/github/taktile-org/`
+(work git identity). Do not put `nix-configs` there.
 
 **serenity** runs OpenTofu and gets personal-infra secrets in the devShell.
 **concinnity** is the work laptop: deploy from this flake, but skip infra bootstrap
@@ -174,10 +177,11 @@ devShell defaults. Details: *AWS Isolation* and *Serenity and concinnity isolati
 ## Git Identity Isolation
 
 - Default identity: `Julius Blank <dev@juliusblank.de>` (from `home/common.nix`)
-- Work machine: repos under `~/work/` automatically use work email via `includeIf`
-- **Both macOS hosts:** clone at `~/github/juliusblank/nix-configs`. That path is
-  outside `~/work/`, so this repo always uses the **personal** identity; only repos
-  under `~/work/` get the work identity on concinnity (see `docs/SPEC.md`).
+- **concinnity:** repos under `~/github/taktile-org/` (and legacy `~/work/`) use work
+  email and signing via `includeIf` in `hosts/concinnity/home.nix`
+- **Both macOS hosts:** `nix-configs` lives at `~/github/juliusblank/nix-configs`
+  (personal GitHub layout), **not** under `~/github/taktile-org/`, so this repo always
+  uses the **personal** identity (see `docs/SPEC.md`).
 
 ## Secrets
 

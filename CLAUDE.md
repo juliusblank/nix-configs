@@ -14,7 +14,8 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 - `home/darwin.nix` — macOS-specific home-manager additions
 - `flake.nix` — entry point; pinned to `nixpkgs-25.11-darwin` and `nix-darwin-25.11`
 - **Clone path (canonical, macOS):** `~/github/juliusblank/nix-configs` on serenity and
-  concinnity — outside `~/work/` (see `docs/SPEC.md`)
+  concinnity — not under `~/github/taktile-org/` where work `includeIf` applies (see
+  `docs/SPEC.md`)
 
 ## Workflow
 

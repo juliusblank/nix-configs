@@ -1,5 +1,18 @@
 { pkgs, ... }:
 
+let
+  # Work git user + signing (SSH commit signing key TODO in user.signingkey).
+  workGitIdentity = {
+    user = {
+      name = "Julius Blank";
+      email = "julius.blank@taktile.com";
+      # TODO: paste work SSH public key from 1Password item "github ssh key"
+      # signingkey = "key::ssh-ed25519 AAAA...";
+    };
+    gpg.format = "ssh";
+    commit.gpgsign = true;
+  };
+in
 {
   imports = [
     ../../home/common.nix
@@ -13,32 +26,25 @@
 
   # --- Git identity isolation ---
   #
-  # Default identity (personal) comes from common.nix and applies to all repos
-  # that don't match a more specific includeIf rule. Canonical clone for this repo
-  # on both macOS hosts: ~/github/juliusblank/nix-configs (outside ~/work/) so this
-  # repo uses personal identity; only repos under ~/work/ get the work override below.
+  # Default identity (personal) comes from common.nix. Canonical clone for this
+  # repo on both macOS hosts: ~/github/juliusblank/nix-configs — a sibling of the
+  # work tree, so it never matches the includeIf rules below.
   #
-  # Work repos under ~/work/ get the work identity + work signing key.
-  # The work signing key is looked up by its public key string — 1Password
-  # matches it to the corresponding private key automatically.
+  # Work repos: clone under ~/github/taktile-org/ (primary). Legacy ~/work/ kept
+  # so old checkouts keep working until moved.
   #
-  # To get the public key string:
+  # To get the public key string for signingkey:
   #   1. Open 1Password → find "github ssh key" in Private vault
   #   2. Copy the public key (starts with "ssh-ed25519 AAAA...")
-  #   3. Paste it below, prefixed with "key::"
+  #   3. Paste it in workGitIdentity.user, prefixed with "key::"
   programs.git.includes = [
     {
+      condition = "gitdir:~/github/taktile-org/";
+      contents = workGitIdentity;
+    }
+    {
       condition = "gitdir:~/work/";
-      contents = {
-        user = {
-          name = "Julius Blank";
-          email = "julius.blank@taktile.com";
-          # TODO: paste work SSH public key from 1Password item "github ssh key"
-          # signingkey = "key::ssh-ed25519 AAAA...";
-        };
-        gpg.format = "ssh";
-        commit.gpgsign = true;
-      };
+      contents = workGitIdentity;
     }
   ];
 
