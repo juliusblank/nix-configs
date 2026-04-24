@@ -6,7 +6,8 @@ Canonical repo path: **`~/github/juliusblank/nix-configs`** (see `docs/SPEC.md`)
 
 ## 1. Confirm the flake is active
 
-From the repo:
+From the repo (with the devShell active — **`direnv allow`** in this repo or
+**`nix develop`**):
 
 ```bash
 just check

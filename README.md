@@ -17,20 +17,23 @@ Multi-system nix configuration for macOS and NixOS hosts.
    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
    ```
 
-2. **just** — install via nix or brew:
-   ```bash
-   nix-env -iA nixpkgs.just
-   # or: brew install just
-   ```
+2. **Repo devShell** — this flake’s shell (see `shell.nix`) provides **`just`**, OpenTofu,
+   `nixfmt`, `git-cliff`, etc. Enter it in either way:
+   - **`nix develop`** — works on any machine with Nix alone.
+   - **`direnv allow`** — in this repo, after [direnv](https://direnv.net/docs/installation.html)
+     is installed and hooked into your shell (`.envrc` is `use flake`).
 
-3. **1Password + 1Password CLI** — install the app and CLI, then sign in:
-   ```bash
-   brew install 1password 1password-cli
-   op signin
-   ```
-   AWS credentials and the 1Password SA token are stored in the **Private** vault.
-   The GitHub PAT lives in the **github_nix-configs** vault.
-   All secrets are injected at runtime via `op read` — no manual credential export required.
+   You do **not** need a global `just` from `nix-env` or Homebrew for normal work in
+   this repository.
+
+3. **1Password** — install the app and CLI when you will run recipes or devShell hooks
+   that call **`op read`** (serenity infra, GitHub token in the devShell on serenity, etc.).
+   On **concinnity**, plain **`just check`** / **`just build concinnity`** do not require
+   `op`. Sign in with **`op signin`** before serenity-style setup or when something fails
+   on missing secrets.
+
+   AWS credentials and the 1Password SA token for personal infra live in documented
+   vaults; see `docs/SPEC.md` — *Secrets Management*.
 
 ## Getting Started
 
@@ -47,14 +50,15 @@ unless you intentionally use the same 1Password items from that machine (see
 
 ### First-time nix-darwin on macOS
 
-On a Mac with Nix + flakes that has **never** had nix-darwin, run once (matches the
-`nix-darwin-25.11` pin in `flake.nix`):
+On a Mac with Nix + flakes that has **never** had nix-darwin, run **once** before the
+first **`just deploy <host>`** (matches the `nix-darwin-25.11` pin in `flake.nix`):
 
 ```bash
 nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
 ```
 
-Follow the installer prompts, then open a new terminal before `just deploy <host>`.
+Follow the installer prompts, then open a **new** terminal. You can **`just build`**
+before this step; **`just deploy`** needs nix-darwin installed.
 
 ### Getting started: serenity (personal)
 
@@ -65,7 +69,7 @@ cd ~/github/juliusblank/nix-configs
 # Sign in to 1Password CLI (secrets are injected automatically from here)
 op signin
 
-# Enter the dev shell (provides tofu, just, etc.)
+# Enter the dev shell (provides tofu, just, etc.) — or use direnv allow in this repo
 nix develop
 
 # Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state, then bring
@@ -99,15 +103,27 @@ git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-co
 cd ~/github/juliusblank/nix-configs
 ```
 
-Then:
+**Enter the repo devShell** (flake supplies `just`, OpenTofu, formatters, pre-commit):
+
+- **direnv:** with [direnv](https://direnv.net/docs/installation.html) installed and hooked
+  into zsh, run **`direnv allow`** once in this directory (`.envrc` is `use flake`).
+- **No direnv:** run **`nix develop`**, or from outside the shell e.g.
+  **`nix develop -c just build concinnity`**.
+
+Validate and build (no `sudo` yet):
 
 ```bash
-op signin
-nix develop   # optional — tooling + pre-commit
-
-# If nix-darwin is not installed yet, run the installer (see above), then:
 just check
 just build concinnity
+```
+
+**First nix-darwin on this Mac:** if `darwin-rebuild` is not available yet, run the
+installer under [First-time nix-darwin on macOS](#first-time-nix-darwin-on-macos), then
+open a new terminal.
+
+Activate:
+
+```bash
 just deploy concinnity
 ```
 

@@ -13,15 +13,21 @@ merging to `main`.
 ## First-time nix-darwin (new Mac)
 
 If the machine has Nix with flakes but **nix-darwin has never been installed**, run the
-installer from the same branch the flake pins (`nix-darwin-25.11`):
+installer from the same branch the flake pins (`nix-darwin-25.11`) **once**, before the
+first **`just deploy <host>`**:
 
 ```bash
 nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
 ```
 
-Then clone this repo to **`~/github/juliusblank/nix-configs`** (both macOS hosts;
-see `docs/SPEC.md`), `cd` into it, and use `just build <host>` / `just deploy <host>`
-as below. See `README.md` for full getting-started steps.
+Then open a **new** terminal.
+
+**Before that:** clone this repo to **`~/github/juliusblank/nix-configs`** (see
+`docs/SPEC.md`), **`cd`** into it, enter the flake devShell (**`nix develop`** or
+**`direnv allow`** with direnv hooked — `.envrc` is `use flake`), then **`just build
+<host>`** to validate the flake. **`just deploy`** requires nix-darwin to be installed.
+
+See `README.md` for host-specific steps (serenity vs concinnity).
 
 ## Standard workflow
 
