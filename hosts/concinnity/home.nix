@@ -115,21 +115,20 @@ in
 
       local profile="$1"
       shift
-      local extra_args=()
 
       local token
       token=$(PATH="${ykmanBinPath}:$PATH" ykman oath accounts code -s "${ykOathAccount}")
-      if [[ -n "$token" ]]; then
-        extra_args+=(--mfa-token "$token")
-      else
-        echo "[!] YubiKey TOTP failed — Granted will prompt for MFA" >&2
-      fi
 
       # GRANTED_ALIAS_CONFIGURED tells assumego to skip the "install alias" prompt.
       # The assume script's own detection doesn't fire in zsh when sourced from a
       # function (zsh sets $0 to the script path, defeating the bash-style checks).
       export GRANTED_ALIAS_CONFIGURED=true
-      source "${grantedAssume}" "$profile" "''${extra_args[@]}" "$@"
+      if [[ -n "$token" ]]; then
+        source "${grantedAssume}" "$profile" --mfa-token "$token" "$@"
+      else
+        echo "[!] YubiKey TOTP failed — Granted will prompt for MFA" >&2
+        source "${grantedAssume}" "$profile" "$@"
+      fi
     }
 
     login() {

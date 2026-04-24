@@ -6,6 +6,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Bug Fixes
 - **concinnity:** export GRANTED_ALIAS_CONFIGURED before sourcing assume script
 - **concinnity:** browser config, YubiKey touch prompt, granted module options
+- **concinnity:** remove stderr suppression from ykman call
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
