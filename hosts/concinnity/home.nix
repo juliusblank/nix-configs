@@ -87,9 +87,12 @@ in
 
   # Granted (config + Firefox) — assumeShellAlias is off because we define a custom
   # `assume` function with YubiKey TOTP integration (see initContent below).
+  # Browser set explicitly: Firefox is installed outside home-manager on concinnity.
   custom.granted = {
     enable = true;
     assumeShellAlias = false;
+    defaultBrowser = "FIREFOX";
+    customBrowserPath = "/Applications/Firefox.app";
   };
 
   # AWS assume/login helpers + bash-style `complete` for profile names.
@@ -114,10 +117,13 @@ in
       shift
       local extra_args=()
 
+      echo "[i] Touch your YubiKey for MFA..." >&2
       local token
       token=$(PATH="${ykmanBinPath}:$PATH" ykman oath accounts code -s "${ykOathAccount}" 2>/dev/null)
       if [[ -n "$token" ]]; then
         extra_args+=(--mfa-token "$token")
+      else
+        echo "[!] YubiKey TOTP failed — Granted will prompt for MFA" >&2
       fi
 
       # GRANTED_ALIAS_CONFIGURED tells assumego to skip the "install alias" prompt.

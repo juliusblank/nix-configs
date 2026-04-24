@@ -20,6 +20,23 @@ in
         CLI. Disable on hosts that define their own `assume` shell function (e.g. aws-vault).
       '';
     };
+    defaultBrowser = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Default browser for Granted console sessions (e.g. "FIREFOX", "CHROME").
+        When null, auto-detected from programs.firefox.enable.
+        Set explicitly on hosts where Firefox is installed outside home-manager.
+      '';
+    };
+    customBrowserPath = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Path to the browser .app bundle for Granted.
+        When null, auto-detected from the home-manager Firefox package.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -33,6 +50,21 @@ in
     # remains writable.
     home.activation.grantedConfig =
       let
+        # Explicit options take precedence, then auto-detect from HM Firefox.
+        effectiveBrowser =
+          if cfg.defaultBrowser != null then
+            cfg.defaultBrowser
+          else if firefoxEnabled then
+            "FIREFOX"
+          else
+            null;
+        effectiveBrowserPath =
+          if cfg.customBrowserPath != null then
+            cfg.customBrowserPath
+          else if firefoxEnabled then
+            "${pkgs.firefox}/Applications/Firefox.app"
+          else
+            null;
         configFile = pkgs.writeText "granted-config" ''
           Ordering = "Frecency"
 
@@ -49,11 +81,16 @@ in
 
           # Suppress "assume this profile again later" usage hints.
           DisableUsageTips = false
-          ${lib.optionalString firefoxEnabled ''
-            DefaultBrowser = "FIREFOX"
-            # Nix store path — kept current on every home-manager switch
-            CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app"
-          ''}
+          ${
+            lib.optionalString (effectiveBrowser != null) ''
+              DefaultBrowser = "${effectiveBrowser}"
+            ''
+          }${
+            lib.optionalString (effectiveBrowserPath != null) ''
+              # Browser application path — kept current on every home-manager switch
+              CustomBrowserPath = "${effectiveBrowserPath}"
+            ''
+          }
         '';
       in
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''

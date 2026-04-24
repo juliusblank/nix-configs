@@ -3,6 +3,9 @@
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
 ## Unreleased — 2026-04-25
 
+### Bug Fixes
+- **concinnity:** export GRANTED_ALIAS_CONFIGURED before sourcing assume script
+
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
 
