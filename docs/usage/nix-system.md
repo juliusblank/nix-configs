@@ -10,6 +10,18 @@ user-facing tools and shell setup live in `home/common.nix`; macOS-specific addi
 `home/darwin.nix`. Changes are always made on a branch, validated locally, then deployed after
 merging to `main`.
 
+## First-time nix-darwin (new Mac)
+
+If the machine has Nix with flakes but **nix-darwin has never been installed**, run the
+installer from the same branch the flake pins (`nix-darwin-25.11`):
+
+```bash
+nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
+```
+
+Then clone this repo, `cd` into it, and use `just build <host>` / `just deploy <host>` as
+below. See `README.md` for serenity vs concinnity entry paths.
+
 ## Standard workflow
 
 ### 1. Create a branch
@@ -28,6 +40,8 @@ Common files:
 | `home/darwin.nix` | macOS-specific home-manager additions |
 | `hosts/serenity/configuration.nix` | System-level config for serenity (nix-darwin) |
 | `hosts/serenity/home.nix` | home-manager config specific to serenity |
+| `hosts/concinnity/configuration.nix` | System-level config for concinnity (work Mac) |
+| `hosts/concinnity/home.nix` | home-manager config for concinnity (work identity, SSH agent scope) |
 
 Example — adding a package to all hosts:
 
@@ -60,6 +74,7 @@ Build the target host to catch any remaining evaluation errors before activating
 
 ```bash
 just build serenity
+# or: just build concinnity
 ```
 
 This produces a `./result` symlink but does not activate anything. Safe to run at any time.
@@ -68,6 +83,7 @@ To preview what store paths would change compared to the currently active system
 
 ```bash
 just diff serenity
+# or: just diff concinnity
 ```
 
 ### 5. Commit and open a PR
@@ -80,7 +96,7 @@ gh pr create --fill
 ```
 
 CI runs `nix flake check` and builds `serenity` on every PR — the build must be green before
-merging.
+merging. Build `concinnity` locally before deploying it; CI does not build that host today.
 
 ### 6. Deploy after merging
 
@@ -117,7 +133,9 @@ git commit flake.lock -m "chore(deps): update flake inputs"
 just fmt                 # format all .nix files
 just check               # evaluate and type-check the flake
 just build serenity      # build serenity without activating
+just build concinnity    # build concinnity without activating
 just diff serenity       # show store-path diff vs. active system
 just deploy serenity     # build and activate (runs darwin-rebuild switch)
+just deploy concinnity    # same for concinnity
 just update              # update flake.lock
 ```

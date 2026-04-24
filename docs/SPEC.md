@@ -49,7 +49,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
-| 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. |
+| 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md` (Getting started: concinnity), *Serenity and concinnity isolation* below. |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
 | 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on concinnity. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
@@ -127,8 +127,12 @@ Secret reference format: `op://<vault>/<item name>/<field name>`
 
 ### Injecting secrets in scripts
 
-AWS and GitHub credentials are injected once at devShell entry via `shell.nix` shellHook.
-Tofu-specific tokens are injected per-recipe in the justfile:
+`shell.nix` shellHook injects the GitHub PAT and default AWS profile **only when
+`hostname -s` is `serenity`** (and not in CI), via `op read`. That keeps personal-infra
+tokens off concinnity and other machines where those vault items are absent or must
+not be used.
+
+Tofu-specific tokens (`TF_VAR_*`) are injected per-recipe in the justfile:
 
 ```bash
 TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
@@ -142,7 +146,9 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 
 - `~/.aws/config` managed declaratively by `home/modules/aws.nix`; never contains secrets
 - Credentials sourced via `credential_process` (1Password locally, OIDC env vars in CI)
-- devShell sets `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`, `AWS_DEFAULT_REGION=eu-central-1`
+- On **serenity** only, `shell.nix` sets `AWS_CONFIG_FILE`, `AWS_PROFILE=personal-nix-configs-infra`,
+  and `AWS_DEFAULT_REGION` for working in this repo; **concinnity** uses host-local AWS
+  config from `custom.aws` without those devShell defaults
 - OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
 ### IAM Identity Center & multi-account setup (in progress)
@@ -160,14 +166,39 @@ Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready cre
 
 ## Git Identity Isolation
 
-- Repo-level `.gitconfig` enforces personal identity (Julius Blank / dev@juliusblank.de)
-- Work machine uses `includeIf gitdir:~/work/` to override identity for work repos
-- This repo lives under `~/personal/` and always uses the personal identity
+- **Default identity** (Julius Blank / dev@juliusblank.de, personal SSH signing) comes
+  from `home/common.nix` for every host.
+- **concinnity:** `programs.git.includes` in `hosts/concinnity/home.nix` applies work
+  name, email, and signing when `gitdir` matches `~/work/`. Repos outside that path
+  (including this repo under e.g. `~/github/` or `~/personal/`) keep the personal
+  identity — required so `nix-configs` commits stay personal even on the work laptop.
+- **serenity:** this repo is expected under `~/personal/`; no work `includeIf` on
+  that machine today.
+
+## Serenity and concinnity isolation
+
+**Goal:** share nix modules and tooling while keeping **work credentials and access
+patterns off the personal machine** and avoiding **personal-infra secrets on the work
+machine** unless explicitly intended (e.g. SSH read access to selected personal repos).
+
+| Concern | serenity | concinnity |
+|---|---|---|
+| `shell.nix` `GH_TOKEN` / `AWS_PROFILE` for this repo | Injected when hostname is `serenity` | Not set by shellHook — no `op read` to personal-infra or `github_nix-configs` PAT for routine shell |
+| Nix binary cache substituters | Enabled (see `hosts/serenity/configuration.nix`) | **Disabled** — avoid pulling personal closures onto a work-managed device |
+| 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |
+| Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed |
+| AWS profiles | `custom.aws` + 1Password `credential_process` for personal infra | Work profiles / placeholders (`custom.aws`); work-generated config is a follow-up |
+
+**Work project devShells:** live in a **separate flake repo** on the work GitHub account.
+Each work repo uses `direnv` + `use flake …` pointing at that flake (`nix-direnv` is in
+`home/common.nix`). This repo only provides the shared user environment that makes
+that pattern work — not the work-specific package sets.
 
 ## Claude Configuration
 
 - `CLAUDE.md` at the repo root: conventions, nix style guide, commit style, and repo-specific instructions for Claude Code sessions
 - Claude Code settings committed to the repo so every session on any machine starts with the same context
+- **Cursor:** `.cursor/rules/nix-configs.mdc` (`alwaysApply: true`) instructs agents to read `docs/SPEC.md` and follow `CLAUDE.md` so editor-based sessions match the same rules without duplicating long policy
 - Goal: eliminate the manual onboarding that happens at the start of each session
 - Conventions enforced via `CLAUDE.md`: spec-first workflow, conventional commits, always format after nix edits, safety rules around deployment
 

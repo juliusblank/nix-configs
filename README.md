@@ -34,6 +34,25 @@ Multi-system nix configuration for macOS and NixOS hosts.
 
 ## Getting Started
 
+Paths depend on the host. **serenity** is the machine that runs OpenTofu and owns
+personal-infra secrets in the devShell. **concinnity** is the work laptop: deploy
+nix-darwin from this flake, but skip infra bootstrap unless you intentionally use the
+same 1Password items from that machine (see `docs/SPEC.md` — *Serenity and concinnity
+isolation*).
+
+### First-time nix-darwin on macOS
+
+On a Mac with Nix + flakes that has **never** had nix-darwin, run once (matches the
+`nix-darwin-25.11` pin in `flake.nix`):
+
+```bash
+nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
+```
+
+Follow the installer prompts, then open a new terminal before `just deploy <host>`.
+
+### Getting started: serenity (personal)
+
 ```bash
 # Clone the repo
 git clone git@github.com:juliusblank/nix-configs.git ~/personal/nix-configs
@@ -62,9 +81,30 @@ just tf-apply
 # Step 0d: Generate nix cache signing keys (once per machine)
 just setup-nix-cache-keys
 
-# Step 1: Deploy to current host
+# Step 1: Deploy to serenity
 just deploy serenity
 ```
+
+### Getting started: concinnity (work)
+
+```bash
+# Clone outside ~/work/ so this repo keeps your personal git identity
+git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-configs
+cd ~/github/juliusblank/nix-configs
+
+op signin
+nix develop   # optional — tooling + pre-commit
+
+# If nix-darwin is not installed yet, run the installer (see above), then:
+just check
+just build concinnity
+just deploy concinnity
+```
+
+Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
+manage that infrastructure from the work machine with the same 1Password access as
+serenity. The devShell does not export personal `GH_TOKEN` / AWS profile there by
+design.
 
 ## Usage
 
@@ -118,8 +158,11 @@ just changelog           # regenerate CHANGELOG.md locally
 
 ## AWS Isolation
 
-AWS credentials are injected at runtime via `op read` from the 1Password **Private** vault.
-They are never stored on disk, in env files, or in AWS profiles. Safe to use on any machine.
+On **serenity**, AWS keys for personal infra are read at runtime via `op read` (see
+`docs/SPEC.md` for vault layout). They are never committed. **concinnity** uses
+host-local AWS profiles from home-manager (`custom.aws`) instead of the serenity
+devShell defaults. Details: *AWS Isolation* and *Serenity and concinnity isolation* in
+`docs/SPEC.md`.
 
 ## Git Identity Isolation
 
