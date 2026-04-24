@@ -120,6 +120,10 @@ in
         extra_args+=(--mfa-token "$token")
       fi
 
+      # GRANTED_ALIAS_CONFIGURED tells assumego to skip the "install alias" prompt.
+      # The assume script's own detection doesn't fire in zsh when sourced from a
+      # function (zsh sets $0 to the script path, defeating the bash-style checks).
+      export GRANTED_ALIAS_CONFIGURED=true
       source "${grantedAssume}" "$profile" "''${extra_args[@]}" "$@"
     }
 
@@ -132,6 +136,7 @@ in
       local profile="$1"
       shift
 
+      export GRANTED_ALIAS_CONFIGURED=true
       source "${grantedAssume}" "$profile" --console "$@"
     }
 

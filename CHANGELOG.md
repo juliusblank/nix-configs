@@ -8,6 +8,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Features
 - concinnity host, GitHub layout, and work/personal isolation (#36)
+- **concinnity:** add Granted assume/login with YubiKey TOTP, rename aws-vault to assume-vault
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
