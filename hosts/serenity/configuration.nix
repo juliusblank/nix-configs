@@ -29,7 +29,10 @@
 
   nixpkgs.hostPlatform = "aarch64-darwin";
   nixpkgs.config.allowUnfree = true;
-  nixpkgs.overlays = [ inputs.claude-code.overlays.default ];
+  nixpkgs.overlays = [
+    inputs.claude-code.overlays.default
+    inputs.nur.overlays.default
+  ];
 
   users.users.jbl = {
     name = "jbl";
@@ -50,7 +53,6 @@
   environment.systemPackages = with pkgs; [
     vim
     neofetch
-    firefox
     telegram-desktop
     vscode
     lazygit
@@ -83,7 +85,11 @@
       "homebrew/core"
       "homebrew/cask"
     ];
-    brews = [ "cowsay" ];
+    brews = [
+      "cowsay"
+      "granted"
+      "aws-vault"
+    ];
     casks = [
       "1password"
       "orbstack"

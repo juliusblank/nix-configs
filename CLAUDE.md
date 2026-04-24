@@ -73,14 +73,14 @@ Secrets are never stored in the repo. Sensitive values live across two vaults in
 
 | Secret | Vault | Item name | Field(s) |
 |---|---|---|---|
-| AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| AWS IAM access keys | `infrastructure` | `personal-nix-configs-infra` | `access_key_id`, `secret_access_key` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
-| 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
+| 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 
 Inject secrets at the point of use with `op read`:
 
 ```bash
-export AWS_ACCESS_KEY_ID=$(op read "op://Private/AWS Personal/access_key_id")
+export AWS_ACCESS_KEY_ID=$(op read "op://infrastructure/personal-nix-configs-infra/access_key_id")
 export TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
 ```
 

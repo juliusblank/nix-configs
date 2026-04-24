@@ -57,7 +57,7 @@ tf-import-backend:
     #!/usr/bin/env bash
     set -euo pipefail
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
     export TF_VAR_github_token TF_VAR_op_service_account_token
 
     echo "==> Importing state backend resources into tofu..."
@@ -75,7 +75,7 @@ tf-import-user:
     #!/usr/bin/env bash
     set -euo pipefail
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
     export TF_VAR_github_token TF_VAR_op_service_account_token
 
     echo "==> Importing nix-configs-infra IAM user into tofu..."
@@ -89,7 +89,7 @@ setup-github:
     #!/usr/bin/env bash
     set -euo pipefail
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
     export TF_VAR_github_token TF_VAR_op_service_account_token
 
     cd terraform
@@ -223,7 +223,7 @@ tf-import resource id:
     #!/usr/bin/env bash
     set -euo pipefail
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
     export TF_VAR_github_token TF_VAR_op_service_account_token
     cd terraform && tofu import {{resource}} {{id}}
 
@@ -235,7 +235,7 @@ tf-plan:
     # Assign before export: `export VAR=$(cmd)` swallows the exit code of cmd,
     # so a failed op read would silently set an empty variable.
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
     export TF_VAR_github_token TF_VAR_op_service_account_token
 
     branch=$(git rev-parse --abbrev-ref HEAD)
@@ -250,7 +250,7 @@ tf-apply:
     #!/usr/bin/env bash
     set -euo pipefail
     TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-    TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+    TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
     export TF_VAR_github_token TF_VAR_op_service_account_token
 
     branch=$(git rev-parse --abbrev-ref HEAD)

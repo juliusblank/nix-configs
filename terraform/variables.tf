@@ -37,7 +37,7 @@ variable "nix_cache_bucket_name" {
 }
 
 # 1Password Service Account token for the github-actions-nix-configs SA.
-# Stored in op://Private/1Password SA github-actions-nix-configs/token.
+# Stored in op://infrastructure/github-actions-nix-configs/token.
 # Injected by the justfile via TF_VAR_op_service_account_token.
 # GitHub PAT for the GitHub provider. Passed as TF_VAR_github_token to avoid
 # collision with the GITHUB_TOKEN Actions injects automatically in CI.

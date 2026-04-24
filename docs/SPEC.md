@@ -44,18 +44,19 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main |
 | 4 | `tf-apply` guardrails | Done — hard block if not on `main` and working tree is dirty; soft warn (warn + require Enter) if not on `main` but tree is clean; on `main`, runs without interruption. `tf-plan` prints a warning when not on `main`. CI bypasses naturally (always clean, always on main). |
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
-| 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `github_nix-configs`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://Private/1Password SA github-actions-nix-configs/token`. |
+| 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `infrastructure`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://infrastructure/github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
-| 12 | AWS IAM Identity Center migration | Granted vs 1Password, multi-account |
-| 13 | AWS CLI credential management | Done — devShell uses a project-scoped `nix-configs` profile (`.aws/config`) isolated from host profiles; AWS and GitHub credentials injected once at shell entry via `op read` in `shell.nix` shellHook (not per-recipe); tofu-specific tokens (`TF_VAR_*`) still injected per-recipe. Once Identity Center is set up (#12), use Commonfate Granted (`assume`) to generate profiles from SSO and update `.aws/config` and the devShell profile accordingly. |
+| 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
+| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on macbook-work. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
+| 20 | Separate infra repo | Move IAM Identity Center, DNSimple, Ionos, and other account-level infrastructure out of this repo into a dedicated `infra` repo. Keep in `nix-configs/terraform/`: nix cache bucket, state backend, GitHub repo settings, OIDC role for this repo's CI, and `personal-nix-configs-infra` IAM user. The infra repo becomes the prerequisite for completing #12 (IAM IC migration). |
 | 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 
@@ -116,8 +117,8 @@ Infrastructure secrets are split across two vaults:
 
 | Secret | Vault | Item name | Field(s) |
 |---|---|---|---|
-| AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
-| 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
+| AWS IAM access keys | `infrastructure` | `personal-nix-configs-infra` | `access_key_id`, `secret_access_key` |
+| 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | Nix cache signing key | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
 
@@ -130,7 +131,7 @@ Tofu-specific tokens are injected per-recipe in the justfile:
 
 ```bash
 TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
-TF_VAR_op_service_account_token=$(op read "op://Private/1Password SA github-actions-nix-configs/token")
+TF_VAR_op_service_account_token=$(op read "op://infrastructure/github-actions-nix-configs/token")
 export TF_VAR_github_token TF_VAR_op_service_account_token
 ```
 
@@ -138,21 +139,23 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 
 ## AWS Isolation
 
-- AWS credentials are injected at devShell entry via `op read` in `shell.nix` shellHook — never stored on disk or in env files
-- devShell sets `AWS_PROFILE=nix-configs` and `AWS_CONFIG_FILE=.aws/config` (project-scoped, region only) — isolated from any host-level `~/.aws` profiles
+- `~/.aws/config` managed declaratively by `home/modules/aws.nix`; never contains secrets
+- Credentials sourced via `credential_process` (1Password locally, OIDC env vars in CI)
+- devShell sets `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`, `AWS_DEFAULT_REGION=eu-central-1`
 - OIDC role for GitHub Actions (`nix-configs-github-actions`) is scoped to this repo only
 
-### IAM Identity Center & multi-account setup (planned)
+### IAM Identity Center & multi-account setup (in progress)
 
-> Current setup uses IAM access keys (stored in 1Password). This is a stepping stone.
+> Current setup uses IAM access keys (stored in 1Password) alongside Granted for SSO.
 
 Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready credential setup.
 
-- IAM Identity Center provides short-lived credentials via browser-based login — no long-lived keys
-- Investigate whether the **1Password SSH agent + CLI** approach extends naturally to SSO credential caching, or whether a dedicated tool is needed
-- Candidate tool: **[Granted](https://docs.commonfate.io/granted/introduction)** (by Common Fate) — CLI for assuming IAM Identity Center roles across multiple accounts with a clean `assume` workflow
-- Decision to be made: 1Password-native vs Granted, based on multi-account UX and nix integration
-- Once decided: update `shell.nix` shellHook and remove IAM access keys from 1Password
+- **Granted** adopted — installed via homebrew (`granted` + `aws-vault`); reusable module at `home/modules/granted.nix`
+- `assume` alias configured in zsh — sources credentials into the current shell
+- Firefox managed by home-manager with **Multi-Account Containers** + **Granted addon** for isolated AWS console sessions
+- Credential storage: macOS keychain (granted default)
+- **aws-vault** preserved for backward compatibility
+- Next steps: configure SSO profiles in `~/.aws/config`, then remove IAM access keys from 1Password and update `shell.nix` shellHook
 
 ## Git Identity Isolation
 

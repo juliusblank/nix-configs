@@ -42,7 +42,7 @@ cd ~/personal/nix-configs
 # Sign in to 1Password CLI (secrets are injected automatically from here)
 op signin
 
-# Enter the dev shell (provides tofu, awscli, just, etc.)
+# Enter the dev shell (provides tofu, just, etc.)
 nix develop
 
 # Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state, then bring
