@@ -48,7 +48,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
-| 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
+| 10 | Backup — serenity user data to S3 | Music, photos, projects, DAW presets (Bitwig + Serum user folders); restore verification required. See §Backup for inclusion paths. |
 | 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
 | 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on macbook-work. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
@@ -256,7 +256,19 @@ Installed automatically when entering the devShell (`nix develop`):
 
 Reliable, simple backup of serenity user data to AWS S3.
 
-**Data categories:** music collection, photos, projects (and any other user data identified over time)
+**Data categories:** music collection, photos, projects, DAW presets (and any other user data identified over time)
+
+**Known inclusion paths (serenity):**
+
+| Path | Contents | Notes |
+|---|---|---|
+| `~/Music/` | music collection | primary data |
+| `~/Pictures/` | photos | primary data |
+| `~/Documents/Bitwig Studio/Library/Presets/` | user-created Bitwig presets | exclude factory content — re-downloadable |
+| `~/Documents/Bitwig Studio/Projects/` | Bitwig project files | binary format; no git |
+| `~/Music/Serum Presets/User Presets/` | hand-crafted Serum presets | Splice presets re-downloadable; only user folder matters |
+
+Factory/vendor preset folders and render/bounce output should be excluded — they are large and fully re-downloadable.
 
 **Principles:**
 - Simple enough to run quickly — "just do it" with a single command
