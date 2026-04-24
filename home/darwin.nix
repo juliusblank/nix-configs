@@ -21,17 +21,8 @@ in
     eval "$(op completion zsh)"
   '';
 
-  # 1Password SSH agent — which keys to expose
-  home.file.".config/1password/ssh/agent.toml".text = ''
-    # All SSH keys from the Private vault (includes the personal "serenity" key)
-    [[ssh-keys]]
-    vault = "Private"
-
-    # Claude Code signing key
-    [[ssh-keys]]
-    item = "Claude github SSH key"
-    vault = "github_nix-configs"
-  '';
+  # 1Password SSH agent key selection is host-specific — see each host's home.nix
+  # for the agent.toml that controls which keys are exposed on that machine.
 
   # SSH config — use 1Password SSH agent for all connections
   # OrbStack's include must come first (before any Host blocks)

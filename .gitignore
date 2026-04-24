@@ -14,3 +14,4 @@ terraform/tfplan
 
 # OS
 .DS_Store
+*.swp

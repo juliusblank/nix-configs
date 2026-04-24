@@ -7,7 +7,7 @@ Multi-system nix configuration for macOS and NixOS hosts.
 | Host            | OS    | Purpose        | Status                   |
 |-----------------|-------|----------------|--------------------------|
 | serenity        | macOS | Personal dev   | active                   |
-| macbook-work    | macOS | Work dev       | planned (not deployed)   |
+| concinnity      | macOS | Work dev       | planned (not deployed)   |
 | pi-moodpi       | NixOS | Moodpi service | planned (config pending) |
 
 ## Prerequisites
@@ -106,7 +106,7 @@ just changelog           # regenerate CHANGELOG.md locally
 │   └── darwin.nix         # macOS-specific home additions
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
-│   ├── macbook-work/      # nix-darwin + home-manager (planned)
+│   ├── concinnity/        # nix-darwin + home-manager (planned)
 │   └── pi-moodpi/         # NixOS + home-manager (planned)
 ├── overlays/              # custom packages / overrides
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)

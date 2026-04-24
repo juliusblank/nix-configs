@@ -131,7 +131,7 @@ build host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        serenity|macbook-work)
+        serenity|concinnity)
             nix build ".#darwinConfigurations.{{host}}.system"
             ;;
         pi-*)
@@ -152,7 +152,7 @@ deploy host:
         echo "WARNING: deploying from branch '$branch', not main."
     fi
     case "{{host}}" in
-        serenity|macbook-work)
+        serenity|concinnity)
             sudo darwin-rebuild switch --flake ".#{{host}}"
             ;;
         pi-*)
@@ -195,7 +195,7 @@ diff host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        serenity|macbook-work)
+        serenity|concinnity)
             darwin-rebuild build --flake ".#{{host}}"
             nix store diff-closures /run/current-system ./result
             ;;

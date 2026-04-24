@@ -49,9 +49,9 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
-| 11 | `macbook-work` host config | Includes editor + tmux config in `home/common.nix` |
+| 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
-| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on macbook-work. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
+| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on concinnity. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -59,13 +59,14 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 20 | Separate infra repo | Move IAM Identity Center, DNSimple, Ionos, and other account-level infrastructure out of this repo into a dedicated `infra` repo. Keep in `nix-configs/terraform/`: nix cache bucket, state backend, GitHub repo settings, OIDC role for this repo's CI, and `personal-nix-configs-infra` IAM user. The infra repo becomes the prerequisite for completing #12 (IAM IC migration). |
 | 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
+| 20 | ghostty setup from work laptop | extract the configuration for ghostty from the work laptop and interactively plan with the user if it needs finetuning, then apply it to both machines |
 
 ## Hosts
 
 | Host              | OS         | Manager             | Purpose           | Status                   |
 |-------------------|------------|----------------------|-------------------|--------------------------|
 | serenity          | macOS      | nix-darwin + home-manager | Personal dev     | active                   |
-| macbook-work      | macOS      | nix-darwin + home-manager | Work dev          | planned (not deployed)   |
+| concinnity        | macOS      | nix-darwin + home-manager | Work dev          | config ready, not yet deployed |
 | pi-moodpi         | NixOS      | NixOS + home-manager      | Moodpi service   | planned (config pending) |
 
 More hosts will be added over time.
@@ -82,8 +83,8 @@ Tools and config that EVERY host gets:
 
 ## Host-Specific Config
 
-- **serenity**: Homebrew casks (GUI apps), personal SSH keys
-- **macbook-work**: Work-specific tools, work SSH keys, work git identity override for work repos
+- **serenity**: Homebrew casks (GUI apps), personal SSH keys, DJ toolchain, personal AWS credentials
+- **concinnity**: Work CLI tools, work SSH keys, work git identity override for `~/work/` repos, company-managed GUI apps (not in nix). See host isolation section below.
 - **pi-moodpi**: NixOS system config, moodpi service definition
 
 ## Infrastructure

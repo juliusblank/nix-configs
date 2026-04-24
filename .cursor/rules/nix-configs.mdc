@@ -1,0 +1,13 @@
+---
+description: Nix monorepo — follow CLAUDE.md and SPEC before substantive work
+alwaysApply: true
+---
+
+# Agent instructions
+
+This repo is shared between **Claude Code** (reads `CLAUDE.md` automatically) and **Cursor**.
+
+1. **Read `docs/SPEC.md` in full** before non-trivial changes — it is the source of truth for scope, hosts, and secrets.
+2. **Follow `CLAUDE.md`** for workflow (spec-first when appropriate), branch/PR rules, conventional commits, `just fmt` after `.nix` edits, safety rules around deploy, and README consistency when `flake.nix`, `justfile`, or `docs/SPEC.md` change.
+
+Do not duplicate long policy here; keep `CLAUDE.md` authoritative so one edit updates both tools.
