@@ -8,31 +8,31 @@
 let
   cfg = config.custom.nixUpdateReminder;
   stateFile = "${config.home.homeDirectory}/.local/state/nix-update-check";
+  timestampFile = "${config.home.homeDirectory}/.local/state/nix-update-check.timestamp";
 
   # Compares locked revs in flake.lock against upstream branch HEADs via
   # git ls-remote. No tarball downloads, no nix evaluation, no daemon involvement.
-  # Safe to run at any time, including during audio/DJ workloads.
   checkScript = pkgs.writeShellApplication {
     name = "nix-update-check";
     runtimeInputs = with pkgs; [
       jq
       git
+      coreutils
     ];
     text = ''
       lock_file="${cfg.repoPath}/flake.lock"
       state_file="${stateFile}"
+      timestamp_file="${timestampFile}"
 
       mkdir -p "$(dirname "$state_file")"
-      : > "$state_file"
 
-      [[ -f "$lock_file" ]] || exit 0
-
-      # Bail immediately if offline — don't hang or log spurious errors
-      if ! timeout 5 git ls-remote https://github.com 2>/dev/null | head -1 &>/dev/null; then
+      # Bail immediately if offline
+      if ! timeout 5 git ls-remote https://github.com &>/dev/null; then
         exit 0
       fi
 
-      # Extract github-type inputs that track a branch (have a ref field)
+      : > "$state_file"
+
       jq -r '
         .nodes | to_entries[] |
         select(.key != "root") |
@@ -49,12 +49,14 @@ let
         [[ "$remote_rev" == "$locked_rev" ]] && continue
         echo "$name" >> "$state_file"
       done
+
+      date +%s > "$timestamp_file"
     '';
   };
 in
 {
   /**
-    Periodically checks for nix flake input updates and reminds on shell start.
+    Checks for nix flake input updates on terminal open and reminds if stale.
   */
   options.custom.nixUpdateReminder = {
     enable = lib.mkEnableOption "nix flake update reminder";
@@ -69,43 +71,44 @@ in
       default = 7;
       description = "Days since last flake.lock update before showing the reminder.";
     };
+
+    recheckHours = lib.mkOption {
+      type = lib.types.int;
+      default = 12;
+      description = "Minimum hours between upstream checks to avoid re-running on every terminal open.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
-    # Daily background check — runs 24h after its own last run, never on load.
-    # Niced to the floor so it cannot impact foreground work (audio, etc.).
-    launchd.agents.nix-update-check = {
-      enable = true;
-      config = {
-        ProgramArguments = [ "${checkScript}/bin/nix-update-check" ];
-        StartInterval = 86400;
-        RunAtLoad = false;
-        Nice = 19;
-        LowPriorityIO = true;
-        ProcessType = "Background";
-        StandardOutPath = "/tmp/nix-update-check.log";
-        StandardErrorPath = "/tmp/nix-update-check.log";
-      };
-    };
-
     programs.zsh.initExtra = ''
       _nix_update_reminder() {
         local lock_file="${cfg.repoPath}/flake.lock"
         local state_file="${stateFile}"
+        local timestamp_file="${timestampFile}"
 
         [[ ! -f "$lock_file" ]] && return
-        [[ ! -f "$state_file" ]] && return
-        [[ ! -s "$state_file" ]] && return
-
-        # Suppress if flake.lock is newer than state file — user already updated
-        [[ "$lock_file" -nt "$state_file" ]] && return
 
         local now mtime age_days
         now=$(date +%s)
         mtime=$(stat -f %m "$lock_file" 2>/dev/null) || return
         age_days=$(( (now - mtime) / 86400 ))
 
+        # flake.lock is recent enough — no reminder needed
         [[ $age_days -lt ${toString cfg.staleDays} ]] && return
+
+        # Decide whether to re-run the upstream check
+        local last_checked=0
+        [[ -f "$timestamp_file" ]] && last_checked=$(cat "$timestamp_file" 2>/dev/null || echo 0)
+        local hours_since_check=$(( (now - last_checked) / 3600 ))
+
+        if [[ $hours_since_check -ge ${toString cfg.recheckHours} ]]; then
+          ${checkScript}/bin/nix-update-check
+        fi
+
+        # flake.lock updated since last check — user already ran just update
+        [[ "$lock_file" -nt "$timestamp_file" ]] && return
+
+        [[ ! -s "$state_file" ]] && return
 
         echo ""
         echo "  nix-configs: $age_days days since last update — pending:"
