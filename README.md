@@ -54,9 +54,9 @@ Follow the installer prompts, then open a new terminal before `just deploy <host
 ### Getting started: serenity (personal)
 
 ```bash
-# Clone the repo
-git clone git@github.com:juliusblank/nix-configs.git ~/personal/nix-configs
-cd ~/personal/nix-configs
+# Clone the repo (canonical path on serenity — see docs/SPEC.md)
+git clone git@github.com:juliusblank/nix-configs.git ~/nix-configs
+cd ~/nix-configs
 
 # Sign in to 1Password CLI (secrets are injected automatically from here)
 op signin
@@ -88,7 +88,7 @@ just deploy serenity
 ### Getting started: concinnity (work)
 
 ```bash
-# Clone outside ~/work/ so this repo keeps your personal git identity
+# Canonical path on concinnity — outside ~/work/ so personal git identity applies
 git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-configs
 cd ~/github/juliusblank/nix-configs
 
@@ -168,7 +168,10 @@ devShell defaults. Details: *AWS Isolation* and *Serenity and concinnity isolati
 
 - Default identity: `Julius Blank <dev@juliusblank.de>` (from `home/common.nix`)
 - Work machine: repos under `~/work/` automatically use work email via `includeIf`
-- This repo lives under `~/personal/` → always uses personal identity
+- **serenity:** clone at `~/nix-configs` (canonical). **concinnity:** clone at
+  `~/github/juliusblank/nix-configs`. Both are outside `~/work/`, so both use the
+  personal identity for this repo; only repos under `~/work/` get the work identity
+  on concinnity (see `docs/SPEC.md`).
 
 ## Secrets
 

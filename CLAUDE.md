@@ -13,6 +13,8 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 - `home/common.nix` — shared home-manager config for all hosts
 - `home/darwin.nix` — macOS-specific home-manager additions
 - `flake.nix` — entry point; pinned to `nixpkgs-25.11-darwin` and `nix-darwin-25.11`
+- **Clone paths (canonical):** serenity `~/nix-configs`; concinnity
+  `~/github/juliusblank/nix-configs` — both outside `~/work/` (see `docs/SPEC.md`)
 
 ## Workflow
 

@@ -169,11 +169,25 @@ Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready cre
 - **Default identity** (Julius Blank / dev@juliusblank.de, personal SSH signing) comes
   from `home/common.nix` for every host.
 - **concinnity:** `programs.git.includes` in `hosts/concinnity/home.nix` applies work
-  name, email, and signing when `gitdir` matches `~/work/`. Repos outside that path
-  (including this repo under e.g. `~/github/` or `~/personal/`) keep the personal
-  identity — required so `nix-configs` commits stay personal even on the work laptop.
-- **serenity:** this repo is expected under `~/personal/`; no work `includeIf` on
-  that machine today.
+  name, email, and signing when `gitdir` matches `~/work/`. Repos **outside** `~/work/`
+  keep the personal identity — required so `nix-configs` commits stay personal on
+  the work laptop.
+- **serenity:** no work `includeIf` on that machine.
+
+### Canonical clone paths for `nix-configs`
+
+Use these paths in docs, scripts, and muscle memory so examples stay consistent:
+
+| Host | Directory | Rationale |
+|---|---|---|
+| serenity | `~/nix-configs` | Short path on the personal machine; **not** under `~/work/` |
+| concinnity | `~/github/juliusblank/nix-configs` | Under `~/github/` (personal GitHub layout), **not** under `~/work/` |
+
+**Why `~/nix-configs` on serenity is safe:** identity overrides are keyed off
+`gitdir:~/work/` only. A repo at `~/nix-configs` is not under `~/work/`, so it always
+uses the personal identity from `common.nix` — same as the concinnity path above.
+Nothing in nix-darwin/home-manager needs the clone path except your own commands
+(e.g. `darwin-rebuild switch --flake ~/nix-configs#serenity`).
 
 ## Serenity and concinnity isolation
 
@@ -183,6 +197,7 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 
 | Concern | serenity | concinnity |
 |---|---|---|
+| Canonical `nix-configs` clone path | `~/nix-configs` | `~/github/juliusblank/nix-configs` (must stay outside `~/work/`) |
 | `shell.nix` `GH_TOKEN` / `AWS_PROFILE` for this repo | Injected when hostname is `serenity` | Not set by shellHook — no `op read` to personal-infra or `github_nix-configs` PAT for routine shell |
 | Nix binary cache substituters | Enabled (see `hosts/serenity/configuration.nix`) | **Disabled** — avoid pulling personal closures onto a work-managed device |
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |

@@ -19,8 +19,10 @@ installer from the same branch the flake pins (`nix-darwin-25.11`):
 nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-installer
 ```
 
-Then clone this repo, `cd` into it, and use `just build <host>` / `just deploy <host>` as
-below. See `README.md` for serenity vs concinnity entry paths.
+Then clone this repo to the **canonical path** for that host (`~/nix-configs` on
+serenity, `~/github/juliusblank/nix-configs` on concinnity — see `docs/SPEC.md`), `cd`
+into it, and use `just build <host>` / `just deploy <host>` as below. See `README.md`
+for full getting-started steps.
 
 ## Standard workflow
 

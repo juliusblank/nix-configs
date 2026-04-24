@@ -14,8 +14,9 @@
   # --- Git identity isolation ---
   #
   # Default identity (personal) comes from common.nix and applies to all repos
-  # that don't match a more specific includeIf rule. This means repos under
-  # ~/github/ (including nix-configs itself) use the personal identity.
+  # that don't match a more specific includeIf rule. Keep nix-configs at
+  # ~/github/juliusblank/nix-configs (outside ~/work/) so this repo uses personal
+  # identity; only repos under ~/work/ get the work override below.
   #
   # Work repos under ~/work/ get the work identity + work signing key.
   # The work signing key is looked up by its public key string — 1Password
