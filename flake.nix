@@ -101,15 +101,40 @@
           ];
         };
 
-        macbook-work = nix-darwin.lib.darwinSystem {
+        concinnity = nix-darwin.lib.darwinSystem {
           system = "aarch64-darwin";
+          specialArgs = { inherit inputs self; };
           modules = [
-            ./hosts/macbook-work/configuration.nix
+            {
+              # direnv 2.37.x fish-test is SIGKILL'd in the macOS sandbox; skip checks
+              nixpkgs.overlays = [
+                (final: prev: {
+                  direnv = prev.direnv.overrideAttrs (_: {
+                    doCheck = false;
+                  });
+                })
+              ];
+            }
+            ./hosts/concinnity/configuration.nix
             home-manager.darwinModules.home-manager
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
-              home-manager.users.julius = import ./hosts/macbook-work/home.nix;
+              home-manager.users."julius.blank" = import ./hosts/concinnity/home.nix;
+            }
+            nix-homebrew.darwinModules.nix-homebrew
+            {
+              nix-homebrew = {
+                enable = true;
+                enableRosetta = true;
+                user = "julius.blank";
+                autoMigrate = true;
+                taps = {
+                  "homebrew/homebrew-core" = inputs.homebrew-core;
+                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+                };
+                mutableTaps = false;
+              };
             }
           ];
         };

@@ -59,18 +59,23 @@ pkgs.mkShell {
     HOOKEOF
     chmod +x .git/hooks/pre-commit
 
-    # Inject secrets from 1Password (skip in CI where they are provided by the runner)
-    if [ -z "''${CI:-}" ] && command -v op &>/dev/null; then
+    # Inject secrets from 1Password — only on serenity where the relevant vaults exist.
+    # On other machines (concinnity, CI) the secrets are either not needed or provided
+    # by the runner environment. This guard prevents op read errors on machines that
+    # don't have access to the github_nix-configs or infrastructure vaults.
+    if [ -z "''${CI:-}" ] && [ "$(hostname -s)" = "serenity" ] && command -v op &>/dev/null; then
       export GH_TOKEN=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
     fi
 
     # AWS — credentials sourced via credential_process in ~/.aws/config locally;
     # in CI, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars take precedence over
     # credential_process. AWS_DEFAULT_REGION is a fallback for CI where the config
-    # file may not exist.
-    export AWS_CONFIG_FILE="$HOME/.aws/config"
-    export AWS_PROFILE=personal-nix-configs-infra
-    export AWS_DEFAULT_REGION=eu-central-1
+    # file may not exist. Only set on serenity; concinnity uses its own AWS config.
+    if [ -z "''${CI:-}" ] && [ "$(hostname -s)" = "serenity" ]; then
+      export AWS_CONFIG_FILE="$HOME/.aws/config"
+      export AWS_PROFILE=personal-nix-configs-infra
+      export AWS_DEFAULT_REGION=eu-central-1
+    fi
 
     echo "nix-configs devShell loaded"
     echo "Run 'just --list' to see available recipes"

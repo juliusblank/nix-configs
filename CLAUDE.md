@@ -8,11 +8,14 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 ## Repo context
 
 - `hosts/serenity/` — personal MacBook Pro (Apple Silicon, macOS)
-- `hosts/macbook-work/` — work MacBook (placeholder, not yet deployed)
+- `hosts/concinnity/` — work MacBook (`just deploy concinnity`; see `docs/usage/nix-system.md`)
 - `hosts/pi-moodpi/` — Raspberry Pi NixOS host (commented out, config pending)
 - `home/common.nix` — shared home-manager config for all hosts
 - `home/darwin.nix` — macOS-specific home-manager additions
 - `flake.nix` — entry point; pinned to `nixpkgs-25.11-darwin` and `nix-darwin-25.11`
+- **Clone path (canonical, macOS):** `~/github/juliusblank/nix-configs` on serenity and
+  concinnity — not under `~/github/taktile-org/` where work `includeIf` applies (see
+  `docs/SPEC.md`)
 
 ## Workflow
 
@@ -51,7 +54,7 @@ chore(deps): update flake inputs
 docs(spec): mark 1password migration as complete
 ```
 
-Common scopes: `flake`, `serenity`, `macbook-work`, `home`, `darwin`, `infra`, `spec`, `deps`.
+Common scopes: `flake`, `serenity`, `concinnity`, `home`, `darwin`, `infra`, `spec`, `deps`.
 
 ## Formatting
 

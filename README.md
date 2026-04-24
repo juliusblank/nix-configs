@@ -7,42 +7,100 @@ Multi-system nix configuration for macOS and NixOS hosts.
 | Host            | OS    | Purpose        | Status                   |
 |-----------------|-------|----------------|--------------------------|
 | serenity        | macOS | Personal dev   | active                   |
-| macbook-work    | macOS | Work dev       | planned (not deployed)   |
+| concinnity      | macOS | Work dev       | active                   |
 | pi-moodpi       | NixOS | Moodpi service | planned (config pending) |
 
 ## Prerequisites
 
-1. **Nix** — install with flakes enabled:
+1. **Nix (macOS)** — multi-user **upstream** Nix with flakes, using the installer from
+   [artifacts.nixos.org](https://artifacts.nixos.org/) (Nix Installer Working Group build;
+   compatible with **nix-darwin** managing **`nix.conf`** — default **`nix.enable`**):
+
    ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh
+   curl -sSfL https://artifacts.nixos.org/nix-installer | sh -s -- install --enable-flakes
    ```
 
-2. **just** — install via nix or brew:
-   ```bash
-   nix-env -iA nixpkgs.just
-   # or: brew install just
-   ```
+   More context: [`docs/usage/nix-system.md`](docs/usage/nix-system.md#installing-nix-macos).
 
-3. **1Password + 1Password CLI** — install the app and CLI, then sign in:
-   ```bash
-   brew install 1password 1password-cli
-   op signin
-   ```
-   AWS credentials and the 1Password SA token are stored in the **Private** vault.
-   The GitHub PAT lives in the **github_nix-configs** vault.
-   All secrets are injected at runtime via `op read` — no manual credential export required.
+   **After that install:**
+
+   - Finish the installer’s prompts (including **`sudo`** where asked).
+   - Open a **new** terminal (or `exec $SHELL`) so **`nix`** is on your **`PATH`**; run
+     **`nix --version`** to confirm.
+   - If another Nix distribution is already installed (e.g. a vendor-specific Nix), remove
+     it first so only one daemon and **`/etc/nix/nix.conf`** story remains.
+   - First time **nix-darwin** on this Mac: follow
+     [First-time nix-darwin on macOS](#first-time-nix-darwin-on-macos) (bootstrap with
+     **`just deploy`** or the **`sudo nix run …#darwin-rebuild`** fallback), then a new
+     shell if you like.
+
+2. **Repo devShell** — this flake’s shell (see `shell.nix`) provides **`just`**, OpenTofu,
+   `nixfmt`, `git-cliff`, etc. Enter it in either way:
+   - **`nix develop`** — works on any machine with Nix alone.
+   - **`direnv allow`** — in this repo, after [direnv](https://direnv.net/docs/installation.html)
+     is installed and hooked into your shell (`.envrc` is `use flake`).
+
+   You do **not** need a global `just` from `nix-env` or Homebrew for normal work in
+   this repository.
+
+3. **1Password** — install the app and CLI when you will run recipes or devShell hooks
+   that call **`op read`** (serenity infra, GitHub token in the devShell on serenity, etc.).
+   On **concinnity**, plain **`just check`** / **`just build concinnity`** do not require
+   `op`. Sign in with **`op signin`** before serenity-style setup or when something fails
+   on missing secrets.
+
+   AWS credentials and the 1Password SA token for personal infra live in documented
+   vaults; see `docs/SPEC.md` — *Secrets Management*.
 
 ## Getting Started
 
+**Clone path (both macOS hosts):** `~/github/juliusblank/nix-configs` — see
+`docs/SPEC.md` (*Canonical clone path for nix-configs*, *GitHub checkout layout*).
+
+**concinnity — work repos:** clone the `taktile` org under `~/github/taktile-org/`
+(work git identity). Do not put `nix-configs` there.
+
+**serenity** runs OpenTofu and gets personal-infra secrets in the devShell.
+**concinnity** is the work laptop: deploy from this flake, but skip infra bootstrap
+unless you intentionally use the same 1Password items from that machine (see
+`docs/SPEC.md` — *Serenity and concinnity isolation*).
+
+### First-time nix-darwin on macOS
+
+The **`nix-darwin-25.11`** flake does **not** expose **`darwin-installer`** (only
+**`darwin-rebuild`**, **`darwin-uninstaller`**, etc.). Upstream bootstraps with **`darwin-rebuild
+switch`** — see [nix-darwin — Installing nix-darwin](https://github.com/nix-darwin/nix-darwin?tab=readme-ov-file#step-2-installing-nix-darwin).
+
+On a Mac with Nix + flakes and **no** nix-darwin generation yet, from this repo (same
+**`nix-darwin-25.11`** pin as **`flake.nix`** / **`justfile`**):
+
 ```bash
-# Clone the repo
-git clone git@github.com:juliusblank/nix-configs.git ~/personal/nix-configs
-cd ~/personal/nix-configs
+cd ~/github/juliusblank/nix-configs
+nix develop   # or: direnv allow — need `just` on PATH for the next lines
+just build <host>    # optional: serenity | concinnity
+just deploy <host>
+```
+
+**Without `just`:** from the repo directory:
+
+```bash
+sudo nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild -- switch --flake ".#<host>"
+```
+
+Replace **`<host>`** with **`serenity`** or **`concinnity`** (must match **`darwinConfigurations`**
+in **`flake.nix`**). Then open a **new** terminal if **`darwin-rebuild`** is not on your
+**`PATH`** yet.
+
+### Getting started: serenity (personal)
+
+```bash
+git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-configs
+cd ~/github/juliusblank/nix-configs
 
 # Sign in to 1Password CLI (secrets are injected automatically from here)
 op signin
 
-# Enter the dev shell (provides tofu, just, etc.)
+# Enter the dev shell (provides tofu, just, etc.) — or use direnv allow in this repo
 nix develop
 
 # Step 0a: Create S3 bucket + DynamoDB table for OpenTofu state, then bring
@@ -62,9 +120,59 @@ just tf-apply
 # Step 0d: Generate nix cache signing keys (once per machine)
 just setup-nix-cache-keys
 
-# Step 1: Deploy to current host
+# Step 1: Deploy to serenity
 just deploy serenity
 ```
+
+### Getting started: concinnity (work)
+
+Use the **same clone path** as serenity (`~/github/juliusblank/nix-configs`). If the
+repo is not cloned yet:
+
+```bash
+git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-configs
+cd ~/github/juliusblank/nix-configs
+```
+
+**Enter the repo devShell** (flake supplies `just`, OpenTofu, formatters, pre-commit):
+
+- **direnv:** with [direnv](https://direnv.net/docs/installation.html) installed and hooked
+  into zsh, run **`direnv allow`** once in this directory (`.envrc` is `use flake`).
+- **No direnv:** run **`nix develop`**, or from outside the shell e.g.
+  **`nix develop -c just build concinnity`**.
+
+Validate and build (no `sudo` yet):
+
+```bash
+just check
+just build concinnity
+```
+
+**First nix-darwin on this Mac:** follow
+[First-time nix-darwin on macOS](#first-time-nix-darwin-on-macos) (**`just deploy`** bootstraps
+nix-darwin; no separate **`darwin-installer`**). You do **not** need **`darwin-rebuild`** on your
+shell **`PATH`** for **`just deploy`**:
+it **`nix build`**s **`nix_darwin_flake#darwin-rebuild`** (see the **`justfile`**, same pin as
+**`flake.nix`**), then runs **`sudo <store>/bin/darwin-rebuild switch`** so activation runs as
+root without **`sudo`** having to resolve the bare **`darwin-rebuild`** name.
+
+Activate:
+
+```bash
+just deploy concinnity
+```
+
+**Work laptop — YubiKey:** **`yubikey-manager`** (**`ykman`**) is on **`home.packages`**, and
+**`assume`** / **`login`** in **`hosts/concinnity/home.nix`** prepend that package’s **`bin`**
+to **`PATH`** before **`aws-vault --prompt ykman`**, so the Nix **`ykman`** is used even when
+Homebrew’s **`PATH`** comes first system-wide. Use a **physical YubiKey** when running those commands.
+
+Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
+manage that infrastructure from the work machine with the same 1Password access as
+serenity. The devShell does not export personal `GH_TOKEN` / AWS profile there by
+design.
+
+After the first successful deploy, follow **[docs/usage/concinnity-after-deploy.md](docs/usage/concinnity-after-deploy.md)** (auth, brew cleanup, AWS / Granted, devShells).
 
 ## Usage
 
@@ -73,7 +181,9 @@ just deploy serenity
 Manage nix-darwin / NixOS host configuration: editing packages, shell setup, and system
 settings, then building and deploying to a host.
 
-See [docs/usage/nix-system.md](docs/usage/nix-system.md) for the full workflow and examples.
+See [docs/usage/nix-system.md](docs/usage/nix-system.md) for the full workflow, examples, and
+[known issues: macOS and nix-darwin](docs/usage/nix-system.md#known-issues-macos-and-nix-darwin)
+(`darwin-rebuild` / `PATH` / `sudo`).
 
 ### Infrastructure
 
@@ -103,29 +213,44 @@ just changelog           # regenerate CHANGELOG.md locally
 ├── justfile               # all task recipes
 ├── home/
 │   ├── common.nix         # shared tools + shell config (all hosts)
-│   └── darwin.nix         # macOS-specific home additions
+│   ├── darwin.nix         # macOS-specific home additions
+│   ├── ghostty.nix        # Ghostty terminal config (imported by darwin.nix)
+│   └── modules/
+│       ├── aws.nix        # declarative ~/.aws/config
+│       ├── granted.nix    # Granted AWS credential manager
+│       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
-│   ├── macbook-work/      # nix-darwin + home-manager (planned)
+│   ├── concinnity/        # nix-darwin + home-manager (work Mac)
 │   └── pi-moodpi/         # NixOS + home-manager (planned)
 ├── overlays/              # custom packages / overrides
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
 ├── .github/workflows/     # CI
 └── docs/
     ├── SPEC.md            # living specification
-    └── ci.md              # CI job graph
+    ├── ci.md              # CI job graph
+    └── usage/
+        ├── nix-system.md
+        ├── infra.md       # OpenTofu day-to-day workflow
+        └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 
 ## AWS Isolation
 
-AWS credentials are injected at runtime via `op read` from the 1Password **Private** vault.
-They are never stored on disk, in env files, or in AWS profiles. Safe to use on any machine.
+On **serenity**, AWS keys for personal infra are read at runtime via `op read` (see
+`docs/SPEC.md` for vault layout). They are never committed. **concinnity** uses
+host-local AWS profiles from home-manager (`custom.aws`) instead of the serenity
+devShell defaults. Details: *AWS Isolation* and *Serenity and concinnity isolation* in
+`docs/SPEC.md`.
 
 ## Git Identity Isolation
 
 - Default identity: `Julius Blank <dev@juliusblank.de>` (from `home/common.nix`)
-- Work machine: repos under `~/work/` automatically use work email via `includeIf`
-- This repo lives under `~/personal/` → always uses personal identity
+- **concinnity:** repos under `~/github/taktile-org/` (and legacy `~/work/`) use work
+  email and signing via `includeIf` in `hosts/concinnity/home.nix`
+- **Both macOS hosts:** `nix-configs` lives at `~/github/juliusblank/nix-configs`
+  (personal GitHub layout), **not** under `~/github/taktile-org/`, so this repo always
+  uses the **personal** identity (see `docs/SPEC.md`).
 
 ## Secrets
 
@@ -135,9 +260,9 @@ The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgen
 
 | Secret | Vault | 1Password item | Field(s) |
 |---|---|---|---|
-| AWS IAM access keys | `Private` | `AWS Personal` | `access_key_id`, `secret_access_key` |
+| AWS IAM access keys | `infrastructure` | `personal-nix-configs-infra` | `access_key_id`, `secret_access_key` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
-| 1Password SA token (CI) | `Private` | `1Password SA github-actions-nix-configs` | `token` |
+| 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 
 ## Workflow
 

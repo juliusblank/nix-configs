@@ -7,6 +7,8 @@ aws_region := "eu-central-1"
 state_bucket := "juliusblank-terraform-state"
 lock_table := "juliusblank-terraform-locks"
 cache_bucket := "juliusblank-nix-cache"
+# Keep in sync with `inputs.nix-darwin` in flake.nix (branch / tag).
+nix_darwin_flake := "github:nix-darwin/nix-darwin/nix-darwin-25.11"
 
 # ==============================================================================
 # Step 0: Infrastructure bootstrap
@@ -131,7 +133,7 @@ build host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        serenity|macbook-work)
+        serenity|concinnity)
             nix build ".#darwinConfigurations.{{host}}.system"
             ;;
         pi-*)
@@ -152,8 +154,12 @@ deploy host:
         echo "WARNING: deploying from branch '$branch', not main."
     fi
     case "{{host}}" in
-        serenity|macbook-work)
-            sudo darwin-rebuild switch --flake ".#{{host}}"
+        serenity|concinnity)
+            # Non-interactive bash: no `darwin-rebuild` on PATH. New nix-darwin requires root
+            # for `switch`. Resolve the store path, then `sudo` that binary (not `sudo
+            # darwin-rebuild` — macOS secure_path would not find it).
+            drb=$(nix build --no-link --print-out-paths "{{nix_darwin_flake}}#darwin-rebuild")
+            sudo "$drb/bin/darwin-rebuild" switch --flake ".#{{host}}"
             ;;
         pi-*)
             echo "For remote NixOS hosts, use:"
@@ -195,8 +201,8 @@ diff host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        serenity|macbook-work)
-            darwin-rebuild build --flake ".#{{host}}"
+        serenity|concinnity)
+            nix run "{{nix_darwin_flake}}#darwin-rebuild" -- build --flake ".#{{host}}"
             nix store diff-closures /run/current-system ./result
             ;;
         *)

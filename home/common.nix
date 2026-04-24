@@ -1,7 +1,33 @@
-{ pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+
+let
+  # Public keys only — used for `git log --show-signature` / ssh signing verification.
+  personalAllowedSigners = ''
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
+  '';
+in
+{
+  imports = [ ./modules/extra-allowed-signers.nix ];
+
   # --- Shell ---
+  programs.starship = {
+    enable = true;
+    enableZshIntegration = true;
+    settings = {
+      add_newline = false;
+      character = {
+        success_symbol = "[❯](bold green)";
+        error_symbol = "[❯](bold red)";
+      };
+    };
+  };
+
   programs.zsh = {
     enable = true;
     autosuggestion.enable = true;
@@ -17,6 +43,14 @@
       gc = "git commit";
       gp = "git push";
     };
+  };
+
+  # --- GitHub CLI (global; config + credential helper via home-manager) ---
+  # Auth: run `gh auth login` once per machine — tokens live in Keychain / gh state,
+  # not in this repo. `hosts` below are optional; omit to manage hosts.yml only via CLI.
+  programs.gh = {
+    enable = true;
+    settings.git_protocol = "ssh";
   };
 
   # --- Git (personal identity, always) ---
@@ -38,15 +72,17 @@
     };
   };
 
-  # Maps the signing key to the personal email for local signature verification.
-  # Not a secret — this is the public key.
-  home.file.".ssh/allowed_signers".text = ''
-    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS
-    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
-  '';
+  # Maps signing keys to emails for local `git log --show-signature` verification.
+  # Hosts may append via `custom.extraAllowedSigners` (see concinnity).
+  home.file.".ssh/allowed_signers".text =
+    personalAllowedSigners
+    + lib.optionalString (config.custom.extraAllowedSigners != "") (
+      "\n" + config.custom.extraAllowedSigners
+    );
 
   # --- Core CLI tools (every machine gets these) ---
   home.packages = with pkgs; [
+    lazygit
     ripgrep
     fd
     jq
@@ -62,6 +98,19 @@
     nix-direnv
     gnupg
   ];
+
+  # --- Neovim (shared; expand in-tree over time) ---
+  programs.neovim = {
+    enable = true;
+    # home-manager wraps this itself; must be *-unwrapped (has `.lua`) — not `pkgs.neovim`.
+    package = pkgs.neovim-unwrapped;
+    defaultEditor = false;
+    extraLuaConfig = ''
+      -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
+      vim.opt.number = true
+      vim.opt.relativenumber = true
+    '';
+  };
 
   # --- Direnv (auto-activate devShells) ---
   programs.direnv = {
