@@ -88,7 +88,6 @@
     brews = [
       "cowsay"
       "granted"
-      "aws-vault"
     ];
     casks = [
       "1password"
