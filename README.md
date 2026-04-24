@@ -116,6 +116,8 @@ manage that infrastructure from the work machine with the same 1Password access 
 serenity. The devShell does not export personal `GH_TOKEN` / AWS profile there by
 design.
 
+After the first successful deploy, follow **[docs/usage/concinnity-after-deploy.md](docs/usage/concinnity-after-deploy.md)** (auth, brew cleanup, AWS placeholder, devShells).
+
 ## Usage
 
 ### System configuration
@@ -163,7 +165,10 @@ just changelog           # regenerate CHANGELOG.md locally
 ├── .github/workflows/     # CI
 └── docs/
     ├── SPEC.md            # living specification
-    └── ci.md              # CI job graph
+    ├── ci.md              # CI job graph
+    └── usage/
+        ├── nix-system.md
+        └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 
 ## AWS Isolation
