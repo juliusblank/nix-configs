@@ -220,6 +220,12 @@ via project shells), `tfenv`, `mkcert`, `lsd`. Brew **Python@** formulae may rem
 unused. **Neovim** is provided via `programs.neovim` in `home/common.nix` (placeholder
 `init.lua` — extend in-repo when ready).
 
+Everything else that still appears under `brew list --formula` (e.g. `autoconf`, `gettext`,
+`luajit`, `openssl@3`, `cffi`, `sqlite`, `grep` as a brew duplicate of GNU grep, Neovim
+build deps) is treated as **transitive** — **do not** add those formulae to this flake;
+uninstall migrated **leaves** first (`brew leaves`), then **`brew autoremove`** to peel
+orphaned deps.
+
 ## Claude Configuration
 
 - `CLAUDE.md` at the repo root: conventions, nix style guide, commit style, and repo-specific instructions for Claude Code sessions
