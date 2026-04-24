@@ -22,7 +22,6 @@
   nixpkgs.hostPlatform = "aarch64-darwin";
   nixpkgs.config.allowUnfree = true;
   nixpkgs.overlays = [
-    inputs.claude-code.overlays.default
     inputs.nur.overlays.default
   ];
 
@@ -41,10 +40,10 @@
 
   programs.zsh.enable = true;
 
-  # System-level packages — keep minimal; most GUI apps are managed by IRU
+  # System-level packages — keep minimal; most GUI apps are managed by IRU.
+  # Claude Code is provided by IRU with company-specific configuration — do not install via nix.
   environment.systemPackages = with pkgs; [
     vim
-    claude-code
   ];
 
   security.pam.services.sudo_local.touchIdAuth = true;
@@ -74,10 +73,7 @@
     taps = [
       "homebrew/core"
     ];
-    brews = [
-      "granted"
-      "aws-vault"
-    ];
+    brews = [ ];
     # GUI apps are generally managed by IRU (company software distribution);
     # casks here are additive for tools IRU does not provide.
     casks = [ "ghostty" ];

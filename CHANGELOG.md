@@ -21,6 +21,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** starship, global gh, lazygit via common on all hosts
 - **home:** add Neovim via home-manager with placeholder Lua
 - **concinnity:** complete host config — signing, aws-vault, ghostty, allowed-signers
+- **concinnity:** add ghostty cask and track aws config preservation
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
