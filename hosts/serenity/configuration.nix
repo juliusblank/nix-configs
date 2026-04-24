@@ -96,6 +96,9 @@
       "rekordbox"
       "audacity"
       "splice"
+      "bitwig-studio"
+      # xfer-serum-2: no Homebrew cask exists — install manually from
+      # https://www.xferrecords.com/products/serum-2 or via Splice plugin manager.
       "vial"
       "whatsapp"
       "gimp"
