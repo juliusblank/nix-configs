@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 
 let
   # The 1Password entry name is the single source of truth — the AWS CLI
@@ -38,6 +38,7 @@ in
     ../../home/darwin.nix
     ../../home/modules/granted.nix
     ../../home/modules/aws.nix
+    ../../home/modules/nix-update-reminder.nix
   ];
 
   home.username = "jbl";
@@ -56,6 +57,12 @@ in
 
   # Granted for AWS credential management
   custom.granted.enable = true;
+
+  # Nix flake update reminder
+  custom.nixUpdateReminder = {
+    enable = true;
+    repoPath = "${config.home.homeDirectory}/nix-configs";
+  };
 
   # AWS CLI profiles
   custom.aws = {
