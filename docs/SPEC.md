@@ -49,7 +49,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key filled into `hosts/serenity/configuration.nix` with substituters uncommented; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
-| 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md` (Getting started: concinnity), *Serenity and concinnity isolation* below. |
+| 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Same canonical clone path as serenity (`~/github/juliusblank/nix-configs`). Bootstrap + isolation: `README.md`, *Serenity and concinnity isolation* below. |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
 | 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); `tktliam` is a placeholder on concinnity. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). `assume` alias in `~/.zshrc` for Granted SSO workflow. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
@@ -174,20 +174,20 @@ Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready cre
   the work laptop.
 - **serenity:** no work `includeIf` on that machine.
 
-### Canonical clone paths for `nix-configs`
+### Canonical clone path for `nix-configs` (macOS)
 
-Use these paths in docs, scripts, and muscle memory so examples stay consistent:
+**Both serenity and concinnity:** `~/github/juliusblank/nix-configs`
 
-| Host | Directory | Rationale |
-|---|---|---|
-| serenity | `~/nix-configs` | Short path on the personal machine; **not** under `~/work/` |
-| concinnity | `~/github/juliusblank/nix-configs` | Under `~/github/` (personal GitHub layout), **not** under `~/work/` |
+Use this path in docs, scripts, and muscle memory on every macOS host so `flake`
+URLs and examples stay consistent.
 
-**Why `~/nix-configs` on serenity is safe:** identity overrides are keyed off
-`gitdir:~/work/` only. A repo at `~/nix-configs` is not under `~/work/`, so it always
-uses the personal identity from `common.nix` — same as the concinnity path above.
-Nothing in nix-darwin/home-manager needs the clone path except your own commands
-(e.g. `darwin-rebuild switch --flake ~/nix-configs#serenity`).
+**Why this is safe on concinnity:** work git identity uses `gitdir:~/work/` only.
+`~/github/...` is not under `~/work/`, so this repo always uses the personal identity
+from `common.nix`. **serenity** has no work `includeIf`, so the same path is fine
+there too.
+
+Nothing in nix-darwin/home-manager embeds the clone path; only commands you run do
+(e.g. `darwin-rebuild switch --flake ~/github/juliusblank/nix-configs#serenity`).
 
 ## Serenity and concinnity isolation
 
@@ -197,7 +197,7 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 
 | Concern | serenity | concinnity |
 |---|---|---|
-| Canonical `nix-configs` clone path | `~/nix-configs` | `~/github/juliusblank/nix-configs` (must stay outside `~/work/`) |
+| Canonical `nix-configs` clone path | `~/github/juliusblank/nix-configs` | same (must not be under `~/work/` on concinnity — satisfied by `~/github/...`) |
 | `shell.nix` `GH_TOKEN` / `AWS_PROFILE` for this repo | Injected when hostname is `serenity` | Not set by shellHook — no `op read` to personal-infra or `github_nix-configs` PAT for routine shell |
 | Nix binary cache substituters | Enabled (see `hosts/serenity/configuration.nix`) | **Disabled** — avoid pulling personal closures onto a work-managed device |
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |

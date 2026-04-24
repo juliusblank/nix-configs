@@ -34,11 +34,13 @@ Multi-system nix configuration for macOS and NixOS hosts.
 
 ## Getting Started
 
-Paths depend on the host. **serenity** is the machine that runs OpenTofu and owns
-personal-infra secrets in the devShell. **concinnity** is the work laptop: deploy
-nix-darwin from this flake, but skip infra bootstrap unless you intentionally use the
-same 1Password items from that machine (see `docs/SPEC.md` — *Serenity and concinnity
-isolation*).
+**Clone path (both macOS hosts):** `~/github/juliusblank/nix-configs` — see
+`docs/SPEC.md` (*Canonical clone path for nix-configs*).
+
+**serenity** runs OpenTofu and gets personal-infra secrets in the devShell.
+**concinnity** is the work laptop: deploy from this flake, but skip infra bootstrap
+unless you intentionally use the same 1Password items from that machine (see
+`docs/SPEC.md` — *Serenity and concinnity isolation*).
 
 ### First-time nix-darwin on macOS
 
@@ -54,9 +56,8 @@ Follow the installer prompts, then open a new terminal before `just deploy <host
 ### Getting started: serenity (personal)
 
 ```bash
-# Clone the repo (canonical path on serenity — see docs/SPEC.md)
-git clone git@github.com:juliusblank/nix-configs.git ~/nix-configs
-cd ~/nix-configs
+git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-configs
+cd ~/github/juliusblank/nix-configs
 
 # Sign in to 1Password CLI (secrets are injected automatically from here)
 op signin
@@ -87,11 +88,17 @@ just deploy serenity
 
 ### Getting started: concinnity (work)
 
+Use the **same clone path** as serenity (`~/github/juliusblank/nix-configs`). If the
+repo is not cloned yet:
+
 ```bash
-# Canonical path on concinnity — outside ~/work/ so personal git identity applies
 git clone git@github.com:juliusblank/nix-configs.git ~/github/juliusblank/nix-configs
 cd ~/github/juliusblank/nix-configs
+```
 
+Then:
+
+```bash
 op signin
 nix develop   # optional — tooling + pre-commit
 
@@ -168,10 +175,9 @@ devShell defaults. Details: *AWS Isolation* and *Serenity and concinnity isolati
 
 - Default identity: `Julius Blank <dev@juliusblank.de>` (from `home/common.nix`)
 - Work machine: repos under `~/work/` automatically use work email via `includeIf`
-- **serenity:** clone at `~/nix-configs` (canonical). **concinnity:** clone at
-  `~/github/juliusblank/nix-configs`. Both are outside `~/work/`, so both use the
-  personal identity for this repo; only repos under `~/work/` get the work identity
-  on concinnity (see `docs/SPEC.md`).
+- **Both macOS hosts:** clone at `~/github/juliusblank/nix-configs`. That path is
+  outside `~/work/`, so this repo always uses the **personal** identity; only repos
+  under `~/work/` get the work identity on concinnity (see `docs/SPEC.md`).
 
 ## Secrets
 
