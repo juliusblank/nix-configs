@@ -14,7 +14,7 @@ Multi-system nix configuration for macOS and NixOS hosts.
 
 1. **Nix** — install with flakes enabled:
    ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
    ```
 
 2. **just** — install via nix or brew:
