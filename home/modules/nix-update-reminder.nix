@@ -103,8 +103,6 @@ in
         hours_since_check=$(( (now - last_checked) / 3600 ))
 
         if [[ $hours_since_check -ge ${toString cfg.recheckHours} ]]; then
-          # Run in background — never block the prompt
-          echo "  checking nix-configs for updates..."
           ${checkScript}/bin/nix-update-check &
           return
         fi
