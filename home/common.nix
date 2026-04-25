@@ -32,6 +32,9 @@ in
     enable = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+    initContent = ''
+      eval "$(${pkgs.just}/bin/just --completions zsh)"
+    '';
     shellAliases = {
       ll = "eza -la";
       ls = "eza";

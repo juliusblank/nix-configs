@@ -5,6 +5,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Bug Fixes
 - **granted:** always set DefaultBrowser to suppress first-run prompt
+- **concinnity:** set GRANTED_ALIAS_CONFIGURED to suppress alias prompt
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
