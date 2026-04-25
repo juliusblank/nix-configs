@@ -8,6 +8,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Features
 - concinnity host, GitHub layout, and work/personal isolation (#36)
+- **darwin:** declare hostnames via networking.hostName (#39)
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
