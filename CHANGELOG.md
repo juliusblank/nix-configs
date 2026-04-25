@@ -13,6 +13,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** add grassume alias for granted to avoid assume collision
 - **concinnity:** rename aws-vault function to vassume, give assume back to granted
 - **concinnity:** add gassume helper for granted with YubiKey MFA
+- **concinnity:** declarative aws-vault env vars, rename login→vlogin, migration docs
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
