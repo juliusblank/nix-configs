@@ -80,10 +80,12 @@ in
 
   # Granted (config + Firefox) — do not take over the zsh name `assume`; work shell uses
   # aws-vault `assume` / `login` functions below (same as former ~/.zshrc).
+  # Granted's shell alias is exposed as `grassume` to avoid the name collision.
   custom.granted = {
     enable = true;
     assumeShellAlias = false;
   };
+  programs.zsh.shellAliases.grassume = "source assume";
 
   # aws-vault helpers + bash-style `complete` for profile names (migrated from ~/.zshrc).
   # bashcompinit only — home-manager already runs compinit; a second compinit is slow and
