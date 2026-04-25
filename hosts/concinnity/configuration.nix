@@ -19,6 +19,10 @@
   # Must match the value set when nix-darwin was first installed on this machine
   system.stateVersion = 6;
 
+  networking.hostName = "concinnity";
+  networking.computerName = "concinnity";
+  networking.localHostName = "concinnity";
+
   nixpkgs.hostPlatform = "aarch64-darwin";
   nixpkgs.config.allowUnfree = true;
   nixpkgs.overlays = [
