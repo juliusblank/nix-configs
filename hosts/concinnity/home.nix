@@ -78,14 +78,11 @@ in
     granted # AWS credential manager (SSO, credential-process)
   ];
 
-  # Granted (config + Firefox) — do not take over the zsh name `assume`; work shell uses
-  # aws-vault `assume` / `login` functions below (same as former ~/.zshrc).
-  # Granted's shell alias is exposed as `grassume` to avoid the name collision.
+  # Granted (config + Firefox) — `assume` alias goes to granted; aws-vault
+  # helpers below use `vassume` / `login` to avoid the name collision.
   custom.granted = {
     enable = true;
-    assumeShellAlias = false;
   };
-  programs.zsh.shellAliases.grassume = "source assume";
 
   # aws-vault helpers + bash-style `complete` for profile names (migrated from ~/.zshrc).
   # bashcompinit only — home-manager already runs compinit; a second compinit is slow and
@@ -93,9 +90,9 @@ in
   programs.zsh.initContent = lib.mkAfter ''
     autoload -U +X bashcompinit && bashcompinit
 
-    assume() {
+    vassume() {
     	if [ -z "$1" ]; then
-    		echo "Usage: assume <profile>";
+    		echo "Usage: vassume <profile>";
     		return 1;
     	fi;
 
@@ -125,7 +122,7 @@ in
     	PATH="${ykmanBinPath}:$PATH" aws-vault login --prompt ykman "$profile" -d "$duration";
     }
 
-    complete -W "$(aws configure list-profiles)" assume
+    complete -W "$(aws configure list-profiles)" vassume
     complete -W "$(aws configure list-profiles)" login
   '';
 
