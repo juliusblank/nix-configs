@@ -1,57 +1,23 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-24
-
-### Bug Fixes
-- **home:** use neovim-unwrapped for programs.neovim.package
+## Unreleased — 2026-04-25
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
-- **serenity:** drop aws-vault from homebrew (keep on concinnity)
-
-### Documentation
-- **spec:** record concinnity brew deps as transitive-only cleanup
-- fix Determinate Nix installer command to include install subcommand
-- **usage:** add concinnity post-deploy checklist
-- **readme:** streamline concinnity setup around devShell + direnv
-- align spec, readme, and usage docs with implementation
 
 ### Features
-- **home:** starship, global gh, lazygit via common on all hosts
-- **home:** add Neovim via home-manager with placeholder Lua
-- **concinnity:** complete host config — signing, aws-vault, ghostty, allowed-signers
-- **concinnity:** add ghostty cask and track aws config preservation
+- concinnity host, GitHub layout, and work/personal isolation (#36)
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
 - **home:** quote IdentityAgent path to handle space in "Group Containers" (#32)
-- **granted:** use activation script for writable config file
-- **home:** use --shell flag for granted completion in zsh init
-- **home:** stop managing .zshenv to prevent Granted permission error
-- **serenity:** update 1Password item ref to nix-configs-infra, add error handling
-- **serenity:** rename AWS profile to nix-configs-infra to match IAM username
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.7 (#30)
 - **deps:** upgrade nixpkgs, nix-darwin, home-manager to 25.11 (#31)
-- **secrets:** migrate Private vault entries to infrastructure vault
-- **secrets:** rename 1Password entry to personal-nix-configs-infra
-
-### Documentation
-- update AWS profile naming convention to match IAM username
-- **spec:** sync roadmap with profile rename and infra repo plan
-- **spec:** finish concinnity isolation and bootstrap docs
-- **spec:** canonical clone paths for serenity and concinnity
-- **spec:** single canonical clone path on all macOS hosts
 
 ### Features
-- **serenity:** integrate Granted for AWS credential management
-- **home:** improve granted module with full config and Firefox path
-- **home:** declarative AWS CLI config via home/modules/aws.nix
-- **serenity:** rename AWS profile to match 1Password entry name
-- **concinnity:** add work host and align docs with Cursor rules
-- **concinnity:** git includeIf for ~/github/taktile-org work clones
 - **home:** declarative AWS CLI config via home/modules/aws.nix (#33)
 ## v2026.04.7 — 2026-04-20
 

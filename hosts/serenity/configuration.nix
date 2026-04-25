@@ -26,6 +26,10 @@
   # Set the nixbld gid to match the existing installation
   ids.gids.nixbld = 350;
 
+  networking.hostName = "serenity";
+  networking.computerName = "serenity";
+  networking.localHostName = "serenity";
+
   nixpkgs.hostPlatform = "aarch64-darwin";
   nixpkgs.config.allowUnfree = true;
   nixpkgs.overlays = [
