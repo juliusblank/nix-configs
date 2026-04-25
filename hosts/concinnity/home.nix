@@ -22,6 +22,25 @@ let
 
   # YubiKey OATH account for AWS MFA (from `ykman oath accounts list`).
   ykOathAccount = "arn:aws:iam::685159096301:mfa/julius.blankyubikey";
+
+  # Reads raw IAM keys from Granted's macOS keychain WITHOUT doing MFA/GetSessionToken.
+  # Used as credential_process in ~/.aws/config so that assumego resolves MFA itself
+  # (where --mfa-token works). `granted credential-process` can't be used because it
+  # does GetSessionToken+MFA in a subprocess that can't receive --mfa-token.
+  grantedRawCredProcess = pkgs.writeShellScript "granted-raw-credential-process" ''
+    set -euo pipefail
+    profile="''${1:?Usage: granted-raw-credential-process <profile>}"
+    raw=$(security find-generic-password -s "granted-aws-iam-credentials" -a "$profile" -w 2>/dev/null)
+    if [ -z "$raw" ]; then
+      echo "granted-raw-credential-process: no credentials for '$profile' in Granted keychain" >&2
+      exit 1
+    fi
+    echo "$raw" | ${pkgs.jq}/bin/jq -c '{
+      Version: 1,
+      AccessKeyId: .AccessKeyID,
+      SecretAccessKey: .SecretAccessKey
+    }'
+  '';
 in
 {
   imports = [
@@ -78,6 +97,10 @@ in
     item = "serenity"
     vault = "Private"
   '';
+
+  # Stable path for credential_process in ~/.aws/config:
+  #   credential_process = /Users/julius.blank/.granted/raw-credential-process tktliam
+  home.file.".granted/raw-credential-process".source = grantedRawCredProcess;
 
   home.packages = with pkgs; [
     yubikey-manager # `ykman` for YubiKey TOTP in assume/assume-vault (see zsh initContent below)
