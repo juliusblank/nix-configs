@@ -3,6 +3,9 @@
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
 ## Unreleased — 2026-04-26
 
+### Bug Fixes
+- **granted:** always set DefaultBrowser to suppress first-run prompt
+
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
 

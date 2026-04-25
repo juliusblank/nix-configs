@@ -96,6 +96,7 @@ in
     		echo "Usage: assume <profile>";
     		return 1;
     	fi;
+    	export GRANTED_ALIAS_CONFIGURED=true
     	source ${pkgs.granted}/bin/assume "$@" --mfa-token "$("${ykmanBinPath}/ykman" oath accounts code --single arn:aws:iam::685159096301:mfa/julius.blankyubikey)";
     }
 
