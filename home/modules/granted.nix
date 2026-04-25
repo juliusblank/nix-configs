@@ -49,8 +49,9 @@ in
 
           # Suppress "assume this profile again later" usage hints.
           DisableUsageTips = false
+
+          DefaultBrowser = "FIREFOX"
           ${lib.optionalString firefoxEnabled ''
-            DefaultBrowser = "FIREFOX"
             # Nix store path — kept current on every home-manager switch
             CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app"
           ''}
