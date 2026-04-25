@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-25
+## Unreleased — 2026-04-26
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
@@ -11,6 +11,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **darwin:** declare hostnames via networking.hostName (#39)
 - **concinnity:** bump aws-vault to v7.10.2 for 1Password Desktop backend
 - **concinnity:** add grassume alias for granted to avoid assume collision
+- **concinnity:** rename aws-vault function to vassume, give assume back to granted
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes

@@ -122,8 +122,18 @@ in
     	PATH="${ykmanBinPath}:$PATH" aws-vault login --prompt ykman "$profile" -d "$duration";
     }
 
+    # granted + YubiKey MFA: auto-generate TOTP via ykman and pass to assume.
+    gassume() {
+    	if [ -z "$1" ]; then
+    		echo "Usage: gassume <profile>";
+    		return 1;
+    	fi;
+    	assume "$1" --mfa-token "$("${ykmanBinPath}/ykman" oath accounts code --single arn:aws:iam::685159096301:mfa/julius.blankyubikey)";
+    }
+
     complete -W "$(aws configure list-profiles)" vassume
     complete -W "$(aws configure list-profiles)" login
+    complete -W "$(aws configure list-profiles)" gassume
   '';
 
   # Work signing key for `git log --show-signature` (append to global allowed_signers from common.nix).
