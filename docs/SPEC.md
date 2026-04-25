@@ -50,8 +50,8 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. Work clones under `~/github/taktile-org/`; `nix-configs` under `~/github/juliusblank/nix-configs` on all macOS hosts. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md`, *Serenity and concinnity isolation* below. |
-| 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews on concinnity; `granted` only on serenity. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
-| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); concinnity `tktliam` uses `credential_process` via nix-wrapped `granted credential-process`. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). Serenity: `assume` shell alias via `granted.nix` module (`source assume`). Concinnity: `assume` / `login` shell functions in `programs.zsh.initContent` wrapping `aws-vault` with `ykman` prompt. |
+| 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via nix `home.packages` on concinnity; `granted` only on serenity. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. Granted uses macOS keychain for credential storage (default); aws-vault uses 1Password Desktop backend (`AWS_VAULT_BACKEND=op-desktop`). Coexistence model: `assume` → granted, `vassume`/`vlogin` → aws-vault, `login` → `assume -c` (granted console), `gassume` → granted + auto YubiKey TOTP. Next: configure SSO profiles and migrate remaining profiles from aws-vault to granted per-profile (see #22). |
+| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); concinnity `tktliam` uses `credential_process` via nix-wrapped `granted credential-process`. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). Serenity: `assume` shell alias via `granted.nix` module (`source assume`). Concinnity: `vassume`/`vlogin` shell functions wrap aws-vault (1Password Desktop backend via env vars); `gassume` wraps granted with auto YubiKey TOTP; `login` maps to `assume -c` (granted console). All env vars and functions declared in `programs.zsh.sessionVariables` and `programs.zsh.initContent`. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -60,7 +60,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 | 21 | ghostty setup from work laptop | extract the configuration for ghostty from the work laptop and interactively plan with the user if it needs finetuning, then apply it to both machines |
-| 22 | concinnity AWS auth restoration | Three parts: (a) Rebuild `~/.aws/config` — work profiles generated by a GitHub workflow (documented in Notion), download result and place on machine; `custom.aws` currently overwrites on activation, needs split or disable. (b) `assume` name conflict — Granted ships its own `assume` binary, collides with the aws-vault `assume` shell function; need a temporary coexistence solution until full Granted migration. (c) YubiKey integration — verify `ykman` + `aws-vault --prompt ykman` still works after deploy. |
+| 22 | concinnity AWS auth restoration | Three parts: (a) `~/.aws/config` — manually managed on concinnity (generated by work GitHub workflow); `custom.aws` is not enabled. (b) Name conflict — resolved: `assume` → granted (via `granted.nix`), aws-vault functions renamed to `vassume`/`vlogin`, `login` → `assume -c` (granted console). (c) YubiKey — resolved: `AWS_VAULT_PROMPT=ykman` env var; `gassume` wraps granted with auto TOTP via `ykman`. See *Granted + YubiKey migration* below. |
 
 ## Hosts
 
@@ -154,16 +154,66 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 
 ### IAM Identity Center & multi-account setup (in progress)
 
-> Current setup uses IAM access keys (stored in 1Password) alongside Granted for SSO.
+> Current setup uses IAM access keys alongside Granted for SSO.
 
 Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready credential setup.
 
-- **Granted** adopted — installed via homebrew (`granted` + `aws-vault`); reusable module at `home/modules/granted.nix`
-- `assume` alias configured in zsh — sources credentials into the current shell
+- **Granted** and **aws-vault** installed via nix `home.packages` on concinnity; reusable module at `home/modules/granted.nix`
+- aws-vault uses 1Password Desktop as credential backend (`AWS_VAULT_BACKEND=op-desktop`)
 - Firefox managed by home-manager with **Multi-Account Containers** + **Granted addon** for isolated AWS console sessions
-- Credential storage: macOS keychain (granted default)
-- **aws-vault** preserved for backward compatibility
-- Next steps: configure SSO profiles in `~/.aws/config`, then remove IAM access keys from 1Password and update `shell.nix` shellHook
+- Credential storage: Granted uses macOS keychain (default); aws-vault uses 1Password Desktop
+- Next steps: migrate remaining aws-vault profiles to granted per-profile (see below), then remove aws-vault
+
+### Granted + YubiKey migration (concinnity)
+
+**Shell commands** (all declared in `hosts/concinnity/home.nix`):
+
+| Command | Tool | What it does |
+|---|---|---|
+| `assume <profile>` | granted | Assume role, interactive MFA prompt |
+| `gassume <profile>` | granted | Assume role, auto YubiKey TOTP via `ykman` |
+| `login <profile>` | granted | Open AWS console in browser (`assume -c`) |
+| `vassume <profile>` | aws-vault | Exec subshell with credentials (legacy) |
+| `vlogin <profile>` | aws-vault | Open AWS console via aws-vault (legacy) |
+
+**Granted + YubiKey requirements for `~/.aws/config`:**
+
+For a profile to work with `gassume` (granted + auto YubiKey TOTP):
+
+1. The **base profile** must have `credential_process = granted credential-process --profile=<name>` — this tells granted to fetch IAM keys from its macOS keychain
+2. The **base profile** must have `mfa_serial = arn:aws:iam::<account>:mfa/<user>` — triggers MFA
+3. **Role profiles** use `source_profile = <base>` and `role_arn` but should **not** have their own `mfa_serial` — otherwise granted prompts for MFA twice (once for GetSessionToken, once for AssumeRole)
+4. IAM keys must be imported into granted's keychain: `granted credentials add --profile <base>`
+
+Example `~/.aws/config`:
+```ini
+[profile tktliam]
+region             = eu-central-1
+credential_process = granted credential-process --profile=tktliam
+mfa_serial         = arn:aws:iam::685159096301:mfa/julius.blankyubikey
+
+[profile some-account.core-engineer]
+source_profile = tktliam
+region         = eu-central-1
+role_arn       = arn:aws:iam::<account-id>:role/tktl-core-engineer
+# No mfa_serial here — MFA is on the base profile only
+```
+
+**Per-profile migration from aws-vault to granted:**
+
+1. Ensure `credential_process` is uncommented on the base profile (`tktliam`)
+2. Remove `mfa_serial` from the target role profile (keep it only on the base)
+3. Test: `gassume <profile>` — touch YubiKey when prompted, verify credentials work
+4. That profile now uses granted; `vassume` will no longer work for it (aws-vault needs `mfa_serial` on the role profile)
+5. Repeat for each role profile
+
+**Cleanup (once all profiles are migrated):**
+
+- Remove `aws-vault` from `home.packages`
+- Remove the aws-vault v7.10.2 overlay from `hosts/concinnity/configuration.nix`
+- Remove `vassume`, `vlogin`, and aws-vault env vars from `hosts/concinnity/home.nix`
+- Remove `yubikey-manager` from `home.packages` if no longer needed
+- Uninstall the aws-vault keychain from Keychain Access
 
 ## Git Identity Isolation
 

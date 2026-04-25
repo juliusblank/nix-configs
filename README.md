@@ -163,9 +163,11 @@ just deploy concinnity
 ```
 
 **Work laptop — YubiKey:** **`yubikey-manager`** (**`ykman`**) is on **`home.packages`**, and
-**`assume`** / **`login`** in **`hosts/concinnity/home.nix`** prepend that package’s **`bin`**
-to **`PATH`** before **`aws-vault --prompt ykman`**, so the Nix **`ykman`** is used even when
-Homebrew’s **`PATH`** comes first system-wide. Use a **physical YubiKey** when running those commands.
+**`vassume`** / **`vlogin`** (aws-vault) and **`gassume`** (granted) in **`hosts/concinnity/home.nix`**
+prepend that package’s **`bin`** to **`PATH`**, so the Nix **`ykman`** is used even when
+Homebrew’s **`PATH`** comes first system-wide. **`login`** maps to `assume -c` (granted console).
+aws-vault backend is configured via `programs.zsh.sessionVariables` (`AWS_VAULT_BACKEND=op-desktop`).
+Use a **physical YubiKey** when running those commands.
 
 Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
 manage that infrastructure from the work machine with the same 1Password access as

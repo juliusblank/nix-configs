@@ -73,20 +73,31 @@ in
   '';
 
   home.packages = with pkgs; [
-    yubikey-manager # `ykman` for aws-vault --prompt ykman (see zsh initContent below)
-    aws-vault # AWS credential exec/login via assume/login functions
+    yubikey-manager # `ykman` — AWS_VAULT_PROMPT=ykman (see sessionVariables + initContent)
+    aws-vault # AWS credential exec/login via vassume/vlogin functions
     granted # AWS credential manager (SSO, credential-process)
   ];
 
   # Granted (config + Firefox) — `assume` alias goes to granted; aws-vault
-  # helpers below use `vassume` / `login` to avoid the name collision.
+  # helpers below use `vassume` / `vlogin` to avoid the name collision.
+  # `login` is a granted alias for `assume -c` (open console in browser).
   custom.granted = {
     enable = true;
   };
 
-  # aws-vault helpers + bash-style `complete` for profile names (migrated from ~/.zshrc).
+  # aws-vault 1Password Desktop backend — env vars replace CLI flags.
+  programs.zsh.sessionVariables = {
+    AWS_VAULT_BACKEND = "op-desktop";
+    AWS_VAULT_PROMPT = "ykman";
+    AWS_VAULT_OP_VAULT_ID = "7awg3jx7uqzj5z5q33tqx4iv7e";
+    AWS_VAULT_OP_DESKTOP_ACCOUNT_ID = "CZFGJNG3BVFZRLCMXWTVVTBPZ4";
+  };
+
+  # aws-vault helpers (vassume, vlogin) + granted wrappers (gassume, login).
+  # Backend and prompt are configured via sessionVariables above; functions only
+  # need PATH for ykman and profile/duration logic.
   # bashcompinit only — home-manager already runs compinit; a second compinit is slow and
-  # re-scans fpath. bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0). AWS flow from internal Notion.
+  # re-scans fpath. bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0).
   programs.zsh.initContent = lib.mkAfter ''
     autoload -U +X bashcompinit && bashcompinit
 
@@ -103,12 +114,12 @@ in
     		duration="2h";
     	fi;
 
-    	PATH="${ykmanBinPath}:$PATH" aws-vault exec --prompt ykman "$profile" -d "$duration";
+    	PATH="${ykmanBinPath}:$PATH" aws-vault exec "$profile" -d "$duration";
     }
 
-    login() {
+    vlogin() {
     	if [ -z "$1" ]; then
-    		echo "Usage: login <profile>";
+    		echo "Usage: vlogin <profile>";
     		return 1;
     	fi;
 
@@ -119,7 +130,7 @@ in
     		duration="2h";
     	fi;
 
-    	PATH="${ykmanBinPath}:$PATH" aws-vault login --prompt ykman "$profile" -d "$duration";
+    	PATH="${ykmanBinPath}:$PATH" aws-vault login "$profile" -d "$duration";
     }
 
     # granted + YubiKey MFA: auto-generate TOTP via ykman and pass to assume.
@@ -131,9 +142,13 @@ in
     	assume "$1" --mfa-token "$("${ykmanBinPath}/ykman" oath accounts code --single arn:aws:iam::685159096301:mfa/julius.blankyubikey)";
     }
 
+    # login = granted console (assume -c): open AWS console in the browser.
+    login() { assume -c "$@"; }
+
     complete -W "$(aws configure list-profiles)" vassume
-    complete -W "$(aws configure list-profiles)" login
+    complete -W "$(aws configure list-profiles)" vlogin
     complete -W "$(aws configure list-profiles)" gassume
+    complete -W "$(aws configure list-profiles)" login
   '';
 
   # Work signing key for `git log --show-signature` (append to global allowed_signers from common.nix).
