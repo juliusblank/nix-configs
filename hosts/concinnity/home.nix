@@ -78,6 +78,10 @@ in
     granted # AWS credential manager (SSO, credential-process)
   ];
 
+  # TouchID for aws-vault keychain access — stores the custom keychain passphrase
+  # in the login keychain and gates retrieval behind a biometric prompt.
+  programs.zsh.sessionVariables.AWS_VAULT_BIOMETRICS = "true";
+
   # Granted (config + Firefox) — do not take over the zsh name `assume`; work shell uses
   # aws-vault `assume` / `login` functions below (same as former ~/.zshrc).
   custom.granted = {
