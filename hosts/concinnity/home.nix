@@ -13,8 +13,6 @@ let
     commit.gpgSign = true;
   };
 
-  # Nix `yubikey-manager` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
-  ykmanBinPath = lib.makeBinPath [ pkgs.yubikey-manager ];
 in
 {
   imports = [
@@ -73,21 +71,111 @@ in
   '';
 
   home.packages = with pkgs; [
-    yubikey-manager # `ykman` for aws-vault --prompt ykman (see zsh initContent below)
-    aws-vault # AWS credential exec/login via assume/login functions
+    yubikey-manager # `ykman` — TOTP generation inside op-credential-process
     granted # AWS credential manager (SSO, credential-process)
+    # credential_process wrapper — fetches IAM keys from 1Password, calls
+    # GetSessionToken with YubiKey MFA, caches session credentials in 1Password.
+    # Usage:  credential_process = op-credential-process "op://vault/item" "arn:aws:iam::…:mfa/user"
+    # Without the MFA ARN arg, returns raw IAM keys (no session).
+    # Session cache: stored as 1Password item "session-<item-name>" in the same vault.
+    (writeShellScriptBin "op-credential-process" ''
+      set -euo pipefail
+      OP="${_1password-cli}/bin/op"
+      YKMAN="${yubikey-manager}/bin/ykman"
+      AWS="${awscli2}/bin/aws"
+      JQ="${jq}/bin/jq"
+
+      item="$1"
+      mfa_serial="''${2:-}"
+
+      # Without MFA serial, return raw IAM keys from 1Password.
+      if [ -z "$mfa_serial" ]; then
+        ak=$($OP read "''${item}/access_key_id")
+        sk=$($OP read "''${item}/secret_access_key")
+        printf '{"Version":1,"AccessKeyId":"%s","SecretAccessKey":"%s"}' "$ak" "$sk"
+        exit 0
+      fi
+
+      # Derive vault and cache item name from the op:// URI.
+      vault=$(echo "$item" | sed 's|op://\([^/]*\)/.*|\1|')
+      item_name=$(echo "$item" | sed 's|op://[^/]*/||')
+      cache_item="session-''${item_name}"
+
+      # Check 1Password cache: valid if item exists and Expiration is in the future.
+      expiration=$($OP read "op://''${vault}/''${cache_item}/Expiration" 2>/dev/null || true)
+      if [ -n "$expiration" ]; then
+        # GNU date (-d) or BSD date (-jf); credential_process may run inside
+        # a nix devShell where date is GNU coreutils.
+        exp_epoch=$(date -d "$expiration" "+%s" 2>/dev/null \
+                 || date -jf "%Y-%m-%dT%H:%M:%S%z" "$expiration" "+%s" 2>/dev/null \
+                 || echo 0)
+        now_epoch=$(date "+%s")
+        # 5-minute buffer before expiry
+        if [ "$now_epoch" -lt "$((exp_epoch - 300))" ]; then
+          ak=$($OP read "op://''${vault}/''${cache_item}/AccessKeyId")
+          sk=$($OP read "op://''${vault}/''${cache_item}/SecretAccessKey")
+          st=$($OP read "op://''${vault}/''${cache_item}/SessionToken")
+          $JQ -n --arg ak "$ak" --arg sk "$sk" --arg st "$st" --arg ex "$expiration" \
+            '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}'
+          exit 0
+        fi
+      fi
+
+      # Fetch raw IAM keys from 1Password.
+      ak=$($OP read "''${item}/access_key_id")
+      sk=$($OP read "''${item}/secret_access_key")
+
+      # Generate TOTP from YubiKey.
+      totp=$($YKMAN oath accounts code --single "$mfa_serial")
+
+      # Call GetSessionToken with MFA.  Unset stale env vars so credentials
+      # from a previous `assume` don't leak into the STS call.
+      unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CREDENTIAL_EXPIRATION 2>/dev/null || true
+      session=$(AWS_ACCESS_KEY_ID="$ak" AWS_SECRET_ACCESS_KEY="$sk" \
+        $AWS sts get-session-token \
+          --serial-number "$mfa_serial" \
+          --token-code "$totp" \
+          --output json)
+
+      # Extract session credentials.
+      s_ak=$(echo "$session" | $JQ -r '.Credentials.AccessKeyId')
+      s_sk=$(echo "$session" | $JQ -r '.Credentials.SecretAccessKey')
+      s_st=$(echo "$session" | $JQ -r '.Credentials.SessionToken')
+      s_ex=$(echo "$session" | $JQ -r '.Credentials.Expiration')
+
+      # Cache in 1Password: create or update the session item.
+      if $OP item get "$cache_item" --vault "$vault" >/dev/null 2>&1; then
+        $OP item edit "$cache_item" --vault "$vault" \
+          "AccessKeyId[text]=$s_ak" \
+          "SecretAccessKey[password]=$s_sk" \
+          "SessionToken[password]=$s_st" \
+          "Expiration[text]=$s_ex" >/dev/null
+      else
+        $OP item create --vault "$vault" --category "API Credential" \
+          --title "$cache_item" \
+          "AccessKeyId[text]=$s_ak" \
+          "SecretAccessKey[password]=$s_sk" \
+          "SessionToken[password]=$s_st" \
+          "Expiration[text]=$s_ex" >/dev/null
+      fi
+
+      # Return credential_process JSON.
+      $JQ -n --arg ak "$s_ak" --arg sk "$s_sk" --arg st "$s_st" --arg ex "$s_ex" \
+        '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}'
+    '')
   ];
 
-  # Granted (config + Firefox) — do not take over the zsh name `assume`; work shell uses
-  # aws-vault `assume` / `login` functions below (same as former ~/.zshrc).
+  # Granted (config + Firefox) — custom `assume` function below replaces the
+  # default alias to auto-inject YubiKey TOTP.
   custom.granted = {
     enable = true;
     assumeShellAlias = false;
   };
 
-  # aws-vault helpers + bash-style `complete` for profile names (migrated from ~/.zshrc).
-  # bashcompinit only — home-manager already runs compinit; a second compinit is slow and
-  # re-scans fpath. bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0). AWS flow from internal Notion.
+  # `assume` calls assumego directly (not the granted shell wrapper) to avoid
+  # a phantom YubiKey touch from the wrapper's source-detection logic.
+  # MFA is handled by op-credential-process (YubiKey TOTP + session caching).
+  # bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0).
   programs.zsh.initContent = lib.mkAfter ''
     autoload -U +X bashcompinit && bashcompinit
 
@@ -97,34 +185,30 @@ in
     		return 1;
     	fi;
 
-    	profile="$1";
-    	duration="8h";
+    	export GRANTED_ALIAS_CONFIGURED=true
+    	local _out _ret flag v1 v2 v3 v4 v5 v6
+    	_out=$(${pkgs.granted}/bin/assumego "$@")
+    	_ret=$?
+    	unset GRANTED_ALIAS_CONFIGURED
+    	IFS=' ' read -r flag v1 v2 v3 v4 v5 v6 <<< "$_out"
 
-    	if [[ "$profile" == *on-call-engineer-write* ]]; then
-    		duration="2h";
-    	fi;
-
-    	PATH="${ykmanBinPath}:$PATH" aws-vault exec --prompt ykman "$profile" -d "$duration";
-    }
-
-    login() {
-    	if [ -z "$1" ]; then
-    		echo "Usage: login <profile>";
-    		return 1;
-    	fi;
-
-    	profile="$1";
-    	duration="8h";
-
-    	if [[ "$profile" == *on-call-engineer-write* ]]; then
-    		duration="2h";
-    	fi;
-
-    	PATH="${ykmanBinPath}:$PATH" aws-vault login --prompt ykman "$profile" -d "$duration";
+    	if [[ "$flag" == Granted@(A|De)sume ]]; then
+    		unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
+    		      AWS_PROFILE AWS_REGION AWS_DEFAULT_REGION \
+    		      AWS_SESSION_EXPIRATION AWS_CREDENTIAL_EXPIRATION
+    	fi
+    	if [ "$flag" = "GrantedAssume" ]; then
+    		[ "$v1" != "None" ] && export AWS_ACCESS_KEY_ID="$v1"
+    		[ "$v2" != "None" ] && export AWS_SECRET_ACCESS_KEY="$v2"
+    		[ "$v3" != "None" ] && export AWS_SESSION_TOKEN="$v3"
+    		[ "$v4" != "None" ] && export AWS_PROFILE="$v4"
+    		[ "$v5" != "None" ] && export AWS_REGION="$v5" AWS_DEFAULT_REGION="$v5"
+    		[ "$v6" != "None" ] && export AWS_SESSION_EXPIRATION="$v6" AWS_CREDENTIAL_EXPIRATION="$v6"
+    	fi
+    	return $_ret
     }
 
     complete -W "$(aws configure list-profiles)" assume
-    complete -W "$(aws configure list-profiles)" login
   '';
 
   # Work signing key for `git log --show-signature` (append to global allowed_signers from common.nix).

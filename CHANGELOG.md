@@ -1,13 +1,30 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-25
+## Unreleased — 2026-04-26
+
+### Bug Fixes
+- **granted:** always set DefaultBrowser to suppress first-run prompt
+- **concinnity:** set GRANTED_ALIAS_CONFIGURED to suppress alias prompt
+- **concinnity:** call assumego directly, cache sessions in 1Password
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
 
 ### Features
 - concinnity host, GitHub layout, and work/personal isolation (#36)
+- **darwin:** declare hostnames via networking.hostName (#39)
+- **concinnity:** bump aws-vault to v7.10.2 for 1Password Desktop backend
+- **concinnity:** add grassume alias for granted to avoid assume collision
+- **concinnity:** rename aws-vault function to vassume, give assume back to granted
+- **concinnity:** add gassume helper for granted with YubiKey MFA
+- **concinnity:** declarative aws-vault env vars, rename login→vlogin, migration docs
+- **home:** add just completions for zsh
+- **concinnity:** add op-credential-process for 1Password-backed AWS credentials
+- **concinnity:** op-credential-process with GetSessionToken + session caching
+
+### Refactoring
+- **concinnity:** simplify to single assume function with auto YubiKey
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
