@@ -3,7 +3,7 @@
 let
   # The 1Password entry name is the single source of truth — the AWS CLI
   # profile name and op:// references are both derived from it.
-  # TODO: replace credentialProcess with `granted credential-process` once SSO is configured.
+  # TODO: replace credentialProcess with `op-credential-process` once SSO is configured.
   opVault = "infrastructure";
   opEntry = "personal-nix-configs-infra";
 

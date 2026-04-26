@@ -13,9 +13,6 @@ let
     commit.gpgSign = true;
   };
 
-  # Nix `yubikey-manager` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
-  ykmanBinPath = lib.makeBinPath [ pkgs.yubikey-manager ];
-
 in
 {
   imports = [
@@ -74,8 +71,7 @@ in
   '';
 
   home.packages = with pkgs; [
-    yubikey-manager # `ykman` — AWS_VAULT_PROMPT=ykman (see sessionVariables + initContent)
-    aws-vault # AWS credential exec/login (legacy, migration to granted in progress)
+    yubikey-manager # `ykman` — TOTP generation inside op-credential-process
     granted # AWS credential manager (SSO, credential-process)
     # credential_process wrapper — fetches IAM keys from 1Password, calls
     # GetSessionToken with YubiKey MFA, caches session credentials in 1Password.
