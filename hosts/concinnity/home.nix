@@ -77,14 +77,76 @@ in
     yubikey-manager # `ykman` — AWS_VAULT_PROMPT=ykman (see sessionVariables + initContent)
     aws-vault # AWS credential exec/login (legacy, migration to granted in progress)
     granted # AWS credential manager (SSO, credential-process)
-    # Wrapper script for credential_process — fetches IAM keys from 1Password.
-    # Use in ~/.aws/config:  credential_process = op-credential-process "op://Private/tktliam-aws"
+    # credential_process wrapper — fetches IAM keys from 1Password, calls
+    # GetSessionToken with YubiKey MFA, caches the session credentials.
+    # Usage:  credential_process = op-credential-process "op://vault/item" "arn:aws:iam::…:mfa/user"
+    # Without the MFA ARN arg, returns raw IAM keys (no session).
     (writeShellScriptBin "op-credential-process" ''
       set -euo pipefail
+      OP="${_1password-cli}/bin/op"
+      YKMAN="${yubikey-manager}/bin/ykman"
+      AWS="${awscli2}/bin/aws"
+      JQ="${jq}/bin/jq"
+
       item="$1"
-      ak=$(${_1password-cli}/bin/op read "''${item}/access_key_id")
-      sk=$(${_1password-cli}/bin/op read "''${item}/secret_access_key")
-      printf '{"Version":1,"AccessKeyId":"%s","SecretAccessKey":"%s"}' "$ak" "$sk"
+      mfa_serial="''${2:-}"
+
+      # Without MFA serial, return raw IAM keys from 1Password.
+      if [ -z "$mfa_serial" ]; then
+        ak=$($OP read "''${item}/access_key_id")
+        sk=$($OP read "''${item}/secret_access_key")
+        printf '{"Version":1,"AccessKeyId":"%s","SecretAccessKey":"%s"}' "$ak" "$sk"
+        exit 0
+      fi
+
+      # With MFA serial, return cached session credentials or create new ones.
+      cache_dir="$HOME/.aws/op-mfa-cache"
+      cache_key=$(printf '%s' "$item" | shasum -a 256 | cut -c1-16)
+      cache_file="$cache_dir/$cache_key.json"
+      mkdir -p "$cache_dir"
+      chmod 700 "$cache_dir"
+
+      # Check cache: valid if file exists and expiration is in the future.
+      if [ -f "$cache_file" ]; then
+        expiration=$($JQ -r '.Expiration // empty' "$cache_file" 2>/dev/null || true)
+        if [ -n "$expiration" ]; then
+          exp_epoch=$(date -jf "%Y-%m-%dT%H:%M:%S+00:00" "$expiration" "+%s" 2>/dev/null \
+                   || date -jf "%Y-%m-%dT%H:%M:%SZ" "$expiration" "+%s" 2>/dev/null \
+                   || echo 0)
+          now_epoch=$(date "+%s")
+          # 5-minute buffer before expiry
+          if [ "$now_epoch" -lt "$((exp_epoch - 300))" ]; then
+            cat "$cache_file"
+            exit 0
+          fi
+        fi
+      fi
+
+      # Fetch raw IAM keys from 1Password.
+      ak=$($OP read "''${item}/access_key_id")
+      sk=$($OP read "''${item}/secret_access_key")
+
+      # Generate TOTP from YubiKey.
+      totp=$($YKMAN oath accounts code --single "$mfa_serial")
+
+      # Call GetSessionToken with MFA.
+      session=$(AWS_ACCESS_KEY_ID="$ak" AWS_SECRET_ACCESS_KEY="$sk" \
+        $AWS sts get-session-token \
+          --serial-number "$mfa_serial" \
+          --token-code "$totp" \
+          --output json)
+
+      # Format as credential_process JSON and cache.
+      result=$($JQ -n \
+        --arg ak "$(echo "$session" | $JQ -r '.Credentials.AccessKeyId')" \
+        --arg sk "$(echo "$session" | $JQ -r '.Credentials.SecretAccessKey')" \
+        --arg st "$(echo "$session" | $JQ -r '.Credentials.SessionToken')" \
+        --arg ex "$(echo "$session" | $JQ -r '.Credentials.Expiration')" \
+        '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}')
+
+      printf '%s' "$result" > "$cache_file"
+      chmod 600 "$cache_file"
+      printf '%s' "$result"
     '')
   ];
 
@@ -95,8 +157,8 @@ in
     assumeShellAlias = false;
   };
 
-  # `assume` wraps granted with auto YubiKey TOTP via ykman.
-  # Sources the granted shell script directly (not via alias) to avoid recursion.
+  # `assume` wraps granted — MFA is handled by op-credential-process (YubiKey
+  # TOTP + session caching), so no --mfa-token needed here.
   # bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0).
   programs.zsh.initContent = lib.mkAfter ''
     autoload -U +X bashcompinit && bashcompinit
@@ -107,7 +169,7 @@ in
     		return 1;
     	fi;
     	export GRANTED_ALIAS_CONFIGURED=true
-    	source ${pkgs.granted}/bin/assume "$@" --mfa-token "$("${ykmanBinPath}/ykman" oath accounts code --single arn:aws:iam::685159096301:mfa/julius.blankyubikey)";
+    	source ${pkgs.granted}/bin/assume "$@";
     }
 
     complete -W "$(aws configure list-profiles)" assume

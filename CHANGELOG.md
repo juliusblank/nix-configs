@@ -19,6 +19,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** add gassume helper for granted with YubiKey MFA
 - **concinnity:** declarative aws-vault env vars, rename login→vlogin, migration docs
 - **home:** add just completions for zsh
+- **concinnity:** add op-credential-process for 1Password-backed AWS credentials
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey
