@@ -15,6 +15,7 @@ let
 
   # Nix `yubikey-manager` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
   ykmanBinPath = lib.makeBinPath [ pkgs.yubikey-manager ];
+
 in
 {
   imports = [
@@ -74,8 +75,17 @@ in
 
   home.packages = with pkgs; [
     yubikey-manager # `ykman` — AWS_VAULT_PROMPT=ykman (see sessionVariables + initContent)
-    aws-vault # AWS credential exec/login via vassume/vlogin functions
+    aws-vault # AWS credential exec/login (legacy, migration to granted in progress)
     granted # AWS credential manager (SSO, credential-process)
+    # Wrapper script for credential_process — fetches IAM keys from 1Password.
+    # Use in ~/.aws/config:  credential_process = op-credential-process "op://Private/tktliam-aws"
+    (writeShellScriptBin "op-credential-process" ''
+      set -euo pipefail
+      item="$1"
+      ak=$(${_1password-cli}/bin/op read "''${item}/access_key_id")
+      sk=$(${_1password-cli}/bin/op read "''${item}/secret_access_key")
+      printf '{"Version":1,"AccessKeyId":"%s","SecretAccessKey":"%s"}' "$ak" "$sk"
+    '')
   ];
 
   # Granted (config + Firefox) — custom `assume` function below replaces the

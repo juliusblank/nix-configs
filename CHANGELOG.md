@@ -18,6 +18,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** rename aws-vault function to vassume, give assume back to granted
 - **concinnity:** add gassume helper for granted with YubiKey MFA
 - **concinnity:** declarative aws-vault env vars, rename login→vlogin, migration docs
+- **home:** add just completions for zsh
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey
