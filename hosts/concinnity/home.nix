@@ -78,9 +78,10 @@ in
     aws-vault # AWS credential exec/login (legacy, migration to granted in progress)
     granted # AWS credential manager (SSO, credential-process)
     # credential_process wrapper — fetches IAM keys from 1Password, calls
-    # GetSessionToken with YubiKey MFA, caches the session credentials.
+    # GetSessionToken with YubiKey MFA, caches session credentials in 1Password.
     # Usage:  credential_process = op-credential-process "op://vault/item" "arn:aws:iam::…:mfa/user"
     # Without the MFA ARN arg, returns raw IAM keys (no session).
+    # Session cache: stored as 1Password item "session-<item-name>" in the same vault.
     (writeShellScriptBin "op-credential-process" ''
       set -euo pipefail
       OP="${_1password-cli}/bin/op"
@@ -99,26 +100,28 @@ in
         exit 0
       fi
 
-      # With MFA serial, return cached session credentials or create new ones.
-      cache_dir="$HOME/.aws/op-mfa-cache"
-      cache_key=$(printf '%s' "$item" | shasum -a 256 | cut -c1-16)
-      cache_file="$cache_dir/$cache_key.json"
-      mkdir -p "$cache_dir"
-      chmod 700 "$cache_dir"
+      # Derive vault and cache item name from the op:// URI.
+      vault=$(echo "$item" | sed 's|op://\([^/]*\)/.*|\1|')
+      item_name=$(echo "$item" | sed 's|op://[^/]*/||')
+      cache_item="session-''${item_name}"
 
-      # Check cache: valid if file exists and expiration is in the future.
-      if [ -f "$cache_file" ]; then
-        expiration=$($JQ -r '.Expiration // empty' "$cache_file" 2>/dev/null || true)
-        if [ -n "$expiration" ]; then
-          exp_epoch=$(date -jf "%Y-%m-%dT%H:%M:%S+00:00" "$expiration" "+%s" 2>/dev/null \
-                   || date -jf "%Y-%m-%dT%H:%M:%SZ" "$expiration" "+%s" 2>/dev/null \
-                   || echo 0)
-          now_epoch=$(date "+%s")
-          # 5-minute buffer before expiry
-          if [ "$now_epoch" -lt "$((exp_epoch - 300))" ]; then
-            cat "$cache_file"
-            exit 0
-          fi
+      # Check 1Password cache: valid if item exists and Expiration is in the future.
+      expiration=$($OP read "op://''${vault}/''${cache_item}/Expiration" 2>/dev/null || true)
+      if [ -n "$expiration" ]; then
+        # GNU date (-d) or BSD date (-jf); credential_process may run inside
+        # a nix devShell where date is GNU coreutils.
+        exp_epoch=$(date -d "$expiration" "+%s" 2>/dev/null \
+                 || date -jf "%Y-%m-%dT%H:%M:%S%z" "$expiration" "+%s" 2>/dev/null \
+                 || echo 0)
+        now_epoch=$(date "+%s")
+        # 5-minute buffer before expiry
+        if [ "$now_epoch" -lt "$((exp_epoch - 300))" ]; then
+          ak=$($OP read "op://''${vault}/''${cache_item}/AccessKeyId")
+          sk=$($OP read "op://''${vault}/''${cache_item}/SecretAccessKey")
+          st=$($OP read "op://''${vault}/''${cache_item}/SessionToken")
+          $JQ -n --arg ak "$ak" --arg sk "$sk" --arg st "$st" --arg ex "$expiration" \
+            '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}'
+          exit 0
         fi
       fi
 
@@ -129,24 +132,40 @@ in
       # Generate TOTP from YubiKey.
       totp=$($YKMAN oath accounts code --single "$mfa_serial")
 
-      # Call GetSessionToken with MFA.
+      # Call GetSessionToken with MFA.  Unset stale env vars so credentials
+      # from a previous `assume` don't leak into the STS call.
+      unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE AWS_CREDENTIAL_EXPIRATION 2>/dev/null || true
       session=$(AWS_ACCESS_KEY_ID="$ak" AWS_SECRET_ACCESS_KEY="$sk" \
         $AWS sts get-session-token \
           --serial-number "$mfa_serial" \
           --token-code "$totp" \
           --output json)
 
-      # Format as credential_process JSON and cache.
-      result=$($JQ -n \
-        --arg ak "$(echo "$session" | $JQ -r '.Credentials.AccessKeyId')" \
-        --arg sk "$(echo "$session" | $JQ -r '.Credentials.SecretAccessKey')" \
-        --arg st "$(echo "$session" | $JQ -r '.Credentials.SessionToken')" \
-        --arg ex "$(echo "$session" | $JQ -r '.Credentials.Expiration')" \
-        '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}')
+      # Extract session credentials.
+      s_ak=$(echo "$session" | $JQ -r '.Credentials.AccessKeyId')
+      s_sk=$(echo "$session" | $JQ -r '.Credentials.SecretAccessKey')
+      s_st=$(echo "$session" | $JQ -r '.Credentials.SessionToken')
+      s_ex=$(echo "$session" | $JQ -r '.Credentials.Expiration')
 
-      printf '%s' "$result" > "$cache_file"
-      chmod 600 "$cache_file"
-      printf '%s' "$result"
+      # Cache in 1Password: create or update the session item.
+      if $OP item get "$cache_item" --vault "$vault" >/dev/null 2>&1; then
+        $OP item edit "$cache_item" --vault "$vault" \
+          "AccessKeyId[text]=$s_ak" \
+          "SecretAccessKey[password]=$s_sk" \
+          "SessionToken[password]=$s_st" \
+          "Expiration[text]=$s_ex" >/dev/null
+      else
+        $OP item create --vault "$vault" --category "API Credential" \
+          --title "$cache_item" \
+          "AccessKeyId[text]=$s_ak" \
+          "SecretAccessKey[password]=$s_sk" \
+          "SessionToken[password]=$s_st" \
+          "Expiration[text]=$s_ex" >/dev/null
+      fi
+
+      # Return credential_process JSON.
+      $JQ -n --arg ak "$s_ak" --arg sk "$s_sk" --arg st "$s_st" --arg ex "$s_ex" \
+        '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}'
     '')
   ];
 
@@ -157,8 +176,9 @@ in
     assumeShellAlias = false;
   };
 
-  # `assume` wraps granted — MFA is handled by op-credential-process (YubiKey
-  # TOTP + session caching), so no --mfa-token needed here.
+  # `assume` calls assumego directly (not the granted shell wrapper) to avoid
+  # a phantom YubiKey touch from the wrapper's source-detection logic.
+  # MFA is handled by op-credential-process (YubiKey TOTP + session caching).
   # bashcompinit: superuser.com/a/1740258 (CC BY-SA 4.0).
   programs.zsh.initContent = lib.mkAfter ''
     autoload -U +X bashcompinit && bashcompinit
@@ -168,8 +188,28 @@ in
     		echo "Usage: assume <profile>";
     		return 1;
     	fi;
+
     	export GRANTED_ALIAS_CONFIGURED=true
-    	source ${pkgs.granted}/bin/assume "$@";
+    	local _out _ret flag v1 v2 v3 v4 v5 v6
+    	_out=$(${pkgs.granted}/bin/assumego "$@")
+    	_ret=$?
+    	unset GRANTED_ALIAS_CONFIGURED
+    	IFS=' ' read -r flag v1 v2 v3 v4 v5 v6 <<< "$_out"
+
+    	if [[ "$flag" == Granted@(A|De)sume ]]; then
+    		unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \
+    		      AWS_PROFILE AWS_REGION AWS_DEFAULT_REGION \
+    		      AWS_SESSION_EXPIRATION AWS_CREDENTIAL_EXPIRATION
+    	fi
+    	if [ "$flag" = "GrantedAssume" ]; then
+    		[ "$v1" != "None" ] && export AWS_ACCESS_KEY_ID="$v1"
+    		[ "$v2" != "None" ] && export AWS_SECRET_ACCESS_KEY="$v2"
+    		[ "$v3" != "None" ] && export AWS_SESSION_TOKEN="$v3"
+    		[ "$v4" != "None" ] && export AWS_PROFILE="$v4"
+    		[ "$v5" != "None" ] && export AWS_REGION="$v5" AWS_DEFAULT_REGION="$v5"
+    		[ "$v6" != "None" ] && export AWS_SESSION_EXPIRATION="$v6" AWS_CREDENTIAL_EXPIRATION="$v6"
+    	fi
+    	return $_ret
     }
 
     complete -W "$(aws configure list-profiles)" assume

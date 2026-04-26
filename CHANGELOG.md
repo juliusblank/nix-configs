@@ -6,6 +6,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Bug Fixes
 - **granted:** always set DefaultBrowser to suppress first-run prompt
 - **concinnity:** set GRANTED_ALIAS_CONFIGURED to suppress alias prompt
+- **concinnity:** call assumego directly, fix cache date parsing
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
@@ -20,6 +21,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** declarative aws-vault env vars, rename login→vlogin, migration docs
 - **home:** add just completions for zsh
 - **concinnity:** add op-credential-process for 1Password-backed AWS credentials
+- **concinnity:** op-credential-process with GetSessionToken + session caching
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey
