@@ -43,6 +43,10 @@
   ];
 
   programs.zsh.enable = true;
+  # home-manager owns compinit (with -C caching) and starship replaces the prompt.
+  # Disabling these avoids a redundant ~700ms compinit + ~16ms promptinit in /etc/zshrc.
+  programs.zsh.enableGlobalCompInit = false;
+  programs.zsh.promptInit = "";
 
   # System-level packages — keep minimal; most GUI apps are managed by IRU.
   # Claude Code is provided by IRU with company-specific configuration — do not install via nix.
