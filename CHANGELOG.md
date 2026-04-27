@@ -7,6 +7,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **granted:** always set DefaultBrowser to suppress first-run prompt
 - **concinnity:** set GRANTED_ALIAS_CONFIGURED to suppress alias prompt
 - **concinnity:** call assumego directly, cache sessions in 1Password
+- **concinnity:** add _rest field to assume output parsing
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
@@ -23,6 +24,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** add just completions for zsh
 - **concinnity:** add op-credential-process for 1Password-backed AWS credentials
 - **concinnity:** op-credential-process with GetSessionToken + session caching
+
+### Performance
+- **zsh:** cache op completions and lazy-load assume profiles
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey

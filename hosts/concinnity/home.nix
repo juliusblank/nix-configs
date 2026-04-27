@@ -208,7 +208,11 @@ in
     	return $_ret
     }
 
-    complete -W "$(aws configure list-profiles)" assume
+    # Lazy completion: resolve profile names on first tab, not at shell init (~300ms).
+    _assume_completions() {
+    	reply=(''${(f)"$(${pkgs.awscli2}/bin/aws configure list-profiles 2>/dev/null)"})
+    }
+    compctl -K _assume_completions assume
   '';
 
   # Work signing key for `git log --show-signature` (append to global allowed_signers from common.nix).
