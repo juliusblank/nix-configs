@@ -26,7 +26,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** op-credential-process with GetSessionToken + session caching
 
 ### Performance
-- **zsh:** cache op completions and lazy-load assume profiles
+- **zsh:** generate op completions at build time, lazy-load assume profiles
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey

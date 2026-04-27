@@ -32,8 +32,21 @@ in
     enable = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+    completionInit = ''
+      # Use cached compinit dump; full rescan only when dump is >24h old (~700ms → ~27ms).
+      autoload -U compinit
+      if [[ -f ~/.zcompdump(N.mh-24) ]]; then
+        compinit -C
+      else
+        compinit
+      fi
+    '';
     initContent = ''
-      eval "$(${pkgs.just}/bin/just --completions zsh)"
+      source ${
+        pkgs.runCommand "just-completions" { } ''
+          ${pkgs.just}/bin/just --completions zsh > $out
+        ''
+      }
     '';
     shellAliases = {
       ll = "eza -la";
