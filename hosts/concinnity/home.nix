@@ -101,29 +101,37 @@ in
       item_name=$(echo "$item" | sed 's|op://[^/]*/||')
       cache_item="session-''${item_name}"
 
-      # Check 1Password cache: valid if item exists and Expiration is in the future.
-      expiration=$($OP read "op://''${vault}/''${cache_item}/Expiration" 2>/dev/null || true)
-      if [ -n "$expiration" ]; then
-        # GNU date (-d) or BSD date (-jf); credential_process may run inside
-        # a nix devShell where date is GNU coreutils.
-        exp_epoch=$(date -d "$expiration" "+%s" 2>/dev/null \
-                 || date -jf "%Y-%m-%dT%H:%M:%S%z" "$expiration" "+%s" 2>/dev/null \
-                 || echo 0)
-        now_epoch=$(date "+%s")
-        # 5-minute buffer before expiry
-        if [ "$now_epoch" -lt "$((exp_epoch - 300))" ]; then
-          ak=$($OP read "op://''${vault}/''${cache_item}/AccessKeyId")
-          sk=$($OP read "op://''${vault}/''${cache_item}/SecretAccessKey")
-          st=$($OP read "op://''${vault}/''${cache_item}/SessionToken")
-          $JQ -n --arg ak "$ak" --arg sk "$sk" --arg st "$st" --arg ex "$expiration" \
-            '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}'
-          exit 0
+      # Helper: extract a field from op item JSON by label.
+      _op_field() { echo "$1" | $JQ -r --arg l "$2" '.fields[] | select(.label==$l) | .value // empty'; }
+
+      # Check 1Password cache: single op call, extract all fields with jq.
+      cached=$($OP item get "$cache_item" --vault "$vault" --format json 2>/dev/null || true)
+      if [ -n "$cached" ]; then
+        expiration=$(_op_field "$cached" "Expiration")
+        if [ -n "$expiration" ]; then
+          # GNU date (-d) or BSD date (-jf); credential_process may run inside
+          # a nix devShell where date is GNU coreutils.
+          exp_epoch=$(date -d "$expiration" "+%s" 2>/dev/null \
+                   || date -jf "%Y-%m-%dT%H:%M:%S%z" "$expiration" "+%s" 2>/dev/null \
+                   || echo 0)
+          now_epoch=$(date "+%s")
+          # 5-minute buffer before expiry
+          if [ "$now_epoch" -lt "$((exp_epoch - 300))" ]; then
+            $JQ -n \
+              --arg ak "$(_op_field "$cached" "AccessKeyId")" \
+              --arg sk "$(_op_field "$cached" "SecretAccessKey")" \
+              --arg st "$(_op_field "$cached" "SessionToken")" \
+              --arg ex "$expiration" \
+              '{Version:1,AccessKeyId:$ak,SecretAccessKey:$sk,SessionToken:$st,Expiration:$ex}'
+            exit 0
+          fi
         fi
       fi
 
-      # Fetch raw IAM keys from 1Password.
-      ak=$($OP read "''${item}/access_key_id")
-      sk=$($OP read "''${item}/secret_access_key")
+      # Fetch raw IAM keys from 1Password (single call).
+      raw=$($OP item get "$item_name" --vault "$vault" --format json)
+      ak=$(_op_field "$raw" "access_key_id")
+      sk=$(_op_field "$raw" "secret_access_key")
 
       # Generate TOTP from YubiKey.
       totp=$($YKMAN oath accounts code --single "$mfa_serial")
@@ -143,8 +151,8 @@ in
       s_st=$(echo "$session" | $JQ -r '.Credentials.SessionToken')
       s_ex=$(echo "$session" | $JQ -r '.Credentials.Expiration')
 
-      # Cache in 1Password: create or update the session item.
-      if $OP item get "$cache_item" --vault "$vault" >/dev/null 2>&1; then
+      # Cache in 1Password: edit if item existed (from cache check above), create otherwise.
+      if [ -n "$cached" ]; then
         $OP item edit "$cache_item" --vault "$vault" \
           "AccessKeyId[text]=$s_ak" \
           "SecretAccessKey[password]=$s_sk" \

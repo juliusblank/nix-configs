@@ -28,6 +28,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Performance
 - **zsh:** generate op completions at build time, lazy-load assume profiles
 - **zsh:** cache compinit and build-time just completions
+- **darwin:** disable redundant compinit and promptinit in /etc/zshrc
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey
