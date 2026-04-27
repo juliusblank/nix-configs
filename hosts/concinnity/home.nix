@@ -186,11 +186,11 @@ in
     	fi;
 
     	export GRANTED_ALIAS_CONFIGURED=true
-    	local _out _ret flag v1 v2 v3 v4 v5 v6
+    	local _out _ret flag v1 v2 v3 v4 v5 v6 _rest
     	_out=$(${pkgs.granted}/bin/assumego "$@")
     	_ret=$?
     	unset GRANTED_ALIAS_CONFIGURED
-    	IFS=' ' read -r flag v1 v2 v3 v4 v5 v6 <<< "$_out"
+    	IFS=' ' read -r flag v1 v2 v3 v4 v5 v6 _rest <<< "$_out"
 
     	if [[ "$flag" == Granted@(A|De)sume ]]; then
     		unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN \

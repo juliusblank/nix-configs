@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-26
+## Unreleased — 2026-04-27
 
 ### Bug Fixes
 - **granted:** always set DefaultBrowser to suppress first-run prompt
@@ -10,6 +10,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
+- clean up stale references from aws-vault migration
 
 ### Features
 - concinnity host, GitHub layout, and work/personal isolation (#36)
