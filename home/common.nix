@@ -122,7 +122,10 @@ in
   # GitHub signs commits it creates (squash merges via web UI) with this key
   home.activation.importGitHubGpgKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if ! ${pkgs.gnupg}/bin/gpg --list-keys B5690EEEBB952194 > /dev/null 2>&1; then
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -sf https://github.com/web-flow.gpg | ${pkgs.gnupg}/bin/gpg --import
+      ${pkgs.gnupg}/bin/gpgconf --kill gpg-agent || true
+      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -sf https://github.com/web-flow.gpg \
+        | ${pkgs.gnupg}/bin/gpg --import \
+        || echo "Warning: GitHub GPG key import failed — will retry on next deploy"
     fi
   '';
 
