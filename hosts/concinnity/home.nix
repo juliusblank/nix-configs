@@ -72,6 +72,21 @@ in
     vault = "Private"
   '';
 
+  # Firefox with container tabs for multi-account AWS console access.
+  # multi-account-containers: named containers per AWS account.
+  # open-url-in-container: handles ext+container: protocol from `login` function.
+  # granted: Granted AWS extension for console session management.
+  programs.firefox = {
+    enable = true;
+    profiles.default = {
+      isDefault = true;
+      extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
+        multi-account-containers
+        open-url-in-container
+      ];
+    };
+  };
+
   home.packages = with pkgs; [
     yubikey-manager # `ykman` — MFA prompt for aws-vault and granted
     aws-vault # AWS credential exec/login with 1Password Desktop backend

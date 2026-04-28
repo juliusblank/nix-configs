@@ -43,13 +43,17 @@ in
   home.username = "jbl";
   home.homeDirectory = "/Users/jbl";
 
-  # Firefox with container tabs for multi-account AWS console access
+  # Firefox with container tabs for multi-account AWS console access.
+  # multi-account-containers: named containers per AWS account.
+  # open-url-in-container: handles ext+container: protocol from `login` function.
+  # granted: Granted AWS extension for console session management.
   programs.firefox = {
     enable = true;
     profiles.default = {
       isDefault = true;
       extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
         multi-account-containers
+        open-url-in-container
       ];
     };
   };

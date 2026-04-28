@@ -24,6 +24,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** add just completions for zsh
 - **concinnity:** add op-credential-process for 1Password-backed AWS credentials
 - **concinnity:** op-credential-process with GetSessionToken + session caching
+- **concinnity:** restore aws-vault as primary, granted as grassume
 
 ### Performance
 - **zsh:** generate op completions at build time, lazy-load assume profiles
