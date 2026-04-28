@@ -3,6 +3,9 @@
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
 ## Unreleased — 2026-04-28
 
+### Bug Fixes
+- **home:** kill gpg-agent before GitHub key import to release keyboxd lock
+
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
 
