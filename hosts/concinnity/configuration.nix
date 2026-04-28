@@ -27,6 +27,28 @@
   nixpkgs.config.allowUnfree = true;
   nixpkgs.overlays = [
     inputs.nur.overlays.default
+    # Bump aws-vault to v7.10.2 for --backend=op-desktop (1Password Desktop integration).
+    # Remove once nixpkgs-25.11-darwin ships ≥ 7.9.3.
+    (final: prev: {
+      aws-vault = prev.aws-vault.overrideAttrs (old: rec {
+        version = "7.10.2";
+        src = prev.fetchFromGitHub {
+          owner = "ByteNess";
+          repo = "aws-vault";
+          rev = "v${version}";
+          hash = "sha256-d8Rk+Qkfv4fcQYt+U/QF1hF+c03dj2dWHRUtuxIi73U=";
+        };
+        goModules = old.goModules.overrideAttrs {
+          inherit src;
+          outputHash = "sha256-dub/57nE3ERKJEsx5bjTWjJBwIeJcmNSYoG/7iZqe+0=";
+        };
+        ldflags = [
+          "-X main.Version=v${version}"
+          "-buildid="
+        ];
+        doInstallCheck = false;
+      });
+    })
   ];
 
   users.users."julius.blank" = {

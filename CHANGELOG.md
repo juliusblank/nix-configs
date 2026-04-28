@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-27
+## Unreleased — 2026-04-28
 
 ### Bug Fixes
 - **granted:** always set DefaultBrowser to suppress first-run prompt
@@ -29,6 +29,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **zsh:** generate op completions at build time, lazy-load assume profiles
 - **zsh:** cache compinit and build-time just completions
 - **darwin:** disable redundant compinit and promptinit in /etc/zshrc
+- **concinnity:** reduce op-credential-process from 4 op calls to 1
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey
