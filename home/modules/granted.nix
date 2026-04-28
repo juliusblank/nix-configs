@@ -52,8 +52,8 @@ in
 
           DefaultBrowser = "FIREFOX"
           ${lib.optionalString firefoxEnabled ''
-            # Nix store path — kept current on every home-manager switch
-            CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app"
+            # Nix store path to the actual binary — .app bundles can't be exec'd directly.
+            CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app/Contents/MacOS/firefox"
           ''}
         '';
       in
