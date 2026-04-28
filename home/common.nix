@@ -121,9 +121,9 @@ in
   # Import GitHub's GPG signing key so git can verify squash-merge commits
   # GitHub signs commits it creates (squash merges via web UI) with this key
   home.activation.importGitHubGpgKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if ! ${pkgs.gnupg}/bin/gpg --list-keys B5690EEEBB952194 > /dev/null 2>&1; then
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -sf https://github.com/web-flow.gpg | ${pkgs.gnupg}/bin/gpg --import
-    fi
+    $DRY_RUN_CMD ${pkgs.curl}/bin/curl -sf https://github.com/web-flow.gpg \
+      | ${pkgs.gnupg}/bin/gpg --import 2>&1 \
+      || echo "Warning: GitHub GPG key import failed — will retry on next deploy"
   '';
 
   # Let home-manager manage itself
