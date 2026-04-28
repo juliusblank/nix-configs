@@ -218,7 +218,7 @@ in
     	local url
     	url=$(PATH="${ykmanBinPath}:$PATH" aws-vault login "$profile" -d "$duration" -s)
     	local url_escaped=''${url//&/%26}
-    	open -a /Applications/Firefox.app "ext+container:name=''${profile}&url=''${url_escaped}"
+    	open -a Firefox "ext+container:name=''${profile}&url=''${url_escaped}"
     }
 
     # grassume: granted via assumego — for profiles using op-credential-process.

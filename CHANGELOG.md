@@ -8,6 +8,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** set GRANTED_ALIAS_CONFIGURED to suppress alias prompt
 - **concinnity:** call assumego directly, cache sessions in 1Password
 - **concinnity:** add _rest field to assume output parsing
+- **granted:** point CustomBrowserPath to Firefox binary, not .app bundle
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
