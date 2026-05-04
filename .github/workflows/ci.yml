@@ -2,7 +2,7 @@
 #
 # Job flow:
 #   changes        — detects which file groups changed (skipped on release branches)
-#   check-flake    — nix flake check + serenity build; only when nix files changed
+#   check-flake    — nix flake check + serenity/concinnity build; only when nix files changed
 #   validate-release — tag + changelog checks; only on chore/release-* branches
 #   ci-passed      — fan-in aggregator; always runs; the single required status check
 #   push-cache     — push nix closure to S3; push-to-main only, after check-flake
@@ -53,7 +53,7 @@ jobs:
               - 'overlays/**'
               - '.github/workflows/ci.yml'
 
-  # Full nix evaluation + serenity build. Skipped when no nix-relevant files changed,
+  # Full nix evaluation + build both macOS hosts. Skipped when no nix-relevant files changed,
   # and skipped entirely on release branches (changes job is skipped there).
   check-flake:
     name: Check flake
@@ -79,9 +79,12 @@ jobs:
       - name: Nix flake check
         run: nix flake check --no-build
 
-      # Build all configs (catches eval errors)
+      # Build both macOS hosts (catches eval errors)
       - name: Build serenity
         run: nix build .#darwinConfigurations.serenity.system
+
+      - name: Build concinnity
+        run: nix build .#darwinConfigurations.concinnity.system
 
   # Fast release-specific checks. Only runs on chore/release-* branches.
   validate-release:

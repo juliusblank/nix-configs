@@ -10,6 +10,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** add _rest field to assume output parsing
 - **granted:** point CustomBrowserPath to Firefox binary, not .app bundle
 - **concinnity:** use app name for Firefox in login function
+- **home:** kill gpg-agent before GitHub key import to release keyboxd lock (#42)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
@@ -37,6 +38,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Refactoring
 - **concinnity:** simplify to single assume function with auto YubiKey
+
+### Merge
+- resolve CHANGELOG.md conflicts from origin/main
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
