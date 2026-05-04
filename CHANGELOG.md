@@ -1,13 +1,14 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-05-04
+## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
 - **home:** kill gpg-agent before GitHub key import to release keyboxd lock (#42)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
+- **deps:** update flake inputs (#45)
 
 ### Features
 - concinnity host, GitHub layout, and work/personal isolation (#36)
