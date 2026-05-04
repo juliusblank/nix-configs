@@ -24,6 +24,7 @@ in
       character = {
         success_symbol = "[❯](bold green)";
         error_symbol = "[❯](bold red)";
+        vimcmd_symbol = "[](bold cyan)";
       };
     };
   };
@@ -32,6 +33,12 @@ in
     enable = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+    plugins = [
+      {
+        name = "you-should-use";
+        src = "${pkgs.zsh-you-should-use}/share/zsh/plugins/you-should-use";
+      }
+    ];
     completionInit = ''
       # Use cached compinit dump; full rescan only when dump is >24h old (~700ms → ~27ms).
       autoload -U compinit
@@ -47,12 +54,28 @@ in
           ${pkgs.just}/bin/just --completions zsh > $out
         ''
       }
+
+      # mkdir + cd in one step
+      mcd() { mkdir -p "$1" && cd "$1" }
+
+      # jj to leave insert mode (vi mode)
+      bindkey jj vi-cmd-mode
     '';
     shellAliases = {
+      ".." = "cd ..";
       ll = "eza -la";
       ls = "eza";
+      l = "eza -lhg --git --icons";
+      la = "eza -lahg --git --icons";
+      d1 = "eza --tree -L 1 -D";
+      d2 = "eza --tree -L 2 -D";
+      d3 = "eza --tree -L 3 -D";
       cat = "bat";
+      wat = "bat --plain --wrap=never";
+      df = "df -h";
       tree = "eza --tree";
+      rz = "exec zsh";
+      v = "$EDITOR";
       g = "git";
       gs = "git status";
       gd = "git diff";
@@ -78,6 +101,16 @@ in
       signByDefault = true;
     };
     settings = {
+      alias = {
+        co = "checkout";
+        cob = "checkout -b";
+        st = "status -sb";
+        dc = "diff --cached";
+        ds = "diff --staged";
+        ba = "branch -a";
+        lg = "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
+        bdm = "!git branch --merged | grep -v '*' | xargs -n 1 git branch -d";
+      };
       user.name = "Julius Blank";
       user.email = "dev@juliusblank.de";
       init.defaultBranch = "main";
