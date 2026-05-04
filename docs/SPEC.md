@@ -41,7 +41,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change, builds both serenity and concinnity; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main |
 | 4 | `tf-apply` guardrails | Done — hard block if not on `main` and working tree is dirty; soft warn (warn + require Enter) if not on `main` but tree is clean; on `main`, runs without interruption. `tf-plan` prints a warning when not on `main`. CI bypasses naturally (always clean, always on main). |
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `infrastructure`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://infrastructure/github-actions-nix-configs/token`. |
@@ -50,8 +50,8 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. Work clones under `~/github/taktile-org/`; `nix-configs` under `~/github/juliusblank/nix-configs` on all macOS hosts. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md`, *Serenity and concinnity isolation* below. |
-| 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` and `aws-vault` installed via homebrew brews on concinnity; `granted` only on serenity. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. macOS keychain for credential storage (granted default). Next: configure SSO profiles and migrate `credential_process` from 1Password static keys to Granted SSO once IAM Identity Center is set up. |
-| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`); written as a writable copy on each activation. Profile name is derived from the 1Password entry name (`opEntry` in `hosts/serenity/home.nix`). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); concinnity `tktliam` uses `credential_process` via nix-wrapped `granted credential-process`. devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). Serenity: `assume` shell alias via `granted.nix` module (`source assume`). Concinnity: `assume` / `login` shell functions in `programs.zsh.initContent` wrapping `aws-vault` with `ykman` prompt. |
+| 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` installed via nix `home.packages` on both hosts. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager with Multi-Account Containers + Granted extensions via NUR. IAM keys stored in 1Password; `op-credential-process` (nix-managed wrapper) handles `GetSessionToken` with YubiKey MFA and caches sessions in 1Password — zero credentials on disk. `assume` function calls `assumego` directly. Next: configure SSO profiles. |
+| 13 | AWS CLI credential management | Done — `awscli2` system-wide via `home/darwin.nix`. `~/.aws/config` managed by `home/modules/aws.nix` (`custom.aws.enable`) on serenity; manually managed on concinnity (generated by work GitHub workflow). `personal-nix-configs-infra` profile on serenity uses `credential_process` backed by 1Password (`op://infrastructure/personal-nix-configs-infra/`); concinnity uses `op-credential-process` (nix-managed, fetches IAM keys from 1Password, does `GetSessionToken` with YubiKey MFA, caches session in 1Password). devShell uses `AWS_CONFIG_FILE=$HOME/.aws/config`, `AWS_PROFILE=personal-nix-configs-infra`; CI overrides via `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (OIDC). Serenity: `assume` shell alias via `granted.nix` module. Concinnity: `assume` function calls `assumego` directly, parses output and exports env vars. |
 | 14 | Tool setup & dotfiles consolidation | Review old repos step by step |
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
@@ -60,7 +60,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew pin kept (brew 5.0.12, ruby_3_4 compat). Next upgrade: 26.05 (end of May 2026); drop the nix-homebrew pin then; retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 | 21 | ghostty setup from work laptop | extract the configuration for ghostty from the work laptop and interactively plan with the user if it needs finetuning, then apply it to both machines |
-| 22 | concinnity AWS auth restoration | Three parts: (a) Rebuild `~/.aws/config` — work profiles generated by a GitHub workflow (documented in Notion), download result and place on machine; `custom.aws` currently overwrites on activation, needs split or disable. (b) `assume` name conflict — Granted ships its own `assume` binary, collides with the aws-vault `assume` shell function; need a temporary coexistence solution until full Granted migration. (c) YubiKey integration — verify `ykman` + `aws-vault --prompt ykman` still works after deploy. |
+| 22 | concinnity AWS auth restoration | Done — (a) `~/.aws/config` manually managed on concinnity (generated by work GitHub workflow); `custom.aws` not enabled. (b) `assume` function calls `assumego` directly, parses output and exports env vars; `assumeShellAlias = false` in `granted.nix`. (c) MFA handled inside `op-credential-process`: fetches IAM keys from 1Password, generates TOTP via `ykman`, calls `GetSessionToken`, caches session in 1Password. One YubiKey touch per session; zero credentials on disk. See *Granted + YubiKey setup* below. |
 
 ## Hosts
 
@@ -92,7 +92,7 @@ Tools and config that EVERY host gets:
 
 - **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
-- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + serenity build) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main (see [docs/ci.md](ci.md))
+- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + serenity/concinnity build) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main (see [docs/ci.md](ci.md))
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with **`nix.settings`** substituters and trusted public key; CI pushes closure on every merge to main
 
 
@@ -154,16 +154,52 @@ The `.op-env` file at the repo root documents all required secrets as `op://` re
 
 ### IAM Identity Center & multi-account setup (in progress)
 
-> Current setup uses IAM access keys (stored in 1Password) alongside Granted for SSO.
+> Current setup uses IAM access keys alongside Granted for role switching.
 
 Goal: migrate to **AWS IAM Identity Center (SSO)** for a multi-account-ready credential setup.
 
-- **Granted** adopted — installed via homebrew (`granted` + `aws-vault`); reusable module at `home/modules/granted.nix`
-- `assume` alias configured in zsh — sources credentials into the current shell
+- **Granted** installed via nix `home.packages` on both hosts; reusable module at `home/modules/granted.nix`
 - Firefox managed by home-manager with **Multi-Account Containers** + **Granted addon** for isolated AWS console sessions
-- Credential storage: macOS keychain (granted default)
-- **aws-vault** preserved for backward compatibility
-- Next steps: configure SSO profiles in `~/.aws/config`, then remove IAM access keys from 1Password and update `shell.nix` shellHook
+- Next steps: configure SSO profiles in `~/.aws/config`
+
+### Granted + YubiKey setup (concinnity)
+
+**Shell command** (declared in `hosts/concinnity/home.nix`):
+
+`assume <profile>` — calls `assumego` directly (not the granted shell wrapper), parses output
+and exports env vars. Tab-completes profile names via `bashcompinit`.
+
+**Credential flow** (all handled by `op-credential-process`, a nix-managed wrapper script):
+
+1. Fetches IAM access keys from 1Password via `op read`
+2. Generates TOTP from YubiKey via `ykman oath accounts code`
+3. Calls `aws sts get-session-token` with MFA
+4. Caches the session credentials as a 1Password item (`session-<item-name>` in the same vault)
+5. Returns `credential_process` JSON to the AWS SDK
+
+One YubiKey touch per session (typically 12h); subsequent role assumptions use the cached session.
+Zero credentials on disk — IAM keys and session cache both live in 1Password.
+
+**`~/.aws/config` setup:**
+
+Base profiles use `op-credential-process` with the 1Password item path and MFA ARN.
+Role profiles use `source_profile` only — no `mfa_serial` needed (the base session already
+carries the MFA assertion from `GetSessionToken`).
+
+```ini
+[profile tktliam]
+region             = eu-central-1
+credential_process = op-credential-process op://aws-vault/granted-tktliam arn:aws:iam::685159096301:mfa/julius.blankyubikey
+
+[profile some-account.core-engineer]
+source_profile = tktliam
+region         = eu-central-1
+role_arn       = arn:aws:iam::<account-id>:role/tktl-core-engineer
+```
+
+**1Password item requirements:** The base item (e.g. `granted-tktliam` in vault `aws-vault`)
+must have fields `access_key_id` and `secret_access_key`. The session cache item
+(`session-granted-tktliam`) is created/updated automatically by `op-credential-process`.
 
 ## Git Identity Isolation
 
@@ -212,7 +248,7 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |
 | Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed |
 | AWS profiles | `custom.aws` + 1Password `credential_process` for personal infra | Work profiles / placeholders (`custom.aws`); work-generated config is a follow-up |
-| YubiKey + aws-vault | As needed | **`yubikey-manager`** (CLI **`ykman`**) on **`PATH`** via **`hosts/concinnity/home.nix`** for **`aws-vault --prompt ykman`** in zsh **`assume`** / **`login`** |
+| YubiKey + granted | As needed | **`yubikey-manager`** (CLI **`ykman`**) for TOTP inside **`op-credential-process`**; `assume` function in **`hosts/concinnity/home.nix`** calls `assumego` directly |
 
 **Work project devShells:** live in a **separate flake repo** on the work GitHub account.
 Each work repo uses `direnv` + `use flake …` pointing at that flake (`nix-direnv` is in

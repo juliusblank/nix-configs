@@ -17,7 +17,7 @@ in
       default = true;
       description = ''
         When true, set `programs.zsh.shellAliases.assume` to `source assume` for the Granted
-        CLI. Disable on hosts that define their own `assume` shell function (e.g. aws-vault).
+        CLI. Disable on hosts that define their own `assume` shell function (e.g. concinnity).
       '';
     };
   };
@@ -49,10 +49,11 @@ in
 
           # Suppress "assume this profile again later" usage hints.
           DisableUsageTips = false
+
+          DefaultBrowser = "FIREFOX"
           ${lib.optionalString firefoxEnabled ''
-            DefaultBrowser = "FIREFOX"
-            # Nix store path — kept current on every home-manager switch
-            CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app"
+            # Nix store path to the actual binary — .app bundles can't be exec'd directly.
+            CustomBrowserPath = "${pkgs.firefox}/Applications/Firefox.app/Contents/MacOS/firefox"
           ''}
         '';
       in

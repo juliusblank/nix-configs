@@ -43,7 +43,11 @@ in
     '')
     ''
       export SSH_AUTH_SOCK="${onePasswordAgentSockShell}"
-      eval "$(op completion zsh)"
+      source ${
+        pkgs.runCommand "op-completions" { HOME = "/tmp"; } ''
+          ${pkgs._1password-cli}/bin/op completion zsh > $out
+        ''
+      }
     ''
   ];
 

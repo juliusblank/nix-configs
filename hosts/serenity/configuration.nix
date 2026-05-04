@@ -51,6 +51,8 @@
   ];
 
   programs.zsh.enable = true;
+  programs.zsh.enableGlobalCompInit = false;
+  programs.zsh.promptInit = "";
 
   # System-level packages (available before user login)
   environment.systemPackages = with pkgs; [
