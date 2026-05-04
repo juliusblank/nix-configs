@@ -125,11 +125,13 @@ in
     vimAlias = true;
     plugins = with pkgs.vimPlugins; [
       nvim-treesitter.withAllGrammars
+      nightfox-nvim
     ];
     extraLuaConfig = ''
       -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
       vim.opt.number = true
       vim.opt.relativenumber = true
+      vim.cmd.colorscheme("carbonfox")
       require('nvim-treesitter.configs').setup { highlight = { enable = true } }
     '';
   };
