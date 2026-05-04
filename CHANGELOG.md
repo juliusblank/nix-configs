@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-28
+## Unreleased — 2026-05-04
 
 ### Bug Fixes
 - **granted:** always set DefaultBrowser to suppress first-run prompt
@@ -9,6 +9,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** call assumego directly, cache sessions in 1Password
 - **concinnity:** add _rest field to assume output parsing
 - **granted:** point CustomBrowserPath to Firefox binary, not .app bundle
+- **concinnity:** use app name for Firefox in login function
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
