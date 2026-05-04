@@ -14,6 +14,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **darwin:** declare hostnames via networking.hostName (#39)
 - **concinnity:** AWS auth overhaul — aws-vault, granted, Firefox containers, zsh perf (#41)
 - **home:** add treesitter syntax highlighting and vim/vi aliases to neovim
+- **home:** add treesitter syntax highlighting, carbonfox theme, and vim aliases
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
