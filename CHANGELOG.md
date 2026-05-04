@@ -4,44 +4,17 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ## Unreleased — 2026-05-04
 
 ### Bug Fixes
-- **granted:** always set DefaultBrowser to suppress first-run prompt
-- **concinnity:** set GRANTED_ALIAS_CONFIGURED to suppress alias prompt
-- **concinnity:** call assumego directly, cache sessions in 1Password
-- **concinnity:** add _rest field to assume output parsing
-- **granted:** point CustomBrowserPath to Firefox binary, not .app bundle
-- **concinnity:** use app name for Firefox in login function
 - **home:** kill gpg-agent before GitHub key import to release keyboxd lock (#42)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
-- clean up stale references from aws-vault migration
 
 ### Features
 - concinnity host, GitHub layout, and work/personal isolation (#36)
 - **darwin:** declare hostnames via networking.hostName (#39)
-- **concinnity:** bump aws-vault to v7.10.2 for 1Password Desktop backend
-- **concinnity:** add grassume alias for granted to avoid assume collision
-- **concinnity:** rename aws-vault function to vassume, give assume back to granted
-- **concinnity:** add gassume helper for granted with YubiKey MFA
-- **concinnity:** declarative aws-vault env vars, rename login→vlogin, migration docs
-- **home:** add just completions for zsh
-- **concinnity:** add op-credential-process for 1Password-backed AWS credentials
-- **concinnity:** op-credential-process with GetSessionToken + session caching
-- **concinnity:** restore aws-vault as primary, granted as grassume
-- **darwin:** nix-managed Firefox with container extensions on both hosts
-- **ci:** build concinnity alongside serenity in check-flake job
-
-### Performance
-- **zsh:** generate op completions at build time, lazy-load assume profiles
-- **zsh:** cache compinit and build-time just completions
-- **darwin:** disable redundant compinit and promptinit in /etc/zshrc
-- **concinnity:** reduce op-credential-process from 4 op calls to 1
-
-### Refactoring
-- **concinnity:** simplify to single assume function with auto YubiKey
-
-### Merge
-- resolve CHANGELOG.md conflicts from origin/main
+- **concinnity:** AWS auth overhaul — aws-vault, granted, Firefox containers, zsh perf (#41)
+- **home:** add treesitter syntax highlighting and vim/vi aliases to neovim
+- **home:** add treesitter syntax highlighting, carbonfox theme, and vim aliases
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes

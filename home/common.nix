@@ -121,10 +121,18 @@ in
     # home-manager wraps this itself; must be *-unwrapped (has `.lua`) — not `pkgs.neovim`.
     package = pkgs.neovim-unwrapped;
     defaultEditor = false;
+    viAlias = true;
+    vimAlias = true;
+    plugins = with pkgs.vimPlugins; [
+      nvim-treesitter.withAllGrammars
+      monokai-pro-nvim
+    ];
     extraLuaConfig = ''
       -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
       vim.opt.number = true
       vim.opt.relativenumber = true
+      vim.cmd.colorscheme("monokai-pro")
+      require('nvim-treesitter.configs').setup { highlight = { enable = true } }
     '';
   };
 
