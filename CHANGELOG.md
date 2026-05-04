@@ -29,6 +29,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** op-credential-process with GetSessionToken + session caching
 - **concinnity:** restore aws-vault as primary, granted as grassume
 - **darwin:** nix-managed Firefox with container extensions on both hosts
+- **ci:** build concinnity alongside serenity in check-flake job
 
 ### Performance
 - **zsh:** generate op completions at build time, lazy-load assume profiles
