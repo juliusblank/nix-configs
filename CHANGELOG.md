@@ -13,12 +13,8 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - concinnity host, GitHub layout, and work/personal isolation (#36)
 - **darwin:** declare hostnames via networking.hostName (#39)
 - **concinnity:** AWS auth overhaul — aws-vault, granted, Firefox containers, zsh perf (#41)
-- **home:** add shell aliases, git aliases, mcd, and jj keybinding
 - **home:** add treesitter and vim aliases to neovim (#43)
-- **home:** add zsh-you-should-use plugin and update spec
-
-### Merge
-- resolve CHANGELOG.md conflicts from origin/main
+- **home:** shell aliases, git aliases, and zsh tweaks from digga (#44)
 ## v2026.04.8 — 2026-04-24
 
 ### Bug Fixes
