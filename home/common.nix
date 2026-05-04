@@ -32,6 +32,12 @@ in
     enable = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+    plugins = [
+      {
+        name = "you-should-use";
+        src = "${pkgs.zsh-you-should-use}/share/zsh/plugins/you-should-use";
+      }
+    ];
     completionInit = ''
       # Use cached compinit dump; full rescan only when dump is >24h old (~700ms → ~27ms).
       autoload -U compinit

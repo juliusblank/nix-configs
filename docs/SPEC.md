@@ -76,10 +76,10 @@ More hosts will be added over time.
 
 Tools and config that EVERY host gets:
 
-- Shell: zsh with common aliases and functions
-- Git: personal identity (juliusblank / dev@juliusblank.de)
-- Editor config (TBD)
-- CLI tools: ripgrep, fd, jq, yq, bat, eza, fzf, htop, curl, wget, tree
+- Shell: zsh with common aliases (`..`, `l`, `la`, `d1`–`d3`, `wat`, `df`, `rz`, `v`, git shortcuts), `mcd` function, `jj` vi-mode keybinding, cached compinit, build-time completions (just, op)
+- Git: personal identity (juliusblank / dev@juliusblank.de), aliases (`co`, `cob`, `st`, `dc`, `ds`, `ba`, `lg`, `bdm`)
+- Neovim: treesitter (all grammars), monokai-pro colorscheme, `vim`/`vi` aliased to neovim
+- CLI tools: ripgrep, fd, jq, yq, bat, eza, fzf, htop, curl, wget, tree, lazygit
 - tmux / terminal multiplexer config (TBD)
 
 ## Host-Specific Config
