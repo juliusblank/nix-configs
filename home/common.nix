@@ -121,10 +121,16 @@ in
     # home-manager wraps this itself; must be *-unwrapped (has `.lua`) — not `pkgs.neovim`.
     package = pkgs.neovim-unwrapped;
     defaultEditor = false;
+    viAlias = true;
+    vimAlias = true;
+    plugins = with pkgs.vimPlugins; [
+      nvim-treesitter.withAllGrammars
+    ];
     extraLuaConfig = ''
       -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
       vim.opt.number = true
       vim.opt.relativenumber = true
+      require('nvim-treesitter.configs').setup { highlight = { enable = true } }
     '';
   };
 
