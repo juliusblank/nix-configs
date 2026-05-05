@@ -6,7 +6,10 @@ let
   onePasswordAgentSockSsh = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
 in
 {
-  imports = [ ./ghostty.nix ];
+  imports = [
+    ./ghostty.nix
+    ./modules/aerospace.nix
+  ];
 
   # Link GUI apps from `home.packages` into ~/Applications/Home Manager Apps/ so Finder
   # and Spotlight can see them. (HM ≥25.11 defaults this off; Nix profile ~/.nix-profile/Applications
