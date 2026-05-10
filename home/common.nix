@@ -64,6 +64,7 @@ in
       '';
       shellAliases = {
         ".." = "cd ..";
+        "..." = "cd ../..";
         ll = "eza -la";
         ls = "eza";
         l = "eza -lhg --git --icons";
@@ -127,7 +128,7 @@ in
       enable = true;
       # home-manager wraps this itself; must be *-unwrapped (has `.lua`) — not `pkgs.neovim`.
       package = pkgs.neovim-unwrapped;
-      defaultEditor = false;
+      defaultEditor = true;
       viAlias = true;
       vimAlias = true;
       plugins = with pkgs.vimPlugins; [
