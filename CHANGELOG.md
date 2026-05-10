@@ -5,9 +5,15 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
+- **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
+- **deps:** update flake inputs (#50)
+
+### Features
+- **home:** add statix Nix linter to devShell and pre-commit hook (#51)
+- **home:** set neovim as default editor and add ... alias (#47)
 ## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
