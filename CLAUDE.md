@@ -107,6 +107,7 @@ Nix conventions are below (root `CLAUDE.md` covers the whole repo).
 - Keep system packages (`environment.systemPackages`) minimal — prefer home-manager for user-facing tools
 - Pin unstable or incompatible inputs to specific commits and always add a comment explaining why
 - `allowUnfree = true` is set at the system level; no need to set it per-package
+- Run `just lint` before opening a PR; `just lint-fix` auto-remediates most statix findings
 - Public functions and attributes must have a `/**` nixdoc block comment:
   ```nix
   /** Builds the unified shell environment for all hosts. */

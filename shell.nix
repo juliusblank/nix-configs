@@ -8,6 +8,7 @@ pkgs.mkShell {
     # Nix tools
     nil # nix LSP
     nixfmt-rfc-style # formatter
+    statix # linter
 
     # Changelog
     git-cliff
@@ -31,6 +32,12 @@ pkgs.mkShell {
       echo "==> nixfmt: formatting staged .nix files..."
       echo "$staged_nix" | xargs nixfmt
       echo "$staged_nix" | xargs git add
+    fi
+
+    # Lint staged .nix files (runs after nixfmt so it sees formatted code)
+    if [ -n "$staged_nix" ] && command -v statix &>/dev/null; then
+      echo "==> statix: linting staged .nix files..."
+      echo "$staged_nix" | xargs -I{} statix check {}
     fi
 
     # Format staged .tf files

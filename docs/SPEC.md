@@ -305,12 +305,14 @@ that the cadence is time-driven, not API-driven.
 
 Where a dedicated formatter exists, it is the authority on style:
 
-| Language | Formatter | Indentation |
-|---|---|---|
-| Nix | `nixfmt-rfc-style` (`just fmt`) | 2 spaces |
-| HCL | `tofu fmt` | 2 spaces |
-| YAML | — (manual) | 2 spaces |
-| Shell | — (manual) | 2 spaces |
+| Language | Formatter | Linter | Indentation |
+|---|---|---|---|
+| Nix | `nixfmt-rfc-style` (`just fmt`) | `statix` (`just lint`) | 2 spaces |
+| HCL | `tofu fmt` | — | 2 spaces |
+| YAML | — (manual) | — | 2 spaces |
+| Shell | — (manual) | — | 2 spaces |
+
+**Nix linting with statix:** `statix check` catches anti-patterns the formatter cannot fix — shadowed `with` scopes, useless `let … in`, redundant `inherit`, empty `let` blocks, and similar. Run `just lint` to check, `just lint-fix` to auto-remediate. The pre-commit hook runs statix on staged `.nix` files and blocks the commit if findings are present.
 
 ### Doc comments
 
@@ -351,6 +353,7 @@ PRs are squash-merged to keep a clean commit history on `main`. No review requir
 Installed automatically when entering the devShell (`nix develop`):
 
 - **nixfmt** — formats all staged `.nix` files and re-stages them
+- **statix** — lints all staged `.nix` files after nixfmt; blocks the commit if any findings are present (run `just lint-fix` to auto-remediate)
 - **tofu fmt** — formats all staged `.tf` files and re-stages them
 - **flake.lock check** — errors if `flake.nix` is staged but `flake.lock` has unstaged changes (catches forgotten `nix flake lock` runs)
 - **git-cliff** — regenerates `CHANGELOG.md` (Unreleased section) and re-stages it on every commit; only runs inside the devShell where `git-cliff` is available

@@ -188,6 +188,14 @@ gc:
 fmt:
     find . -name '*.nix' -not -path './.direnv/*' | xargs nixfmt
 
+# Lint all nix files
+lint:
+    statix check .
+
+# Auto-fix statix lint findings
+lint-fix:
+    statix fix .
+
 # Preview or regenerate CHANGELOG.md locally (canonical release path is the GitHub release workflow)
 changelog:
     git-cliff --output CHANGELOG.md
