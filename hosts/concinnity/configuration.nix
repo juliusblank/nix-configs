@@ -109,10 +109,14 @@
     };
     taps = [
       "homebrew/core"
+      "nikitabobko/tap"
     ];
     brews = [ ];
     # GUI apps are generally managed by IRU (company software distribution);
     # casks here are additive for tools IRU does not provide.
-    casks = [ "ghostty" ];
+    casks = [
+      "aerospace"
+      "ghostty"
+    ];
   };
 }

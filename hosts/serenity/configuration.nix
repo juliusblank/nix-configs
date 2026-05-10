@@ -96,6 +96,7 @@
     taps = [
       "homebrew/core"
       "homebrew/cask"
+      "nikitabobko/tap"
     ];
     brews = [
       "cowsay"
@@ -103,6 +104,7 @@
     ];
     casks = [
       "1password"
+      "aerospace"
       "ghostty"
       "orbstack"
       "rekordbox"
