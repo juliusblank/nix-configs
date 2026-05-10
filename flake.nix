@@ -28,7 +28,11 @@
       flake = false;
     };
     homebrew-cask = {
-      url = "github:homebrew/homebrew-cask";
+      # Pinned to last commit before `depends_on :macos` (positional symbol) was introduced
+      # in rekordbox, audacity, vial, gimp, vlc. brew-5.0.12-patched uses `def depends_on(**kwargs)`
+      # which only accepts keyword args; the bare symbol form causes a Ruby ArgumentError.
+      # Unpin when homebrew-cask fixes those casks or nix-homebrew is upgraded past 5.0.12.
+      url = "github:homebrew/homebrew-cask/4cc961811d146d948050c2565bf8bf772b45d9f7";
       flake = false;
     };
   };
