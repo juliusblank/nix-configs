@@ -21,18 +21,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Pinned to brew 5.0.12 for ruby_3_4 compat; upgrade together with nixpkgs when moving to 26.05
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew/a5409abd0d5013d79775d3419bcac10eacb9d8c5";
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew/7d0038b5bb60568ec41f5f4ef5067cd221ca7c0d";
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
       flake = false;
     };
     homebrew-cask = {
-      # Pinned to last commit before `depends_on :macos` (positional symbol) was introduced
-      # in rekordbox, audacity, vial, gimp, vlc. brew-5.0.12-patched uses `def depends_on(**kwargs)`
-      # which only accepts keyword args; the bare symbol form causes a Ruby ArgumentError.
-      # Unpin when homebrew-cask fixes those casks or nix-homebrew is upgraded past 5.0.12.
-      url = "github:homebrew/homebrew-cask/4cc961811d146d948050c2565bf8bf772b45d9f7";
+      url = "github:homebrew/homebrew-cask";
       flake = false;
     };
   };
