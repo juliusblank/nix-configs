@@ -6,6 +6,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
 - **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
+- **flake:** unpin nix-homebrew and homebrew-cask
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
