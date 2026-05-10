@@ -84,9 +84,11 @@
             ./hosts/serenity/configuration.nix
             home-manager.darwinModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.jbl = import ./hosts/serenity/home.nix;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users.jbl = import ./hosts/serenity/home.nix;
+              };
             }
             nix-homebrew.darwinModules.nix-homebrew
             {
@@ -122,9 +124,11 @@
             ./hosts/concinnity/configuration.nix
             home-manager.darwinModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users."julius.blank" = import ./hosts/concinnity/home.nix;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users."julius.blank" = import ./hosts/concinnity/home.nix;
+              };
             }
             nix-homebrew.darwinModules.nix-homebrew
             {

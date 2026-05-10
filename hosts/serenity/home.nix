@@ -40,8 +40,21 @@ in
     ../../home/modules/aws.nix
   ];
 
-  home.username = "jbl";
-  home.homeDirectory = "/Users/jbl";
+  home = {
+    username = "jbl";
+    homeDirectory = "/Users/jbl";
+    # 1Password SSH agent — which keys to expose on this machine
+    file.".config/1password/ssh/agent.toml".text = ''
+      # All SSH keys from the Private vault (includes the personal "serenity" key)
+      [[ssh-keys]]
+      vault = "Private"
+
+      # Claude Code signing key
+      [[ssh-keys]]
+      item = "Claude github SSH key"
+      vault = "github_nix-configs"
+    '';
+  };
 
   # Firefox with container tabs for multi-account AWS console access.
   # multi-account-containers: named containers per AWS account.
@@ -57,18 +70,6 @@ in
       ];
     };
   };
-
-  # 1Password SSH agent — which keys to expose on this machine
-  home.file.".config/1password/ssh/agent.toml".text = ''
-    # All SSH keys from the Private vault (includes the personal "serenity" key)
-    [[ssh-keys]]
-    vault = "Private"
-
-    # Claude Code signing key
-    [[ssh-keys]]
-    item = "Claude github SSH key"
-    vault = "github_nix-configs"
-  '';
 
   # Granted for AWS credential management
   custom.granted.enable = true;

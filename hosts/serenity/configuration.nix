@@ -6,43 +6,61 @@
 }:
 
 {
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
-
   # Nix binary cache — signing key for `nix copy` / `just push-cache` in 1Password
   # (op://github_nix-configs/Nix Cache Signing Key/private_key).
-  nix.settings.substituters = [ "https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com" ];
-  nix.settings.trusted-public-keys = [
-    "juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI="
-  ];
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+    substituters = [ "https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com" ];
+    trusted-public-keys = [
+      "juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI="
+    ];
+  };
 
-  system.configurationRevision = self.rev or self.dirtyRev or null;
-
-  # Must match the value set when nix-darwin was first installed on this machine
-  system.stateVersion = 4;
+  system = {
+    configurationRevision = self.rev or self.dirtyRev or null;
+    # Must match the value set when nix-darwin was first installed on this machine
+    stateVersion = 4;
+    primaryUser = "jbl";
+    defaults = {
+      dock.autohide = true;
+      dock.mru-spaces = false;
+      finder = {
+        AppleShowAllExtensions = true;
+        FXPreferredViewStyle = "Nlsv";
+        NewWindowTarget = "Home";
+        AppleShowAllFiles = true;
+      };
+      loginwindow.LoginwindowText = "serenity, ole";
+      screencapture.location = "~/Pictures/screenshots";
+      screensaver.askForPasswordDelay = 10;
+    };
+  };
 
   # Set the nixbld gid to match the existing installation
   ids.gids.nixbld = 350;
 
-  networking.hostName = "serenity";
-  networking.computerName = "serenity";
-  networking.localHostName = "serenity";
+  networking = {
+    hostName = "serenity";
+    computerName = "serenity";
+    localHostName = "serenity";
+  };
 
-  nixpkgs.hostPlatform = "aarch64-darwin";
-  nixpkgs.config.allowUnfree = true;
-  nixpkgs.overlays = [
-    inputs.claude-code.overlays.default
-    inputs.nur.overlays.default
-  ];
+  nixpkgs = {
+    hostPlatform = "aarch64-darwin";
+    config.allowUnfree = true;
+    overlays = [
+      inputs.claude-code.overlays.default
+      inputs.nur.overlays.default
+    ];
+  };
 
   users.users.jbl = {
     name = "jbl";
     home = "/Users/jbl";
   };
-
-  system.primaryUser = "jbl";
 
   # Ensure Homebrew paths are available in the shell
   environment.systemPath = [
@@ -50,9 +68,11 @@
     "/opt/homebrew/sbin"
   ];
 
-  programs.zsh.enable = true;
-  programs.zsh.enableGlobalCompInit = false;
-  programs.zsh.promptInit = "";
+  programs.zsh = {
+    enable = true;
+    enableGlobalCompInit = false;
+    promptInit = "";
+  };
 
   # System-level packages (available before user login)
   environment.systemPackages = with pkgs; [
@@ -64,18 +84,6 @@
   ];
 
   security.pam.services.sudo_local.touchIdAuth = true;
-
-  system.defaults = {
-    dock.autohide = true;
-    dock.mru-spaces = false;
-    finder.AppleShowAllExtensions = true;
-    finder.FXPreferredViewStyle = "Nlsv";
-    finder.NewWindowTarget = "Home";
-    finder.AppleShowAllFiles = true;
-    loginwindow.LoginwindowText = "serenity, ole";
-    screencapture.location = "~/Pictures/screenshots";
-    screensaver.askForPasswordDelay = 10;
-  };
 
   homebrew = {
     enable = true;
