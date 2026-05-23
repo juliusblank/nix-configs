@@ -67,6 +67,7 @@ in
       extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
         multi-account-containers
         open-url-in-container
+        onepassword-password-manager
       ];
     };
   };
