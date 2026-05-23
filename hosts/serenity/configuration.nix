@@ -93,6 +93,7 @@
       cleanup = "uninstall";
       upgrade = true;
     };
+    greedyCasks = true;
     taps = [
       "homebrew/core"
       "homebrew/cask"
