@@ -92,6 +92,12 @@ in
     gh = {
       enable = true;
       settings.git_protocol = "ssh";
+      # gh CLI extensions — home-manager symlinks each derivation's
+      # bin/gh-<pname> into ~/.local/share/gh/extensions/<pname>/, so
+      # `gh <name>` (e.g. `gh stack`) resolves without a manual install.
+      extensions = [
+        (import ../lib/gh-stack-bin.nix { inherit pkgs; } "0.1.0")
+      ];
     };
 
     # --- Git (personal identity, always) ---
