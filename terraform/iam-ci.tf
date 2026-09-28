@@ -120,6 +120,32 @@ resource "aws_iam_role_policy" "github_actions_iam_management" {
   })
 }
 
+# Allows CI to manage bucket-level configuration for the backup S3 bucket.
+# Uses the same wildcard pattern as nix-cache-management — covers all bucket-level
+# config actions the AWS provider reads/writes on refresh.
+# Object-level access is not granted to CI — backups run from serenity only.
+resource "aws_iam_role_policy" "github_actions_backup_mgmt" {
+  name = "backup-bucket-management"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:CreateBucket",
+          "s3:DeleteBucket",
+          "s3:Get*",
+          "s3:Put*",
+          "s3:Delete*",
+        ]
+        Resource = "arn:aws:s3:::${var.backup_bucket_name}"
+      }
+    ]
+  })
+}
+
 # Allows CI to manage bucket-level configuration for the nix cache S3 bucket.
 # Uses GetBucket*/PutBucket* wildcards to cover all attributes the AWS provider
 # reads/writes on refresh — avoids whack-a-mole with individual actions.

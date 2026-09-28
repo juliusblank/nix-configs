@@ -36,6 +36,13 @@ variable "nix_cache_bucket_name" {
   default     = "juliusblank-nix-cache"
 }
 
+# S3 bucket that holds the restic backup repository for serenity user data.
+variable "backup_bucket_name" {
+  description = "S3 bucket for restic backup storage."
+  type        = string
+  default     = "juliusblank-backups"
+}
+
 # 1Password Service Account token for the github-actions-nix-configs SA.
 # Stored in op://infrastructure/github-actions-nix-configs/token.
 # Injected by the justfile via TF_VAR_op_service_account_token.

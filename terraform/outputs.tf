@@ -12,3 +12,9 @@ output "repository_url" {
   description = "GitHub repository URL"
   value       = github_repository.nix_configs.html_url
 }
+
+# S3 bucket name for restic backup storage. Pass to `restic --repo s3:.../<bucket>/<host>`.
+output "backup_bucket" {
+  description = "S3 bucket name for restic backup storage."
+  value       = aws_s3_bucket.backup.id
+}
