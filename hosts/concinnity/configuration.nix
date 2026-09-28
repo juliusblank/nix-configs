@@ -31,6 +31,13 @@
       loginwindow.LoginwindowText = "concinnity";
       screencapture.location = "~/Pictures/screenshots";
       screensaver.askForPasswordDelay = 10;
+      # AeroSpace prerequisite — keep one Spaces stack across all displays.
+      # Logout required to take effect.
+      spaces.spans-displays = true;
+      # NOTE: "Reduce motion" (System Settings → Accessibility → Display) is also
+      # recommended for AeroSpace, but com.apple.universalaccess is a protected
+      # macOS domain that `defaults write` can't touch without Full Disk Access.
+      # Toggle it once manually in System Settings.
     };
   };
 

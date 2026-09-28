@@ -5,7 +5,7 @@
   # configuration.nix; this module manages ~/.aerospace.toml only.
   #
   # Layout: 6 workspaces (1=term+code, 2=web, 3=comms, 4=docs+tickets, 5=music, 6=flex).
-  # Mod key: cmd+ctrl. Default layout: tiles. Cycling: macOS native (cmd+tab, cmd+`).
+  # Mod key: alt. Default layout: tiles. Cycling: macOS native (cmd+tab, cmd+`).
   #
   # Monitor pinning when docked (workspace-to-monitor-force-assignment):
   #   main (4K external):  workspaces 1, 2, 4 — primary work surface
@@ -20,27 +20,22 @@
     # Layout
     default-root-container-layout = 'tiles'
     default-root-container-orientation = 'auto'
-    accordion-padding = 30
 
-    # Don't quit AeroSpace when the last window of the last workspace closes
-    on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-
-    # Pin workspaces to monitors when both are connected. The first matching
-    # monitor regex wins; if none match (e.g. undocked), the workspace falls
-    # back to the active monitor.
+    # Pin workspaces to monitors when both are connected. AeroSpace tests each
+    # entry in the array in order; the first match wins. If none match (e.g.
+    # undocked), the workspace falls back to the active monitor.
     #
-    # TODO: replace 'main' / 'secondary' below with the actual monitor names
-    # once both setups are connected. Run `aerospace list-monitors` to discover
-    # the exact names (e.g. 'LG HDR 4K', 'Built-in Retina Display') and update.
-    # Until then this assigns by AeroSpace's positional aliases — works but
-    # depends on display arrangement in System Settings.
+    # External monitors host workspaces 1/2/4 (primary work surface):
+    #   - DELL U2724DE: office
+    #   - PHL 42M2N8900: home 42" 4K
+    # Laptop hosts workspaces 3/5/6 (comms, music, flex).
     [workspace-to-monitor-force-assignment]
-    1 = 'main'
-    2 = 'main'
-    4 = 'main'
-    3 = 'secondary'
-    5 = 'secondary'
-    6 = 'secondary'
+    1 = ['DELL U2724DE', 'PHL 42M2N8900', 'main']
+    2 = ['DELL U2724DE', 'PHL 42M2N8900', 'main']
+    4 = ['DELL U2724DE', 'PHL 42M2N8900', 'main']
+    3 = ['Built-in Retina Display', 'secondary']
+    5 = ['Built-in Retina Display', 'secondary']
+    6 = ['Built-in Retina Display', 'secondary']
 
     # --- Auto-assign apps to workspaces ---
 
@@ -51,10 +46,6 @@
 
     [[on-window-detected]]
     if.app-id = 'com.microsoft.VSCode'
-    run = ['move-node-to-workspace 1']
-
-    [[on-window-detected]]
-    if.app-id = 'com.todesktop.230313mzl4w4u92'  # Cursor
     run = ['move-node-to-workspace 1']
 
     # Workspace 2: web
@@ -114,61 +105,51 @@
     if.app-id = 'com.apple.finder'
     run = ['layout floating']
 
-    # --- Keybindings (mod = cmd+ctrl) ---
+    # --- Keybindings (mod = alt) ---
     [mode.main.binding]
 
     # Focus
-    cmd-ctrl-h = 'focus left'
-    cmd-ctrl-j = 'focus down'
-    cmd-ctrl-k = 'focus up'
-    cmd-ctrl-l = 'focus right'
+    alt-h = 'focus left'
+    alt-j = 'focus down'
+    alt-k = 'focus up'
+    alt-l = 'focus right'
 
     # Move window
-    cmd-ctrl-shift-h = 'move left'
-    cmd-ctrl-shift-j = 'move down'
-    cmd-ctrl-shift-k = 'move up'
-    cmd-ctrl-shift-l = 'move right'
+    alt-shift-h = 'move left'
+    alt-shift-j = 'move down'
+    alt-shift-k = 'move up'
+    alt-shift-l = 'move right'
 
     # Switch workspace
-    cmd-ctrl-1 = 'workspace 1'
-    cmd-ctrl-2 = 'workspace 2'
-    cmd-ctrl-3 = 'workspace 3'
-    cmd-ctrl-4 = 'workspace 4'
-    cmd-ctrl-5 = 'workspace 5'
-    cmd-ctrl-6 = 'workspace 6'
+    alt-1 = 'workspace 1'
+    alt-2 = 'workspace 2'
+    alt-3 = 'workspace 3'
+    alt-4 = 'workspace 4'
+    alt-5 = 'workspace 5'
+    alt-6 = 'workspace 6'
 
     # Move focused window to workspace
-    cmd-ctrl-shift-1 = 'move-node-to-workspace 1'
-    cmd-ctrl-shift-2 = 'move-node-to-workspace 2'
-    cmd-ctrl-shift-3 = 'move-node-to-workspace 3'
-    cmd-ctrl-shift-4 = 'move-node-to-workspace 4'
-    cmd-ctrl-shift-5 = 'move-node-to-workspace 5'
-    cmd-ctrl-shift-6 = 'move-node-to-workspace 6'
+    alt-shift-1 = 'move-node-to-workspace 1'
+    alt-shift-2 = 'move-node-to-workspace 2'
+    alt-shift-3 = 'move-node-to-workspace 3'
+    alt-shift-4 = 'move-node-to-workspace 4'
+    alt-shift-5 = 'move-node-to-workspace 5'
+    alt-shift-6 = 'move-node-to-workspace 6'
 
     # Workspace cycling (back-and-forth)
-    cmd-ctrl-tab = 'workspace-back-and-forth'
+    alt-tab = 'workspace-back-and-forth'
 
     # Resize
-    cmd-ctrl-minus = 'resize smart -50'
-    cmd-ctrl-equal = 'resize smart +50'
-
-    # Toggle layouts
-    cmd-ctrl-slash = 'layout tiles horizontal vertical'
-    cmd-ctrl-comma = 'layout accordion horizontal vertical'
+    alt-minus = 'resize smart -50'
+    alt-equal = 'resize smart +50'
 
     # Toggle floating / tiling for focused window
-    cmd-ctrl-f = 'layout floating tiling'
+    alt-f = 'layout floating tiling'
+
+    # Toggle fullscreen for focused window (fills the workspace)
+    alt-shift-f = 'fullscreen'
 
     # Reload config
-    cmd-ctrl-r = 'reload-config'
-
-    # Service mode (for less common commands; press cmd-ctrl-; to enter, esc to exit)
-    cmd-ctrl-semicolon = 'mode service'
-
-    [mode.service.binding]
-    esc = ['reload-config', 'mode main']
-    r = ['flatten-workspace-tree', 'mode main']  # reset workspace tree
-    f = ['layout floating tiling', 'mode main']  # toggle layout
-    backspace = ['close-all-windows-but-current', 'mode main']
+    alt-r = 'reload-config'
   '';
 }
