@@ -124,6 +124,36 @@ setup-nix-cache-keys:
 # Day-to-day operations
 # ==============================================================================
 
+# Show the currently activated system generation and whether HEAD has drifted since
+status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    profile=/nix/var/nix/profiles/system
+    active_gen=$(readlink "$profile" | grep -o '[0-9]*')
+    activated=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$profile" 2>/dev/null \
+                || stat --format="%y" "$profile" 2>/dev/null | cut -d. -f1)
+    echo "Host:       $(hostname -s)"
+    echo "Generation: $active_gen  (system activated $activated)"
+    echo "Version:    $(cat /run/current-system/darwin-version 2>/dev/null)"
+    echo ""
+    if [[ -f .deploy-status ]]; then
+        # shellcheck source=/dev/null
+        source .deploy-status
+        echo "Last deploy: generation $generation  commit $commit ($branch)  $deployed_at"
+        head_commit=$(git rev-parse --short HEAD)
+        head_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [[ "$commit" == "$head_commit" ]]; then
+            echo "             HEAD matches — nothing to deploy"
+        else
+            echo "             HEAD is $head_commit ($head_branch) — run 'just deploy <host>' to update"
+        fi
+    else
+        echo "Last deploy: no record yet — run 'just deploy <host>' to create one"
+    fi
+    echo ""
+    echo "Latest commit on main:"
+    git log main --oneline -1 2>/dev/null || echo "  (not in a git repo)"
+
 # Check the flake evaluates correctly
 check:
     nix flake check
@@ -160,6 +190,15 @@ deploy host:
             # darwin-rebuild` — macOS secure_path would not find it).
             drb=$(nix build --no-link --print-out-paths "{{nix_darwin_flake}}#darwin-rebuild")
             sudo "$drb/bin/darwin-rebuild" switch --flake ".#{{host}}"
+            gen=$(readlink /nix/var/nix/profiles/system | grep -o '[0-9]*')
+            printf 'host=%s\ncommit=%s\nbranch=%s\ngeneration=%s\ndeployed_at=%s\n' \
+              "{{host}}" \
+              "$(git rev-parse --short HEAD)" \
+              "$(git rev-parse --abbrev-ref HEAD)" \
+              "$gen" \
+              "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+              > .deploy-status
+            echo "Deploy recorded in .deploy-status (generation $gen)"
             ;;
         pi-*)
             echo "For remote NixOS hosts, use:"
