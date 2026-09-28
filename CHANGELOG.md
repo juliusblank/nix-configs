@@ -16,6 +16,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** add statix Nix linter to devShell and pre-commit hook (#51)
 - **home:** set neovim as default editor and add ... alias (#47)
 - **serenity:** add 1Password Firefox extension (#54)
+- **justfile:** add deploy status tracking and just status recipe
 ## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
