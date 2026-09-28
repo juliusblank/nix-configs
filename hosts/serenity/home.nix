@@ -85,8 +85,8 @@ in
     backup = {
       enable = true;
       bucket = "juliusblank-backups";
+      # ~/Music excluded during initial testing — add back once baseline is verified
       paths = [
-        "${config.home.homeDirectory}/Music"
         "${config.home.homeDirectory}/Pictures"
         "${config.home.homeDirectory}/github/juliusblank"
       ];
