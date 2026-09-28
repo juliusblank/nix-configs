@@ -1,12 +1,12 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-05-10
+## Unreleased — 2026-09-28
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
 - **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
-- **flake:** unpin nix-homebrew and homebrew-cask
+- **flake:** unpin nix-homebrew and homebrew-cask (#53)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
@@ -15,7 +15,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Features
 - **home:** add statix Nix linter to devShell and pre-commit hook (#51)
 - **home:** set neovim as default editor and add ... alias (#47)
-- **serenity:** add 1Password Firefox extension
+- **serenity:** add 1Password Firefox extension (#54)
 ## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
