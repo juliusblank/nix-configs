@@ -20,7 +20,7 @@
 version:
 
 let
-  system = pkgs.stdenv.hostPlatform.system;
+  inherit (pkgs.stdenv.hostPlatform) system;
 
   platformMap = {
     "aarch64-darwin" = "darwin-arm64";

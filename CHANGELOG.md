@@ -1,12 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-09-25
+## Unreleased — 2026-09-28
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
 - **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
 - **flake:** unpin nix-homebrew and homebrew-cask (#53)
+- **concinnity:** use exact Firefox bundle path in `login` helper
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
