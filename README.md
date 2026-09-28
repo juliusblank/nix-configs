@@ -217,6 +217,10 @@ just fmt                 # format nix files
 just update              # update flake inputs
 just gc                  # delete generations older than 60 days, collect garbage (warns after 30 days)
 just changelog           # regenerate CHANGELOG.md locally
+just backup              # run backup now (serenity)
+just backup-pause        # pause automatic background backup
+just backup-resume       # resume automatic background backup
+just backup-check        # verify backup integrity (10 % sample)
 ```
 
 ## Repo Structure
@@ -231,6 +235,7 @@ just changelog           # regenerate CHANGELOG.md locally
 │   └── modules/
 │       ├── aerospace.nix  # AeroSpace tiling WM
 │       ├── aws.nix        # declarative ~/.aws/config (serenity)
+│       ├── backup.nix     # restic S3 backup + launchd agents
 │       ├── granted.nix    # Granted AWS credential manager
 │       ├── harmonic-dj.nix  # Harmonic DJ app derivation (serenity, evaluation)
 │       ├── zellij.nix     # Zellij layouts + config
@@ -295,6 +300,7 @@ The 1Password SSH agent serves SSH keys to all SSH connections via `IdentityAgen
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 | Nix cache signing key (CI) | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
+| Restic backup password | `github_nix-configs` | `Restic Backup Password` | `password` |
 
 ## Workflow
 

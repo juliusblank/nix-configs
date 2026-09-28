@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   # The 1Password entry name is the single source of truth — the AWS CLI
@@ -39,6 +39,7 @@ in
     ../../home/modules/granted.nix
     ../../home/modules/aws.nix
     ../../home/modules/harmonic-dj.nix
+    ../../home/modules/backup.nix
   ];
 
   home = {
@@ -83,6 +84,29 @@ in
 
     # Harmonic DJ, evaluation phase (roadmap #32; docs/harmonic-dj.md)
     harmonicDj.enable = true;
+
+    # Restic S3 backup — music, photos, personal projects
+    backup = {
+      enable = true;
+      bucket = "juliusblank-backups";
+      paths = [
+        "${config.home.homeDirectory}/Music"
+        "${config.home.homeDirectory}/Pictures"
+        "${config.home.homeDirectory}/github/juliusblank"
+      ];
+      excludes = [
+        ".DS_Store"
+        "node_modules"
+        ".git"
+        "*.tmp"
+        "*.pyc"
+        "__pycache__"
+      ];
+      inhibitApps = [
+        "rekordbox"
+        "djay Pro AI"
+      ];
+    };
 
     # AWS CLI profiles
     aws = {

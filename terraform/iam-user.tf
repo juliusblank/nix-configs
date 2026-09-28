@@ -90,6 +90,24 @@ resource "aws_iam_policy" "nix_configs_infra" {
         ]
         Resource = "arn:aws:s3:::${var.nix_cache_bucket_name}"
       },
+      # Backup bucket — object-level access for restic (backup, restore, prune)
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Resource = ["arn:aws:s3:::${var.backup_bucket_name}", "arn:aws:s3:::${var.backup_bucket_name}/*"]
+      },
+      # Backup bucket — bucket-level management for tofu (mirrors CI backup-bucket-management policy)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:CreateBucket",
+          "s3:DeleteBucket",
+          "s3:Get*",
+          "s3:Put*",
+          "s3:Delete*",
+        ]
+        Resource = "arn:aws:s3:::${var.backup_bucket_name}"
+      },
       # IAM management — OIDC provider, CI role, and this user + policy
       {
         Effect = "Allow"
