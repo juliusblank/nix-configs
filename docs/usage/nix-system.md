@@ -173,8 +173,10 @@ just build serenity      # build serenity without activating
 just build concinnity    # build concinnity without activating
 just diff serenity       # show store-path diff vs. active system
 just deploy serenity     # build and activate (sudo + store-path darwin-rebuild switch)
-just deploy concinnity    # same for concinnity
+just deploy concinnity   # same for concinnity
+just status              # show active generation, last deploy, and HEAD drift
 just update              # update flake.lock
+just gc                  # delete all old generations and collect garbage
 ```
 
 ## Known issues: macOS and nix-darwin
