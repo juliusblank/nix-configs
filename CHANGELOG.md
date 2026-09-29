@@ -1,28 +1,24 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-09-28
+## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
 - **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
 - **flake:** unpin nix-homebrew and homebrew-cask (#53)
-- **flake:** remove duplicate homebrew-aerospace input from merge
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
 - **deps:** update flake inputs (#50)
-- merge main into feat/aerospace
 
 ### Features
 - **home:** add statix Nix linter to devShell and pre-commit hook (#51)
 - **home:** set neovim as default editor and add ... alias (#47)
 - **serenity:** add 1Password Firefox extension (#54)
 - **home:** install github/gh-stack CLI extension for stacked PRs (#55)
-- **darwin:** add AeroSpace tiling WM with 6-workspace layout
-- **darwin:** add AeroSpace tiling WM with 6-workspace layout
 - **justfile:** add deploy status tracking and just status recipe (#57)
-- **justfile:** add deploy status tracking and just status recipe (#57)
+- **darwin:** add AeroSpace tiling WM with 6-workspace layout (#48)
 ## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
