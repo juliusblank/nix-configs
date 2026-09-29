@@ -5,6 +5,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
+
+### Documentation
+- add roadmap items #23-24 and sync quick-reference commands
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
