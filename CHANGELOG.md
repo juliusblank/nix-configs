@@ -4,6 +4,13 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ## Unreleased — 2026-09-29
 
 ### Bug Fixes
+- **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
+## v2026.09.2 — 2026-09-29
+
+### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
 - **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
 - **flake:** unpin nix-homebrew and homebrew-cask (#53)
@@ -19,6 +26,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** install github/gh-stack CLI extension for stacked PRs (#55)
 - **justfile:** add deploy status tracking and just status recipe (#57)
 - **home:** add `todo` shell helper for daily-tasks capture
+- **darwin:** add AeroSpace tiling WM with 6-workspace layout (#48)
 ## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
