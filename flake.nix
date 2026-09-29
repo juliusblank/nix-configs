@@ -26,12 +26,16 @@
       url = "github:homebrew/homebrew-core";
       flake = false;
     };
+    # Pinned to last known-good commit before postflight_steps was required by
+    # casks (orbstack, aerospace, etc.). The pinned nix-homebrew (7d0038b) bundles
+    # a Homebrew version that does not support postflight_steps.
+    # Unpin both when nix-homebrew is upgraded past this limitation.
     homebrew-cask = {
-      url = "github:homebrew/homebrew-cask";
+      url = "github:homebrew/homebrew-cask/dfc9d2922825da57b63005ad9d9e3c822f05aa74";
       flake = false;
     };
     homebrew-aerospace = {
-      url = "github:nikitabobko/homebrew-tap";
+      url = "github:nikitabobko/homebrew-tap/db2dcd4d2fd7087457b3cc0baf597880ac4e35a0";
       flake = false;
     };
   };
