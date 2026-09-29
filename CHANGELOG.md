@@ -5,6 +5,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
+
+### Features
+- **concinnity:** manage claude-code CLI via nix
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
