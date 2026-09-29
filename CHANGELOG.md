@@ -3,11 +3,14 @@
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
 ## Unreleased — 2026-09-29
 
+### Bug Fixes
+- **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
+
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
 
 ### Documentation
-- add roadmap items #23-24 and sync quick-reference commands
+- add roadmap items #23-24 and sync quick-reference commands (#61)
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes

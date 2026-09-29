@@ -9,7 +9,7 @@ flowchart TD
     end
 
     subgraph "Skipped when no nix files changed"
-        check-flake["check-flake\n(macos-14)\nnix flake check\n+ build serenity"]
+        check-flake["check-flake matrix\n(macos-14 × 2)\nbuild serenity | build concinnity\n(flake check on serenity leg)"]
     end
 
     subgraph "Only on chore/release-* branches"
@@ -19,7 +19,7 @@ flowchart TD
     ci-passed["ci-passed\n(ubuntu)\nfan-in aggregator\n★ required status check"]
 
     subgraph "Push to main only"
-        push-cache["push-cache\n(macos-14)\nsign + push closure\nto S3 cache"]
+        push-cache["push-cache matrix\n(macos-14 × 2)\nsign + push each host closure\nto S3 cache"]
     end
 
     PR --> changes
