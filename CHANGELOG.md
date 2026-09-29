@@ -9,6 +9,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
+
+### Documentation
+- **spec:** add roadmap item #25 for nix-homebrew upgrade
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
