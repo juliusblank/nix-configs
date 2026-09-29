@@ -5,6 +5,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Bug Fixes
 - **flake:** pin homebrew-aerospace to pre-postflight_steps commit
+- **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
