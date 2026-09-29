@@ -201,9 +201,11 @@ just check               # validate flake
 just build <host>        # build without activating
 just deploy <host>       # build and activate
 just diff <host>         # show what would change
+just status              # show active generation and HEAD drift
 just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files
 just update              # update flake inputs
+just gc                  # delete old generations and collect garbage
 just changelog           # regenerate CHANGELOG.md locally
 ```
 
