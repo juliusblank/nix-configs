@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-09-28
+## Unreleased — 2026-09-29
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
@@ -18,6 +18,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** set neovim as default editor and add ... alias (#47)
 - **serenity:** add 1Password Firefox extension (#54)
 - **home:** install github/gh-stack CLI extension for stacked PRs (#55)
+- **justfile:** add deploy status tracking and just status recipe (#57)
 ## v2026.05.1 — 2026-05-04
 
 ### Bug Fixes
