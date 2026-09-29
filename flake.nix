@@ -21,14 +21,21 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Pinned to brew 5.0.12 for ruby_3_4 compat; upgrade together with nixpkgs when moving to 26.05
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew/a5409abd0d5013d79775d3419bcac10eacb9d8c5";
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew/7d0038b5bb60568ec41f5f4ef5067cd221ca7c0d";
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
       flake = false;
     };
+    # Pinned to last known-good commit before postflight_steps was required by
+    # casks (orbstack, aerospace, etc.). The pinned nix-homebrew (7d0038b) bundles
+    # a Homebrew version that does not support postflight_steps.
+    # Unpin both when nix-homebrew is upgraded past this limitation.
     homebrew-cask = {
-      url = "github:homebrew/homebrew-cask";
+      url = "github:homebrew/homebrew-cask/dfc9d2922825da57b63005ad9d9e3c822f05aa74";
+      flake = false;
+    };
+    homebrew-aerospace = {
+      url = "github:nikitabobko/homebrew-tap/db2dcd4d2fd7087457b3cc0baf597880ac4e35a0";
       flake = false;
     };
   };
@@ -80,9 +87,11 @@
             ./hosts/serenity/configuration.nix
             home-manager.darwinModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.jbl = import ./hosts/serenity/home.nix;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users.jbl = import ./hosts/serenity/home.nix;
+              };
             }
             nix-homebrew.darwinModules.nix-homebrew
             {
@@ -94,6 +103,7 @@
                 taps = {
                   "homebrew/homebrew-core" = inputs.homebrew-core;
                   "homebrew/homebrew-cask" = inputs.homebrew-cask;
+                  "nikitabobko/homebrew-tap" = inputs.homebrew-aerospace;
                 };
                 mutableTaps = false;
               };
@@ -101,15 +111,43 @@
           ];
         };
 
-        macbook-work = nix-darwin.lib.darwinSystem {
+        concinnity = nix-darwin.lib.darwinSystem {
           system = "aarch64-darwin";
+          specialArgs = { inherit inputs self; };
           modules = [
-            ./hosts/macbook-work/configuration.nix
+            {
+              # direnv 2.37.x fish-test is SIGKILL'd in the macOS sandbox; skip checks
+              nixpkgs.overlays = [
+                (final: prev: {
+                  direnv = prev.direnv.overrideAttrs (_: {
+                    doCheck = false;
+                  });
+                })
+              ];
+            }
+            ./hosts/concinnity/configuration.nix
             home-manager.darwinModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.julius = import ./hosts/macbook-work/home.nix;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users."julius.blank" = import ./hosts/concinnity/home.nix;
+              };
+            }
+            nix-homebrew.darwinModules.nix-homebrew
+            {
+              nix-homebrew = {
+                enable = true;
+                enableRosetta = true;
+                user = "julius.blank";
+                autoMigrate = true;
+                taps = {
+                  "homebrew/homebrew-core" = inputs.homebrew-core;
+                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+                  "nikitabobko/homebrew-tap" = inputs.homebrew-aerospace;
+                };
+                mutableTaps = false;
+              };
             }
           ];
         };

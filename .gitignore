@@ -12,5 +12,9 @@ terraform/tfplan
 # Secrets (unencrypted)
 *.age.dec
 
+# Local deploy state (machine-specific, written by `just deploy`)
+.deploy-status
+
 # OS
 .DS_Store
+*.swp

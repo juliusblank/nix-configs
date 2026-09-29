@@ -7,6 +7,8 @@ aws_region := "eu-central-1"
 state_bucket := "juliusblank-terraform-state"
 lock_table := "juliusblank-terraform-locks"
 cache_bucket := "juliusblank-nix-cache"
+# Keep in sync with `inputs.nix-darwin` in flake.nix (branch / tag).
+nix_darwin_flake := "github:nix-darwin/nix-darwin/nix-darwin-25.11"
 
 # ==============================================================================
 # Step 0: Infrastructure bootstrap
@@ -122,6 +124,36 @@ setup-nix-cache-keys:
 # Day-to-day operations
 # ==============================================================================
 
+# Show the currently activated system generation and whether HEAD has drifted since
+status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    profile=/nix/var/nix/profiles/system
+    active_gen=$(readlink "$profile" | grep -o '[0-9]*')
+    activated=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$profile" 2>/dev/null \
+                || stat --format="%y" "$profile" 2>/dev/null | cut -d. -f1)
+    echo "Host:       $(hostname -s)"
+    echo "Generation: $active_gen  (system activated $activated)"
+    echo "Version:    $(cat /run/current-system/darwin-version 2>/dev/null)"
+    echo ""
+    if [[ -f .deploy-status ]]; then
+        # shellcheck source=/dev/null
+        source .deploy-status
+        echo "Last deploy: generation $generation  commit $commit ($branch)  $deployed_at"
+        head_commit=$(git rev-parse --short HEAD)
+        head_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [[ "$commit" == "$head_commit" ]]; then
+            echo "             HEAD matches — nothing to deploy"
+        else
+            echo "             HEAD is $head_commit ($head_branch) — run 'just deploy <host>' to update"
+        fi
+    else
+        echo "Last deploy: no record yet — run 'just deploy <host>' to create one"
+    fi
+    echo ""
+    echo "Latest commit on main:"
+    git log main --oneline -1 2>/dev/null || echo "  (not in a git repo)"
+
 # Check the flake evaluates correctly
 check:
     nix flake check
@@ -131,7 +163,7 @@ build host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        serenity|macbook-work)
+        serenity|concinnity)
             nix build ".#darwinConfigurations.{{host}}.system"
             ;;
         pi-*)
@@ -152,8 +184,21 @@ deploy host:
         echo "WARNING: deploying from branch '$branch', not main."
     fi
     case "{{host}}" in
-        serenity|macbook-work)
-            sudo darwin-rebuild switch --flake ".#{{host}}"
+        serenity|concinnity)
+            # Non-interactive bash: no `darwin-rebuild` on PATH. New nix-darwin requires root
+            # for `switch`. Resolve the store path, then `sudo` that binary (not `sudo
+            # darwin-rebuild` — macOS secure_path would not find it).
+            drb=$(nix build --no-link --print-out-paths "{{nix_darwin_flake}}#darwin-rebuild")
+            sudo "$drb/bin/darwin-rebuild" switch --flake ".#{{host}}"
+            gen=$(readlink /nix/var/nix/profiles/system | grep -o '[0-9]*')
+            printf 'host=%s\ncommit=%s\nbranch=%s\ngeneration=%s\ndeployed_at=%s\n' \
+              "{{host}}" \
+              "$(git rev-parse --short HEAD)" \
+              "$(git rev-parse --abbrev-ref HEAD)" \
+              "$gen" \
+              "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+              > .deploy-status
+            echo "Deploy recorded in .deploy-status (generation $gen)"
             ;;
         pi-*)
             echo "For remote NixOS hosts, use:"
@@ -182,6 +227,14 @@ gc:
 fmt:
     find . -name '*.nix' -not -path './.direnv/*' | xargs nixfmt
 
+# Lint all nix files
+lint:
+    statix check .
+
+# Auto-fix statix lint findings
+lint-fix:
+    statix fix .
+
 # Preview or regenerate CHANGELOG.md locally (canonical release path is the GitHub release workflow)
 changelog:
     git-cliff --output CHANGELOG.md
@@ -195,8 +248,8 @@ diff host:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
-        serenity|macbook-work)
-            darwin-rebuild build --flake ".#{{host}}"
+        serenity|concinnity)
+            nix run "{{nix_darwin_flake}}#darwin-rebuild" -- build --flake ".#{{host}}"
             nix store diff-closures /run/current-system ./result
             ;;
         *)

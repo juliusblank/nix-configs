@@ -3,7 +3,7 @@
 let
   # The 1Password entry name is the single source of truth — the AWS CLI
   # profile name and op:// references are both derived from it.
-  # TODO: replace credentialProcess with `granted credential-process` once SSO is configured.
+  # TODO: replace credentialProcess with `op-credential-process` once SSO is configured.
   opVault = "infrastructure";
   opEntry = "personal-nix-configs-infra";
 
@@ -41,16 +41,34 @@ in
     ../../home/modules/nix-update-reminder.nix
   ];
 
-  home.username = "jbl";
-  home.homeDirectory = "/Users/jbl";
+  home = {
+    username = "jbl";
+    homeDirectory = "/Users/jbl";
+    # 1Password SSH agent — which keys to expose on this machine
+    file.".config/1password/ssh/agent.toml".text = ''
+      # All SSH keys from the Private vault (includes the personal "serenity" key)
+      [[ssh-keys]]
+      vault = "Private"
 
-  # Firefox with container tabs for multi-account AWS console access
+      # Claude Code signing key
+      [[ssh-keys]]
+      item = "Claude github SSH key"
+      vault = "github_nix-configs"
+    '';
+  };
+
+  # Firefox with container tabs for multi-account AWS console access.
+  # multi-account-containers: named containers per AWS account.
+  # open-url-in-container: handles ext+container: protocol from `login` function.
+  # granted: Granted AWS extension for console session management.
   programs.firefox = {
     enable = true;
     profiles.default = {
       isDefault = true;
       extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
         multi-account-containers
+        open-url-in-container
+        onepassword-password-manager
       ];
     };
   };

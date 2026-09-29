@@ -34,9 +34,9 @@ Store the token as a 1Password item so it can be injected by the justfile:
 
 ```bash
 op item create \
-  --vault Private \
+  --vault infrastructure \
   --category "API Credential" \
-  --title "1Password SA github-actions-nix-configs" \
+  --title "github-actions-nix-configs" \
   token=<paste token here>
 ```
 
@@ -71,8 +71,11 @@ Infrastructure definitions live in `terraform/`. One file per concern:
 | File | What it manages |
 |---|---|
 | `github.tf` | GitHub repository settings and branch protection |
-| `oidc.tf` | AWS OIDC provider and GitHub Actions IAM role |
+| `oidc.tf` | AWS OIDC provider |
+| `iam-ci.tf` | GitHub Actions IAM role + policies |
+| `iam-user.tf` | `nix-configs-infra` IAM user + managed policy |
 | `s3-cache.tf` | S3 bucket for the nix binary cache |
+| `state-backend.tf` | S3 state bucket + DynamoDB lock table |
 | `variables.tf` | Input variable declarations |
 | `outputs.tf` | Output value declarations |
 | `providers.tf` | Provider and backend configuration |

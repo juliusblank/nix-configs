@@ -1,11 +1,57 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-04-22
+## Unreleased — 2026-09-29
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
+
+### Documentation
+- add roadmap items #23-24 and sync quick-reference commands
+## v2026.09.2 — 2026-09-29
+
+### Bug Fixes
+- **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
+- **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
+- **flake:** unpin nix-homebrew and homebrew-cask (#53)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
+- **deps:** update flake inputs (#50)
+
+### Features
+- **home:** add statix Nix linter to devShell and pre-commit hook (#51)
+- **home:** set neovim as default editor and add ... alias (#47)
+- **serenity:** add 1Password Firefox extension (#54)
+- **home:** install github/gh-stack CLI extension for stacked PRs (#55)
+- **justfile:** add deploy status tracking and just status recipe (#57)
+- **darwin:** add AeroSpace tiling WM with 6-workspace layout (#48)
+## v2026.05.1 — 2026-05-04
+
+### Bug Fixes
+- **home:** kill gpg-agent before GitHub key import to release keyboxd lock (#42)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.04.8 (#35)
+- **deps:** update flake inputs (#45)
+
+### Features
+- concinnity host, GitHub layout, and work/personal isolation (#36)
+- **darwin:** declare hostnames via networking.hostName (#39)
+- **concinnity:** AWS auth overhaul — aws-vault, granted, Firefox containers, zsh perf (#41)
+- **home:** add treesitter and vim aliases to neovim (#43)
+- **home:** shell aliases, git aliases, and zsh tweaks from digga (#44)
+## v2026.04.8 — 2026-04-24
+
+### Bug Fixes
+- **home:** quote IdentityAgent path to handle space in "Group Containers" (#32)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.04.7 (#30)
-- **deps:** upgrade nixpkgs, nix-darwin, home-manager to 25.11
+- **deps:** upgrade nixpkgs, nix-darwin, home-manager to 25.11 (#31)
+
+### Features
+- **home:** declarative AWS CLI config via home/modules/aws.nix (#33)
 ## v2026.04.7 — 2026-04-20
 
 ### Bug Fixes

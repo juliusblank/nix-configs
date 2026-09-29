@@ -6,40 +6,68 @@
 }:
 
 {
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
+  # Nix binary cache — signing key for `nix copy` / `just push-cache` in 1Password
+  # (op://github_nix-configs/Nix Cache Signing Key/private_key).
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+    substituters = [ "https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com" ];
+    trusted-public-keys = [
+      "juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI="
+    ];
+  };
 
-  # Nix binary cache — uncomment after running `just setup-nix-cache-keys` and
-  # storing the private key in 1Password (op://github_nix-configs/Nix Cache Signing Key/private_key).
-  # Replace the placeholder below with the contents of ~/.config/nix-cache-keys/cache-pub-key.pem.
-  nix.settings.substituters = [ "https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com" ];
-  nix.settings.trusted-public-keys = [
-    "juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI="
-  ];
-
-  system.configurationRevision = self.rev or self.dirtyRev or null;
-
-  # Must match the value set when nix-darwin was first installed on this machine
-  system.stateVersion = 4;
+  system = {
+    configurationRevision = self.rev or self.dirtyRev or null;
+    # Must match the value set when nix-darwin was first installed on this machine
+    stateVersion = 4;
+    primaryUser = "jbl";
+    defaults = {
+      dock.autohide = true;
+      dock.mru-spaces = false;
+      finder = {
+        AppleShowAllExtensions = true;
+        FXPreferredViewStyle = "Nlsv";
+        NewWindowTarget = "Home";
+        AppleShowAllFiles = true;
+      };
+      loginwindow.LoginwindowText = "serenity, ole";
+      screencapture.location = "~/Pictures/screenshots";
+      screensaver.askForPasswordDelay = 10;
+      # AeroSpace prerequisite — keep one Spaces stack across all displays.
+      # Logout required to take effect.
+      spaces.spans-displays = true;
+      # NOTE: "Reduce motion" (System Settings → Accessibility → Display) is also
+      # recommended for AeroSpace, but com.apple.universalaccess is a protected
+      # macOS domain that `defaults write` can't touch without Full Disk Access.
+      # Toggle it once manually in System Settings.
+    };
+  };
 
   # Set the nixbld gid to match the existing installation
   ids.gids.nixbld = 350;
 
-  nixpkgs.hostPlatform = "aarch64-darwin";
-  nixpkgs.config.allowUnfree = true;
-  nixpkgs.overlays = [
-    inputs.claude-code.overlays.default
-    inputs.nur.overlays.default
-  ];
+  networking = {
+    hostName = "serenity";
+    computerName = "serenity";
+    localHostName = "serenity";
+  };
+
+  nixpkgs = {
+    hostPlatform = "aarch64-darwin";
+    config.allowUnfree = true;
+    overlays = [
+      inputs.claude-code.overlays.default
+      inputs.nur.overlays.default
+    ];
+  };
 
   users.users.jbl = {
     name = "jbl";
     home = "/Users/jbl";
   };
-
-  system.primaryUser = "jbl";
 
   # Ensure Homebrew paths are available in the shell
   environment.systemPath = [
@@ -47,7 +75,11 @@
     "/opt/homebrew/sbin"
   ];
 
-  programs.zsh.enable = true;
+  programs.zsh = {
+    enable = true;
+    enableGlobalCompInit = false;
+    promptInit = "";
+  };
 
   # System-level packages (available before user login)
   environment.systemPackages = with pkgs; [
@@ -55,23 +87,10 @@
     neofetch
     telegram-desktop
     vscode
-    lazygit
     claude-code
   ];
 
   security.pam.services.sudo_local.touchIdAuth = true;
-
-  system.defaults = {
-    dock.autohide = true;
-    dock.mru-spaces = false;
-    finder.AppleShowAllExtensions = true;
-    finder.FXPreferredViewStyle = "Nlsv";
-    finder.NewWindowTarget = "Home";
-    finder.AppleShowAllFiles = true;
-    loginwindow.LoginwindowText = "serenity, ole";
-    screencapture.location = "~/Pictures/screenshots";
-    screensaver.askForPasswordDelay = 10;
-  };
 
   homebrew = {
     enable = true;
@@ -81,17 +100,20 @@
       cleanup = "uninstall";
       upgrade = true;
     };
+    greedyCasks = true;
     taps = [
       "homebrew/core"
       "homebrew/cask"
+      "nikitabobko/tap"
     ];
     brews = [
       "cowsay"
       "granted"
-      "aws-vault"
     ];
     casks = [
       "1password"
+      "aerospace"
+      "ghostty"
       "orbstack"
       "rekordbox"
       "audacity"
