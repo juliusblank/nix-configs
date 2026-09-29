@@ -30,8 +30,11 @@
       url = "github:homebrew/homebrew-cask";
       flake = false;
     };
+    # Pinned to last commit before postflight_steps was added to the cask —
+    # that method is not supported by the pinned nix-homebrew version.
+    # Retry unpinning when nix-homebrew is upgraded.
     homebrew-aerospace = {
-      url = "github:nikitabobko/homebrew-tap";
+      url = "github:nikitabobko/homebrew-tap/db2dcd4d2fd7087457b3cc0baf597880ac4e35a0";
       flake = false;
     };
   };
