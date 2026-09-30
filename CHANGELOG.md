@@ -13,7 +13,10 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - add roadmap items #23-24 and sync quick-reference commands (#61)
 
 ### Features
-- **concinnity:** manage claude-code CLI via nix
+- **concinnity:** manage claude-code CLI via nix (#64)
+
+### Performance
+- **ci:** parallelize host builds and cache concinnity closure (#65)
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes

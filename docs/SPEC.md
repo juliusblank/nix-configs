@@ -253,6 +253,7 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |
 | Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed. The Claude *desktop app* (chat GUI) is IRU-managed; `claude-code` (the CLI dev tool) is a separate product and is nix-managed on both hosts. |
 | AWS profiles | `custom.aws` + 1Password `credential_process` for personal infra | Work profiles / placeholders (`custom.aws`); work-generated config is a follow-up |
+| Claude Code plugins | None declared | `taktile-skills` marketplace + `tktl-eng-data`, `tktl-eng-frontend` — deep-merged into `~/.claude/settings.json` by a `home.activation` step in `hosts/concinnity/home.nix` (file stays writable) |
 | YubiKey + granted | As needed | **`yubikey-manager`** (CLI **`ykman`**) for TOTP inside **`op-credential-process`**; `assume` function in **`hosts/concinnity/home.nix`** calls `assumego` directly |
 
 **Work project devShells:** live in a **separate flake repo** on the work GitHub account.
