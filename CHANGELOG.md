@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-09-29
+## Unreleased — 2026-09-30
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
@@ -11,6 +11,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
+
+### Features
+- **concinnity:** manage claude-code CLI via nix
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes

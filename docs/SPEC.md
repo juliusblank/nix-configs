@@ -251,7 +251,7 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 | `shell.nix` `GH_TOKEN` / `AWS_PROFILE` for this repo | Injected when hostname is `serenity` | Not set by shellHook — no `op read` to personal-infra or `github_nix-configs` PAT for routine shell |
 | Nix binary cache substituters | Enabled (see `hosts/serenity/configuration.nix`) | **Disabled** — avoid pulling personal closures onto a work-managed device |
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |
-| Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed |
+| Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed. The Claude *desktop app* (chat GUI) is IRU-managed; `claude-code` (the CLI dev tool) is a separate product and is nix-managed on both hosts. |
 | AWS profiles | `custom.aws` + 1Password `credential_process` for personal infra | Work profiles / placeholders (`custom.aws`); work-generated config is a follow-up |
 | YubiKey + granted | As needed | **`yubikey-manager`** (CLI **`ykman`**) for TOTP inside **`op-credential-process`**; `assume` function in **`hosts/concinnity/home.nix`** calls `assumego` directly |
 
