@@ -1,11 +1,11 @@
 # CI — runs on every PR and on nix-relevant pushes to main.
 #
 # Job flow:
-#   changes        — detects which file groups changed (skipped on release branches)
-#   check-flake    — nix flake check + serenity/concinnity build; only when nix files changed
+#   changes          — detects which file groups changed (skipped on release branches)
+#   check-flake      — nix flake check + matrix build of both hosts; only when nix files changed
 #   validate-release — tag + changelog checks; only on chore/release-* branches
-#   ci-passed      — fan-in aggregator; always runs; the single required status check
-#   push-cache     — push nix closure to S3; push-to-main only, after check-flake
+#   ci-passed        — fan-in aggregator; always runs; the single required status check
+#   push-cache       — push nix closures to S3 (both hosts, matrix); push-to-main only
 #
 # ci-passed is the required branch-protection status check so PRs are never
 # blocked by a check that didn't fire due to path or branch conditions.
@@ -53,13 +53,21 @@ jobs:
               - 'overlays/**'
               - '.github/workflows/ci.yml'
 
-  # Full nix evaluation + build both macOS hosts. Skipped when no nix-relevant files changed,
-  # and skipped entirely on release branches (changes job is skipped there).
+  # Build both macOS hosts in parallel matrix jobs — cuts wall-clock roughly in half
+  # vs. sequential builds. `nix flake check --no-build` runs on the serenity leg only,
+  # since evaluation is identical across hosts. Skipped when no nix-relevant files
+  # changed, and skipped entirely on release branches (changes job is skipped there).
   check-flake:
-    name: Check flake
+    name: Build (${{ matrix.host }})
     needs: changes
     if: needs.changes.outputs.nix == 'true'
     runs-on: macos-14
+    # `fail-fast: false` — surface errors on both hosts even if one fails first;
+    # avoids a re-run cycle to see what the other host would have reported.
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [serenity, concinnity]
     steps:
       - uses: actions/checkout@v4
 
@@ -76,15 +84,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-central-1
 
+      # Flake check is host-agnostic; run once (serenity leg) to save minutes.
       - name: Nix flake check
+        if: matrix.host == 'serenity'
         run: nix flake check --no-build
 
-      # Build both macOS hosts (catches eval errors)
-      - name: Build serenity
-        run: nix build .#darwinConfigurations.serenity.system
-
-      - name: Build concinnity
-        run: nix build .#darwinConfigurations.concinnity.system
+      - name: Build ${{ matrix.host }}
+        run: nix build .#darwinConfigurations.${{ matrix.host }}.system
 
   # Fast release-specific checks. Only runs on chore/release-* branches.
   validate-release:
@@ -121,6 +127,7 @@ jobs:
 
   # Fan-in aggregator — always runs, always the required status check.
   # Passes if every job that ran succeeded; skipped jobs count as passing.
+  # `check-flake` is a matrix; its result aggregates ("failure" if any leg fails).
   ci-passed:
     name: CI passed
     needs: [changes, check-flake, validate-release]
@@ -148,13 +155,19 @@ jobs:
           echo "  validate-release: ${{ needs.validate-release.result }}"
           echo "All checks passed or were skipped"
 
-  # Push the serenity closure to the S3 nix binary cache after every merge to main.
-  # Runs on macos-14 (aarch64-darwin) so the build is native and the closure is complete.
+  # Push each host's closure to the S3 nix binary cache after every merge to main.
+  # Matrix so serenity and concinnity push in parallel; concinnity was previously
+  # missing from the cache, forcing every PR to cold-build its host-specific paths
+  # (aws-vault override, granted, ykman, op-credential-process wrapper).
   push-cache:
-    name: Push cache
+    name: Push cache (${{ matrix.host }})
     needs: check-flake
     runs-on: macos-14
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [serenity, concinnity]
     steps:
       - uses: actions/checkout@v4
 
@@ -179,8 +192,8 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           NIX_CACHE_SIGNING_KEY: "op://github_nix-configs/Nix Cache Signing Key/private_key"
 
-      - name: Build serenity
-        run: nix build .#darwinConfigurations.serenity.system
+      - name: Build ${{ matrix.host }}
+        run: nix build .#darwinConfigurations.${{ matrix.host }}.system
 
       - name: Push closure to S3 cache
         run: |
