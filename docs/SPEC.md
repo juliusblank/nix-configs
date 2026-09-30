@@ -215,6 +215,15 @@ must have fields `access_key_id` and `secret_access_key`. The session cache item
   for all work org clones). `gitdir:~/work/` is still included for legacy checkouts
   until they are moved.
 - **serenity:** no work `includeIf` on that machine.
+- **Stray `~/.gitconfig` shadow.** Git reads both `~/.gitconfig` and
+  `~/.config/git/config`, with the former winning on conflicting keys. 1Password
+  onboarding and some work MDM setups write a `~/.gitconfig` that pins work
+  identity, signing key, and cert overrides — silently shadowing home-manager and
+  authoring every commit as the work identity, even in personal repos. `home/darwin.nix`
+  removes the file on every activation; `gpg.ssh.program` (op-ssh-sign) is set in
+  the same module so 1Password-backed SSH signing survives the removal. Aikido's
+  cert bundle path (concinnity-only) is preserved via `programs.git.settings.http.sslCAInfo`
+  in `hosts/concinnity/home.nix`.
 
 ### GitHub checkout layout (`~/github/` on concinnity)
 

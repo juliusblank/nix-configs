@@ -14,6 +14,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
+- **concinnity:** declare taktile-skills marketplace and plugins for claude-code
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
