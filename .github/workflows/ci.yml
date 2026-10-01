@@ -5,7 +5,8 @@
 #   check-flake      — nix flake check + matrix build of both hosts; only when nix files changed
 #   validate-release — tag + changelog checks; only on chore/release-* branches
 #   ci-passed        — fan-in aggregator; always runs; the single required status check
-#   push-cache       — push nix closures to S3 (both hosts, matrix); push-to-main only
+#   push-cache       — push nix closures to S3 (both hosts, matrix); runs on merge to main
+#                      and on same-repo PR builds (seeds new paths before merge)
 #
 # ci-passed is the required branch-protection status check so PRs are never
 # blocked by a check that didn't fire due to path or branch conditions.
@@ -155,15 +156,26 @@ jobs:
           echo "  validate-release: ${{ needs.validate-release.result }}"
           echo "All checks passed or were skipped"
 
-  # Push each host's closure to the S3 nix binary cache after every merge to main.
+  # Push each host's closure to the S3 nix binary cache on merge to main *and*
+  # on same-repo PR builds. Seeding on PR means a derivation introduced by the
+  # PR (e.g. a nixpkgs bump that invalidates a hash) lands in the cache before
+  # merge, so the next CI run on this PR, and the final merge-to-main run, both
+  # get cache hits instead of rebuilding from source.
+  #
   # Matrix so serenity and concinnity push in parallel; concinnity was previously
   # missing from the cache, forcing every PR to cold-build its host-specific paths
   # (aws-vault override, granted, ykman, op-credential-process wrapper).
+  #
+  # Fork PRs are excluded via the `head.repo.full_name` check: those runs don't
+  # have OIDC/secrets access and the step would fail at the AWS creds config.
   push-cache:
     name: Push cache (${{ matrix.host }})
     needs: check-flake
     runs-on: macos-14
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     strategy:
       fail-fast: false
       matrix:

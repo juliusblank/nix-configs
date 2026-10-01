@@ -15,13 +15,12 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
-- **concinnity:** declare taktile-skills marketplace and plugins for claude-code
 - **ci:** auto-label PRs by scope via actions/labeler (#71)
-- **aerospace:** include DELL P2419HC as primary external monitor (#67)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
 - **serenity:** move telegram from nix to homebrew cask (#68)
+- **ci:** run push-cache on same-repo PRs too
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
