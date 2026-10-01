@@ -27,12 +27,13 @@
     #
     # External monitors host workspaces 1/2/4 (primary work surface):
     #   - DELL U2724DE: office
+    #   - DELL P2419HC: travel/secondary dock
     #   - PHL 42M2N8900: home 42" 4K
     # Laptop hosts workspaces 3/5/6 (comms, music, flex).
     [workspace-to-monitor-force-assignment]
-    1 = ['DELL U2724DE', 'PHL 42M2N8900', 'main']
-    2 = ['DELL U2724DE', 'PHL 42M2N8900', 'main']
-    4 = ['DELL U2724DE', 'PHL 42M2N8900', 'main']
+    1 = ['DELL U2724DE', 'DELL P2419HC', 'PHL 42M2N8900', 'main']
+    2 = ['DELL U2724DE', 'DELL P2419HC', 'PHL 42M2N8900', 'main']
+    4 = ['DELL U2724DE', 'DELL P2419HC', 'PHL 42M2N8900', 'main']
     3 = ['Built-in Retina Display', 'secondary']
     5 = ['Built-in Retina Display', 'secondary']
     6 = ['Built-in Retina Display', 'secondary']
