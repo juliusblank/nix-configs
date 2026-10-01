@@ -85,7 +85,6 @@
   environment.systemPackages = with pkgs; [
     vim
     neofetch
-    telegram-desktop
     vscode
     claude-code
   ];
@@ -115,6 +114,7 @@
       "aerospace"
       "ghostty"
       "orbstack"
+      "telegram"
       "rekordbox"
       "audacity"
       "splice"
