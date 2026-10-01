@@ -93,9 +93,10 @@ Tools and config that EVERY host gets:
 
 ## Infrastructure
 
-- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
+- **OpenTofu** manages: GitHub repo settings, branch protection, PR scope labels, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
 - **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + parallel matrix build of serenity and concinnity) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on same-repo PRs and on merge to main (see [docs/ci.md](ci.md))
+- **PR scope labels** (`infra`, `ci`, `host:serenity`, `host:concinnity`, `home`, `flake`, `deps`, `docs`) are applied by `.github/workflows/pr-labeler.yml` based on file paths in `.github/labeler.yml`. Labels themselves are declared in `terraform/github-labels.tf` so they stay in sync with the mapping file.
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with **`nix.settings`** substituters and trusted public key; CI pushes closures on every PR CI run (same-repo) and on every merge to main, so paths introduced by a PR are warm before the merge build
 
 

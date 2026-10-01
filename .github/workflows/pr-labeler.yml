@@ -1,0 +1,28 @@
+# PR labeler — assigns scope labels to every PR based on the files it touches.
+#
+# Labels are declared in terraform/github-labels.tf; path → label mapping lives
+# in .github/labeler.yml. `sync-labels: true` removes labels that no longer
+# apply after a PR's file list changes, so stale labels don't pile up.
+name: PR labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write # labeler writes labels; nothing else
+
+jobs:
+  label:
+    name: Label PR
+    runs-on: ubuntu-latest
+    steps:
+      # continue-on-error: true so the first run (before tofu apply has
+      # created the labels) does not fail; subsequent PR runs after labels
+      # exist succeed normally.
+      - uses: actions/labeler@v5
+        continue-on-error: true
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true

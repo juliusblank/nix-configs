@@ -1,0 +1,56 @@
+# Path → label mapping consumed by .github/workflows/pr-labeler.yml.
+#
+# Labels are applied additively: a PR touching hosts/serenity/configuration.nix
+# and flake.lock gets both `host:serenity` and `deps`.
+#
+# Labels referenced here must exist in the repo — they're declared in
+# terraform/github-labels.tf.
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'terraform/**'
+          - '.github/workflows/infra.yml'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/ci.yml'
+          - '.github/workflows/release.yml'
+          - '.github/workflows/pr-labeler.yml'
+          - '.github/labeler.yml'
+          - '.github/CLAUDE.md'
+          - 'docs/ci.md'
+
+host:serenity:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'hosts/serenity/**'
+
+host:concinnity:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'hosts/concinnity/**'
+
+home:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'home/**'
+
+flake:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'flake.nix'
+
+deps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'flake.lock'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - 'README.md'
+          - '**/CLAUDE.md'
+          - 'CHANGELOG.md'
