@@ -220,7 +220,9 @@ in
         	local url
         	url=$(PATH="${ykmanBinPath}:$PATH" aws-vault login "$profile" -d "$duration" -s)
         	local url_escaped=''${url//&/%26}
-        	open -a Firefox "ext+container:name=''${profile}&url=''${url_escaped}"
+        	# Use the exact bundle path so LaunchServices does not resolve `Firefox`
+        	# to a stale nix-store bundle retained by an older system generation.
+        	open -a "${pkgs.firefox}/Applications/Firefox.app" "ext+container:name=''${profile}&url=''${url_escaped}"
         }
 
         # grassume: granted via assumego — for profiles using op-credential-process.
