@@ -258,6 +258,11 @@ in
         	reply=(''${(f)"$(${pkgs.awscli2}/bin/aws configure list-profiles 2>/dev/null)"})
         }
         compctl -K _aws_profile_completions assume login grassume
+
+        # daily-tasks capture: `todo "…"` runs /todo headlessly against the local vault.
+        # Repo: ~/github/jbl-taktile/daily-tasks. See its CLAUDE.md and spec/SPEC.md.
+        # concinnity-only — the vault path is a work tree.
+        todo() { (cd "$HOME/github/jbl-taktile/daily-tasks" && claude -p "/todo $*"); }
       '';
     };
   };

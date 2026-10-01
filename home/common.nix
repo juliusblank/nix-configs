@@ -59,10 +59,6 @@ in
         # mkdir + cd in one step
         mcd() { mkdir -p "$1" && cd "$1" }
 
-        # daily-tasks capture: `todo "…"` runs /todo headlessly against the local vault.
-        # Repo: ~/github/jbl-taktile/daily-tasks. See its CLAUDE.md and spec/SPEC.md.
-        todo() { (cd "$HOME/github/jbl-taktile/daily-tasks" && claude -p "/todo $*"); }
-
         # jj to leave insert mode (vi mode)
         bindkey jj vi-cmd-mode
       '';
