@@ -12,9 +12,11 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
+- **spec:** document S3 cache retention / lifecycle policy
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
+- **ci:** auto-label PRs by scope via actions/labeler (#71)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
