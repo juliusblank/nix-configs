@@ -166,6 +166,11 @@ in
       }
     ];
 
+    # Trust the corporate root CA that Aikido Security's endpoint protection
+    # uses to inspect outbound HTTPS. Required for git-over-HTTPS on this host;
+    # SSH-only remotes are unaffected. Path is stable per Aikido's install layout.
+    git.settings.http.sslCAInfo = "/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-openssl-combined-ca.pem";
+
     # Firefox with container tabs for multi-account AWS console access.
     # multi-account-containers: named containers per AWS account.
     # open-url-in-container: handles ext+container: protocol from `login` function.
@@ -215,7 +220,9 @@ in
         	local url
         	url=$(PATH="${ykmanBinPath}:$PATH" aws-vault login "$profile" -d "$duration" -s)
         	local url_escaped=''${url//&/%26}
-        	open -a Firefox "ext+container:name=''${profile}&url=''${url_escaped}"
+        	# Use the exact bundle path so LaunchServices does not resolve `Firefox`
+        	# to a stale nix-store bundle retained by an older system generation.
+        	open -a "${pkgs.firefox}/Applications/Firefox.app" "ext+container:name=''${profile}&url=''${url_escaped}"
         }
 
         # grassume: granted via assumego — for profiles using op-credential-process.
