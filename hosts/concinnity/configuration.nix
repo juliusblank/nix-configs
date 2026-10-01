@@ -51,6 +51,7 @@
     hostPlatform = "aarch64-darwin";
     config.allowUnfree = true;
     overlays = [
+      inputs.claude-code.overlays.default
       inputs.nur.overlays.default
       # Bump aws-vault to v7.10.2 for --backend=op-desktop (1Password Desktop integration).
       # Remove once nixpkgs-25.11-darwin ships ≥ 7.9.3.
@@ -97,9 +98,11 @@
   };
 
   # System-level packages — keep minimal; most GUI apps are managed by IRU.
-  # Claude Code is provided by IRU with company-specific configuration — do not install via nix.
+  # NB: the Claude *desktop app* (Claude.app chat client) is provided by IRU;
+  # `claude-code` here is the CLI dev tool, a separate product not shipped by IRU.
   environment.systemPackages = with pkgs; [
     vim
+    claude-code
   ];
 
   security.pam.services.sudo_local.touchIdAuth = true;
