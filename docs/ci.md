@@ -18,7 +18,7 @@ flowchart TD
 
     ci-passed["ci-passed\n(ubuntu)\nfan-in aggregator\n★ required status check"]
 
-    subgraph "Push to main only"
+    subgraph "Same-repo PRs + push to main"
         push-cache["push-cache matrix\n(macos-14 × 2)\nsign + push each host closure\nto S3 cache"]
     end
 
@@ -28,7 +28,7 @@ flowchart TD
     changes -->|nix == false| ci-passed
     check-flake --> ci-passed
     validate-release --> ci-passed
-    check-flake -->|merge to main| push-cache
+    check-flake -->|same-repo PR or push to main| push-cache
 ```
 
 `ci-passed` is the single required branch-protection status check. Skipped jobs count as passing, so a docs-only PR is never blocked waiting for `check-flake` to run.
