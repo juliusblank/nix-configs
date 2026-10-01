@@ -18,6 +18,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
+- **serenity:** move telegram from nix to homebrew cask (#68)
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes

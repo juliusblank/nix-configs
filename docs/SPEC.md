@@ -110,6 +110,13 @@ from 1Password at runtime via the `github-actions-nix-configs` service account. 
 added to `push-cache` so its host-specific paths (aws-vault override, granted, ykman, the
 op-credential-process wrapper) are warm for the next PR build instead of cold-built every time.
 
+**Retention / cost control.** `terraform/s3-cache.tf` sets a lifecycle policy on the bucket:
+current objects expire after 90 days, non-current versions (from the versioning config) after 30.
+Store paths are content-addressed, so paths still referenced by a current host closure get
+re-uploaded on each push-cache run and stay warm; paths orphaned by an abandoned PR or a flake
+input bump age out automatically. Tune the `expiration.days` value if cost grows faster than
+expected after push-cache started running on PR builds.
+
 ## Secrets Management
 
 - **1Password** is the single password manager across all machines — no secrets stored in the repo
