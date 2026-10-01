@@ -1,23 +1,29 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-09-30
+## Unreleased — 2026-10-01
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
+- **home:** remove stray ~/.gitconfig shadow, port needed settings to nix (#58)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
+
+### Features
+- **concinnity:** manage claude-code CLI via nix (#64)
+
+### Performance
+- **ci:** parallelize host builds and cache concinnity closure (#65)
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask to pre-depends_on-regression commit (#49)
 - **lint:** consolidate repeated attribute keys to resolve statix W20 warnings (#52)
 - **flake:** unpin nix-homebrew and homebrew-cask (#53)
-- **home:** remove stray ~/.gitconfig shadow, port needed settings to nix
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.05.1 (#46)
