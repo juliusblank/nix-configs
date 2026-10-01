@@ -12,12 +12,11 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
+- **spec:** document S3 cache retention / lifecycle policy
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
-- **concinnity:** declare taktile-skills marketplace and plugins for claude-code
 - **ci:** auto-label PRs by scope via actions/labeler (#71)
-- **aerospace:** include DELL P2419HC as primary external monitor (#67)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
