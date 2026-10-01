@@ -18,13 +18,12 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **concinnity:** manage claude-code CLI via nix (#64)
 - **ci:** auto-label PRs by scope via actions/labeler (#71)
 - **aerospace:** include DELL P2419HC as primary external monitor (#67)
+- **concinnity:** declare taktile-skills marketplace and plugins for claude-code (#66)
+- **home:** add `todo` shell helper for daily-tasks capture (#59)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
 - **serenity:** move telegram from nix to homebrew cask (#68)
-
-### Refactoring
-- **concinnity:** scope todo helper to concinnity only
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
@@ -42,7 +41,6 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **serenity:** add 1Password Firefox extension (#54)
 - **home:** install github/gh-stack CLI extension for stacked PRs (#55)
 - **justfile:** add deploy status tracking and just status recipe (#57)
-- **home:** add `todo` shell helper for daily-tasks capture
 - **darwin:** add AeroSpace tiling WM with 6-workspace layout (#48)
 ## v2026.05.1 — 2026-05-04
 

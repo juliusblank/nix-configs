@@ -155,21 +155,28 @@ in
     #
     # Work repos: clone under ~/github/taktile-org/ (primary). Legacy ~/work/ kept
     # so old checkouts keep working until moved.
-    git.includes = [
-      {
-        condition = "gitdir:~/github/taktile-org/";
-        contents = workGitIdentity;
-      }
-      {
-        condition = "gitdir:~/work/";
-        contents = workGitIdentity;
-      }
-    ];
+    git = {
+      includes = [
+        {
+          condition = "gitdir:~/github/taktile-org/";
+          contents = workGitIdentity;
+        }
+        {
+          condition = "gitdir:~/work/";
+          contents = workGitIdentity;
+        }
+      ];
 
-    # Trust the corporate root CA that Aikido Security's endpoint protection
-    # uses to inspect outbound HTTPS. Required for git-over-HTTPS on this host;
-    # SSH-only remotes are unaffected. Path is stable per Aikido's install layout.
-    git.settings.http.sslCAInfo = "/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-openssl-combined-ca.pem";
+      # Default signing key for commits on this host — the work SSH key is the only
+      # one the 1Password agent exposes here (see agent.toml above). Repos under
+      # ~/github/taktile-org/ and ~/work/ reuse the same key via `workGitIdentity`.
+      signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAwfAJRp8a2KepH2l6HNikRiebYfO6/EYs7OX1eewUfm";
+
+      # Trust the corporate root CA that Aikido Security's endpoint protection
+      # uses to inspect outbound HTTPS. Required for git-over-HTTPS on this host;
+      # SSH-only remotes are unaffected. Path is stable per Aikido's install layout.
+      settings.http.sslCAInfo = "/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-openssl-combined-ca.pem";
+    };
 
     # Firefox with container tabs for multi-account AWS console access.
     # multi-account-containers: named containers per AWS account.
