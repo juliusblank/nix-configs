@@ -15,6 +15,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
+- **ci:** auto-label PRs by scope via actions/labeler (#71)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
