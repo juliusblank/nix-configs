@@ -41,12 +41,12 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change, builds both serenity and concinnity; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change, builds serenity and concinnity in parallel matrix jobs; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on merge to main |
 | 4 | `tf-apply` guardrails | Done — hard block if not on `main` and working tree is dirty; soft warn (warn + require Enter) if not on `main` but tree is clean; on `main`, runs without interruption. `tf-plan` prints a warning when not on `main`. CI bypasses naturally (always clean, always on main). |
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `infrastructure`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://infrastructure/github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
-| 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` job wired (macos-14, pushes on merge to main); signing key generated and stored in 1Password; public key and substituters in **`hosts/serenity/configuration.nix`** via **`nix.settings`**; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
+| 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` matrix pushes both host closures on merge to main; signing key generated and stored in 1Password; public key and substituters in **`hosts/serenity/configuration.nix`** via **`nix.settings`**; serenity deployed with cache config active; cache seeded via CI on each merge to main. |
 | 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. Work clones under `~/github/taktile-org/`; `nix-configs` under `~/github/juliusblank/nix-configs` on all macOS hosts. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md`, *Serenity and concinnity isolation* below. |
@@ -93,9 +93,10 @@ Tools and config that EVERY host gets:
 
 ## Infrastructure
 
-- **OpenTofu** manages: GitHub repo settings, branch protection, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
+- **OpenTofu** manages: GitHub repo settings, branch protection, PR scope labels, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
-- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + serenity/concinnity build) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` pushes the serenity closure to S3 on merge to main (see [docs/ci.md](ci.md))
+- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + parallel matrix build of serenity and concinnity) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on merge to main (see [docs/ci.md](ci.md))
+- **PR scope labels** (`infra`, `ci`, `host:serenity`, `host:concinnity`, `home`, `flake`, `deps`, `docs`) are applied by `.github/workflows/pr-labeler.yml` based on file paths in `.github/labeler.yml`. Labels themselves are declared in `terraform/github-labels.tf` so they stay in sync with the mapping file.
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with **`nix.settings`** substituters and trusted public key; CI pushes closure on every merge to main
 
 
@@ -104,9 +105,11 @@ Tools and config that EVERY host gets:
 Complete. The S3 cache bucket is public-read. The signing key pair was generated via
 `just setup-nix-cache-keys`; the private key is in 1Password (`op://github_nix-configs/Nix Cache
 Signing Key/private_key`) and the public key is committed in `hosts/serenity/configuration.nix`.
-The `push-cache` CI job (`macos-14` runner) pushes the serenity closure to S3 on every merge to
-main using the signing key read from 1Password at runtime via the `github-actions-nix-configs`
-service account.
+The `push-cache` CI job (`macos-14` runner) is a matrix over both hosts (serenity, concinnity)
+that pushes each closure to S3 in parallel on every merge to main, using the signing key read
+from 1Password at runtime via the `github-actions-nix-configs` service account. Concinnity was
+added to `push-cache` so its host-specific paths (aws-vault override, granted, ykman, the
+op-credential-process wrapper) are warm for the next PR build instead of cold-built every time.
 
 ## Secrets Management
 
@@ -213,6 +216,15 @@ must have fields `access_key_id` and `secret_access_key`. The session cache item
   for all work org clones). `gitdir:~/work/` is still included for legacy checkouts
   until they are moved.
 - **serenity:** no work `includeIf` on that machine.
+- **Stray `~/.gitconfig` shadow.** Git reads both `~/.gitconfig` and
+  `~/.config/git/config`, with the former winning on conflicting keys. 1Password
+  onboarding and some work MDM setups write a `~/.gitconfig` that pins work
+  identity, signing key, and cert overrides — silently shadowing home-manager and
+  authoring every commit as the work identity, even in personal repos. `home/darwin.nix`
+  removes the file on every activation; `gpg.ssh.program` (op-ssh-sign) is set in
+  the same module so 1Password-backed SSH signing survives the removal. Aikido's
+  cert bundle path (concinnity-only) is preserved via `programs.git.settings.http.sslCAInfo`
+  in `hosts/concinnity/home.nix`.
 
 ### GitHub checkout layout (`~/github/` on concinnity)
 
@@ -249,8 +261,9 @@ machine** unless explicitly intended (e.g. SSH read access to selected personal 
 | `shell.nix` `GH_TOKEN` / `AWS_PROFILE` for this repo | Injected when hostname is `serenity` | Not set by shellHook — no `op read` to personal-infra or `github_nix-configs` PAT for routine shell |
 | Nix binary cache substituters | Enabled (see `hosts/serenity/configuration.nix`) | **Disabled** — avoid pulling personal closures onto a work-managed device |
 | 1Password SSH agent (`~/.config/1password/ssh/agent.toml`) | Declared in `hosts/serenity/home.nix` (Private vault keys + Claude key item) | Declared in `hosts/concinnity/home.nix` — minimal key set (e.g. work GitHub key + chosen personal key for cross-use repos); omit keys for domains that must stay off work |
-| Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed |
+| Homebrew GUI apps | Declarative casks in nix-homebrew | **None in nix** — company distribution (IRU); brews only where needed. The Claude *desktop app* (chat GUI) is IRU-managed; `claude-code` (the CLI dev tool) is a separate product and is nix-managed on both hosts. |
 | AWS profiles | `custom.aws` + 1Password `credential_process` for personal infra | Work profiles / placeholders (`custom.aws`); work-generated config is a follow-up |
+| Claude Code plugins | None declared | `taktile-skills` marketplace + `tktl-eng-data`, `tktl-eng-frontend` — deep-merged into `~/.claude/settings.json` by a `home.activation` step in `hosts/concinnity/home.nix` (file stays writable) |
 | YubiKey + granted | As needed | **`yubikey-manager`** (CLI **`ykman`**) for TOTP inside **`op-credential-process`**; `assume` function in **`hosts/concinnity/home.nix`** calls `assumego` directly |
 
 **Work project devShells:** live in a **separate flake repo** on the work GitHub account.
