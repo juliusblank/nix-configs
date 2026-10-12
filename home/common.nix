@@ -71,10 +71,18 @@ in
         # zr [NAME] — attach or create a Zellij session with the "repo" layout.
         # NAME defaults to the current directory basename, so `zr` from a repo
         # root gives a session named after the repo.
+        #
+        # Zellij 0.43 note: `-l/--layout` with `-s/--session` means "add this
+        # layout as a new tab in an *existing* session". The flag that starts
+        # a new session with a layout is `-n/--new-session-with-layout`, so
+        # the create branch below uses that.
         zr() {
           local name="''${1:-$(basename "$PWD")}"
-          zellij attach "$name" 2>/dev/null \
-            || zellij --session "$name" --layout repo
+          if zellij list-sessions -s 2>/dev/null | grep -qx "$name"; then
+            zellij attach "$name"
+          else
+            zellij -s "$name" -n repo
+          fi
         }
       '';
       shellAliases = {
@@ -184,7 +192,6 @@ in
         default_shell = "zsh";
         theme = "ghostty-0x96f";
         pane_frames = false;
-        simplified_ui = true;
         copy_command = "pbcopy";
         scroll_buffer_size = 50000;
       };
@@ -209,7 +216,9 @@ in
       ".config/zellij/layouts/repo.kdl".text = ''
         layout {
             pane split_direction="vertical" {
-                pane name="claude"
+                pane name="claude" {
+                    command "claude"
+                }
                 pane name="shell"
             }
         }
