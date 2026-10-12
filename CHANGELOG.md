@@ -5,7 +5,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Bug Fixes
 - **home:** zr — use `-n` to create a Zellij session with a layout (#79)
-- **home:** add status bar back to Zellij `repo` layout
+- **home:** add status bar back to Zellij `repo` layout (#80)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.10.1 (#77)
