@@ -16,6 +16,7 @@ let
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICqzDzUYBHkpAe0EURy0G91tZMiUcoZAO4qjmBy/fbRQ
   '';
+
 in
 {
   imports = [ ./modules/extra-allowed-signers.nix ];
@@ -66,6 +67,15 @@ in
 
         # jj to leave insert mode (vi mode)
         bindkey jj vi-cmd-mode
+
+        # zr [NAME] — attach or create a Zellij session with the "repo" layout.
+        # NAME defaults to the current directory basename, so `zr` from a repo
+        # root gives a session named after the repo.
+        zr() {
+          local name="''${1:-$(basename "$PWD")}"
+          zellij attach "$name" 2>/dev/null \
+            || zellij --session "$name" --layout repo
+        }
       '';
       shellAliases = {
         ".." = "cd ..";
@@ -161,18 +171,71 @@ in
       nix-direnv.enable = true;
     };
 
+    # --- Zellij (terminal multiplexer; one session per project/Claude run) ---
+    #
+    # `zr [NAME]` (zsh fn above) attaches or creates a session with the "repo"
+    # layout from ./zellij/layouts/repo.kdl: claude pane on the left, shell on
+    # the right. Zsh integration stays off deliberately — auto-attach misbehaves
+    # inside Claude Code's PTY and nested shells.
+    zellij = {
+      enable = true;
+      enableZshIntegration = false;
+      settings = {
+        default_shell = "zsh";
+        theme = "ghostty-0x96f";
+        pane_frames = false;
+        simplified_ui = true;
+        copy_command = "pbcopy";
+        scroll_buffer_size = 50000;
+      };
+    };
+
     # Let home-manager manage itself
     home-manager.enable = true;
   };
 
   home = {
-    # Maps signing keys to emails for local `git log --show-signature` verification.
-    # Hosts may append via `custom.extraAllowedSigners` (see concinnity).
-    file.".ssh/allowed_signers".text =
-      personalAllowedSigners
-      + lib.optionalString (config.custom.extraAllowedSigners != "") (
-        "\n" + config.custom.extraAllowedSigners
-      );
+    file = {
+      # Maps signing keys to emails for local `git log --show-signature` verification.
+      # Hosts may append via `custom.extraAllowedSigners` (see concinnity).
+      ".ssh/allowed_signers".text =
+        personalAllowedSigners
+        + lib.optionalString (config.custom.extraAllowedSigners != "") (
+          "\n" + config.custom.extraAllowedSigners
+        );
+
+      # Zellij "repo" layout: claude left, shell right. `zr` zsh function
+      # (above) attaches/creates a session with this layout.
+      ".config/zellij/layouts/repo.kdl".text = ''
+        layout {
+            pane split_direction="vertical" {
+                pane name="claude"
+                pane name="shell"
+            }
+        }
+      '';
+
+      # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix).
+      # Shipped as a separate theme file so `programs.zellij.settings.theme`
+      # above just needs to name it.
+      ".config/zellij/themes/ghostty-0x96f.kdl".text = ''
+        themes {
+            ghostty-0x96f {
+                fg "#FFFFFF"
+                bg "#262427"
+                black "#434343"
+                red "#FF2740"
+                green "#ABE047"
+                yellow "#FFC24B"
+                blue "#51A5FA"
+                magenta "#FF75B5"
+                cyan "#35BBB0"
+                white "#FFFFFF"
+                orange "#FFC24B"
+            }
+        }
+      '';
+    };
 
     # --- Core CLI tools (every machine gets these) ---
     packages = with pkgs; [
