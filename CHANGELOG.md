@@ -4,6 +4,16 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ## Unreleased — 2026-10-12
 
 ### Bug Fixes
+- **home:** zr — use `-n` to create a Zellij session with a layout
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.1 (#77)
+
+### Features
+- **home:** add Zellij with per-repo layout (#78)
+## v2026.10.1 — 2026-10-12
+
+### Bug Fixes
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
 - **home:** remove stray ~/.gitconfig shadow, port needed settings to nix (#58)
 - **concinnity:** use exact Firefox bundle path in `login` helper (#56)
@@ -13,7 +23,6 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
 - **devshell:** drop per-commit CHANGELOG regeneration (#76)
-- **changelog:** update CHANGELOG.md for v2026.10.1 (#77)
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
@@ -27,7 +36,6 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **aerospace:** include DELL P2419HC as primary external monitor (#67)
 - **concinnity:** declare taktile-skills marketplace and plugins for claude-code (#66)
 - **home:** add `todo` shell helper for daily-tasks capture (#59)
-- **home:** add Zellij with per-repo layout and status bar
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
