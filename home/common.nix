@@ -215,11 +215,30 @@ in
       # (above) attaches/creates a session with this layout.
       ".config/zellij/layouts/repo.kdl".text = ''
         layout {
-            pane split_direction="vertical" {
-                pane name="claude" {
-                    command "claude"
+            // The status-bar plugin has to appear in the layout's own pane tree —
+            // `default_tab_template` only runs for explicit `tab {}` blocks, which
+            // this layout doesn't use. Keep the status-bar inline as a 2-row
+            // borderless pane under the content split.
+            pane split_direction="horizontal" {
+                pane split_direction="vertical" {
+                    pane name="claude" {
+                        // Resume the last conversation in this directory when
+                        // one exists; starts fresh otherwise. Use /clear inside
+                        // Claude Code to drop the loaded history and start a
+                        // new conversation within the same pane.
+                        command "claude"
+                        args "--continue"
+                    }
+                    pane split_direction="horizontal" {
+                        pane name="shell"
+                        pane name="lazygit" {
+                            command "lazygit"
+                        }
+                    }
                 }
-                pane name="shell"
+                pane size=2 borderless=true {
+                    plugin location="zellij:status-bar"
+                }
             }
         }
       '';

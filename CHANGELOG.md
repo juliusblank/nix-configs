@@ -4,7 +4,8 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ## Unreleased — 2026-10-12
 
 ### Bug Fixes
-- **home:** zr — use `-n` to create a Zellij session with a layout
+- **home:** zr — use `-n` to create a Zellij session with a layout (#79)
+- **home:** add status bar back to Zellij `repo` layout
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.10.1 (#77)
