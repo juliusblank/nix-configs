@@ -1,6 +1,10 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## Unreleased — 2026-10-12
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.2 (#82)
 ## v2026.10.2 — 2026-10-12
 
 ### Bug Fixes
