@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-10-12
+## v2026.10.1 — 2026-10-12
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
@@ -12,6 +12,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
+- **devshell:** drop per-commit CHANGELOG regeneration (#76)
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
@@ -29,7 +30,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
 - **serenity:** move telegram from nix to homebrew cask (#68)
-- **ci:** run push-cache on same-repo PRs too
+- **ci:** run push-cache on same-repo PRs too (#69)
 ## v2026.09.2 — 2026-09-29
 
 ### Bug Fixes
