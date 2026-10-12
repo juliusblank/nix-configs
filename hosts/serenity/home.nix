@@ -72,6 +72,10 @@ in
     };
   };
 
+  # Default signing key for commits on this host — personal SSH key served by the
+  # 1Password agent (Private vault). Matches the first entry in `personalAllowedSigners`.
+  programs.git.signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
+
   # Granted for AWS credential management
   custom.granted.enable = true;
 
