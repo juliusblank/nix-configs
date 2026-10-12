@@ -1,7 +1,7 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-10-12
+## v2026.10.2 — 2026-10-12
 
 ### Bug Fixes
 - **home:** zr — use `-n` to create a Zellij session with a layout (#79)
@@ -12,6 +12,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Features
 - **home:** add Zellij with per-repo layout (#78)
+- **home:** add `zrp` for Zellij sessions with Claude's resume picker (#81)
 ## v2026.10.1 — 2026-10-12
 
 ### Bug Fixes
