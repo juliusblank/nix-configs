@@ -64,6 +64,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 23 | `just deploy-release <version> <host>` | Deploy a specific CalVer release tag to a host — useful for rollback or pinning to a known-good version. Wraps `darwin-rebuild switch --flake "github:juliusblank/nix-configs/<version>#<host>"`. Writes `.deploy-status` the same way `just deploy` does. |
 | 24 | Bump OIDC role `max_session_duration` 1h → 4h | `push-cache` CI job times out for large closures (~2h build). Fix: set `max_session_duration = 14400` on `aws_iam_role.github_actions` in `terraform/oidc.tf`. |
 | 25 | Upgrade nix-homebrew past `postflight_steps` / `--cleanup` regressions | nix-homebrew pinned to `7d0038b` (2026-05-09). Sep 2026 homebrew-cask requires `postflight_steps` (not supported by this version). Latest nix-homebrew (`c11cccf`, 2026-09-20) bundles a Homebrew that removed `--cleanup` from `brew bundle` (used internally by nix-homebrew, no replacement). Workaround: `homebrew-cask` pinned to `dfc9d29` (2026-05-10) and `homebrew-aerospace` to `db2dcd4d` (2026-03-08). When upgrading: find a nix-homebrew that supports `postflight_steps` AND retains `--cleanup`, then remove all three pins. |
+| 26 | Claude Code session terminal management | Settle a pattern for running several Claude Code sessions in parallel (one per repo/task) without losing track of which terminal is doing what. Options to evaluate: (a) a dedicated **AeroSpace** workspace per session (teammate's suggestion — integrates with existing WM, no persistence); (b) **tmux** named sessions, optionally with a project switcher (**`sesh`**, **`tmux-sessionizer`**, or **`tmuxinator`**) for one-key jump between repos and persistence across terminal restarts; (c) **Zellij** — modern tmux-like TUI with discoverable keybinds, floating panes, and a built-in session manager; (d) **Ghostty**'s native tabs/splits (no learning curve, no persistence across quit). Decision criteria: persistence after a reboot or Ghostty quit, keyboard-driven switching, and how it composes with direnv + ghostty + AeroSpace. Decide between (b) and (a)+(d) first; (c) only if tmux keybinds feel too archaic. |
 
 ## Hosts
 
@@ -113,6 +114,13 @@ a hash) lands in the cache during the PR build itself — the next CI run on tha
 merge-to-main run, both skip the rebuild. Concinnity was added to `push-cache` so its host-specific
 paths (aws-vault override, granted, ykman, the op-credential-process wrapper) are warm for the next
 PR build instead of cold-built every time. Fork PRs are excluded (no OIDC / secrets access).
+
+**Retention / cost control.** `terraform/s3-cache.tf` sets a lifecycle policy on the bucket:
+current objects expire after 90 days, non-current versions (from the versioning config) after 30.
+Store paths are content-addressed, so paths still referenced by a current host closure get
+re-uploaded on each push-cache run and stay warm; paths orphaned by an abandoned PR or a flake
+input bump age out automatically. Tune the `expiration.days` value if cost grows faster than
+expected after push-cache started running on PR builds.
 
 ## Secrets Management
 

@@ -7,18 +7,22 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
 - **home:** remove stray ~/.gitconfig shadow, port needed settings to nix (#58)
 - **concinnity:** use exact Firefox bundle path in `login` helper (#56)
+- **home:** split git signing key per host (#72)
+- **concinnity:** sign personal commits with a dedicated signing key (#74)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
+- reflect per-host signing key split (#73)
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
 - **ci:** auto-label PRs by scope via actions/labeler (#71)
 - **aerospace:** include DELL P2419HC as primary external monitor (#67)
 - **concinnity:** declare taktile-skills marketplace and plugins for claude-code (#66)
+- **home:** add `todo` shell helper for daily-tasks capture (#59)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)
