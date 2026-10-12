@@ -8,6 +8,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** remove stray ~/.gitconfig shadow, port needed settings to nix (#58)
 - **concinnity:** use exact Firefox bundle path in `login` helper (#56)
 - **home:** split git signing key per host (#72)
+- **concinnity:** sign personal commits with a dedicated signing key (#74)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
