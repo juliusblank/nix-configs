@@ -15,6 +15,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
+- **spec:** document S3 cache retention / lifecycle policy
 - reflect per-host signing key split (#73)
 
 ### Features
