@@ -17,6 +17,38 @@ let
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICqzDzUYBHkpAe0EURy0G91tZMiUcoZAO4qjmBy/fbRQ
   '';
 
+  /**
+    Renders the shared Zellij "repo" layout with a parameterised Claude pane arg.
+     `claudeArg` is the single flag passed to `claude` (`--continue` or `--resume`),
+     which selects between auto-resume and the picker. All other panes (shell,
+     lazygit, status-bar) are identical across variants.
+  */
+  mkRepoLayout = claudeArg: ''
+    layout {
+        // The status-bar plugin has to appear in the layout's own pane tree —
+        // `default_tab_template` only runs for explicit `tab {}` blocks, which
+        // this layout doesn't use. Keep the status-bar inline as a 2-row
+        // borderless pane under the content split.
+        pane split_direction="horizontal" {
+            pane split_direction="vertical" {
+                pane name="claude" {
+                    command "claude"
+                    args "${claudeArg}"
+                }
+                pane split_direction="horizontal" {
+                    pane name="shell"
+                    pane name="lazygit" {
+                        command "lazygit"
+                    }
+                }
+            }
+            pane size=2 borderless=true {
+                plugin location="zellij:status-bar"
+            }
+        }
+    }
+  '';
+
 in
 {
   imports = [ ./modules/extra-allowed-signers.nix ];
@@ -82,6 +114,19 @@ in
             zellij attach "$name"
           else
             zellij -s "$name" -n repo
+          fi
+        }
+
+        # zrp [NAME] — like zr, but the Claude pane runs `claude --resume`,
+        # which opens the picker over conversations in the current directory.
+        # Use when the cwd has multiple past conversations and you want to
+        # pick one explicitly instead of auto-resuming the most recent.
+        zrp() {
+          local name="''${1:-$(basename "$PWD")}"
+          if zellij list-sessions -s 2>/dev/null | grep -qx "$name"; then
+            zellij attach "$name"
+          else
+            zellij -s "$name" -n repo-resume
           fi
         }
       '';
@@ -211,37 +256,17 @@ in
           "\n" + config.custom.extraAllowedSigners
         );
 
-      # Zellij "repo" layout: claude left, shell right. `zr` zsh function
-      # (above) attaches/creates a session with this layout.
-      ".config/zellij/layouts/repo.kdl".text = ''
-        layout {
-            // The status-bar plugin has to appear in the layout's own pane tree —
-            // `default_tab_template` only runs for explicit `tab {}` blocks, which
-            // this layout doesn't use. Keep the status-bar inline as a 2-row
-            // borderless pane under the content split.
-            pane split_direction="horizontal" {
-                pane split_direction="vertical" {
-                    pane name="claude" {
-                        // Resume the last conversation in this directory when
-                        // one exists; starts fresh otherwise. Use /clear inside
-                        // Claude Code to drop the loaded history and start a
-                        // new conversation within the same pane.
-                        command "claude"
-                        args "--continue"
-                    }
-                    pane split_direction="horizontal" {
-                        pane name="shell"
-                        pane name="lazygit" {
-                            command "lazygit"
-                        }
-                    }
-                }
-                pane size=2 borderless=true {
-                    plugin location="zellij:status-bar"
-                }
-            }
-        }
-      '';
+      # Zellij "repo" layout: claude left, shell + lazygit right, status bar
+      # on top. `--continue` makes the claude pane auto-resume the most recent
+      # conversation in cwd (falls back to a fresh one). Use /clear inside
+      # Claude Code to drop the loaded history and start a new conversation
+      # within the same pane. Used by the `zr` zsh function.
+      ".config/zellij/layouts/repo.kdl".text = mkRepoLayout "--continue";
+
+      # Zellij "repo-resume" layout: same as "repo", but the claude pane runs
+      # `claude --resume` so Claude opens the picker over conversations in the
+      # cwd instead of auto-continuing the most recent one. Used by `zrp`.
+      ".config/zellij/layouts/repo-resume.kdl".text = mkRepoLayout "--resume";
 
       # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix).
       # Shipped as a separate theme file so `programs.zellij.settings.theme`
