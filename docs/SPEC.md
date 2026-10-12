@@ -47,7 +47,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `infrastructure`). OIDC role extended with three scoped policies: tofu state backend (S3 + DynamoDB), IAM resource management, and nix cache bucket config. `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://infrastructure/github-actions-nix-configs/token`. |
 | 7 | Infrastructure tests | Validate OpenTofu modules with automated tests (candidate: Terratest or `tofu test`). Cover at minimum: S3 bucket exists and is private, IAM role trust policy is correctly scoped, OIDC provider URL is correct. Depends on #6. |
 | 8 | Nix cache activation | Done — S3 bucket configured public-read; CI `push-cache` matrix pushes both host closures on same-repo PRs and on merge to main; signing key generated and stored in 1Password; public key and substituters in **`hosts/serenity/configuration.nix`** via **`nix.settings`**; serenity deployed with cache config active; cache seeded continuously by PR CI. |
-| 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; pre-commit hook regenerates `CHANGELOG.md` on every commit; `release.yml` workflow_dispatch creates CalVer tag (`v<year>.<month>.<n>`) and opens a release PR with re-sectioned changelog |
+| 9 | Changelog via `git-cliff` | Done — `cliff.toml` at repo root; `release.yml` workflow_dispatch creates a CalVer tag (`v<year>.<month>.<n>`), regenerates `CHANGELOG.md` under the new tag via `orhun/git-cliff-action`, and opens a release PR. The per-commit pre-commit regen was removed (caused merge conflicts on every PR without adding information); run `just changelog` for a manual preview. |
 | 10 | Backup — serenity user data to S3 | Music, photos, projects; restore verification required |
 | 11 | `concinnity` host config | In progress — work MacBook (Apple Silicon). Shared layers (`common.nix`, `darwin.nix`) reused; host-specific config isolates work identity, SSH keys, and secrets. Work clones under `~/github/taktile-org/`; `nix-configs` under `~/github/juliusblank/nix-configs` on all macOS hosts. GUI apps managed by company software distribution; nix-homebrew additive-only. Dev shells for work repos live in a separate work GitHub repo, activated via nix-direnv. Bootstrap + isolation: `README.md`, *Serenity and concinnity isolation* below. |
 | 12 | AWS IAM Identity Center migration | In progress — Granted adopted for local AWS access. `granted` installed via nix `home.packages` on both hosts. `awscli2` system-wide via `home/darwin.nix`. Granted module at `home/modules/granted.nix` (`custom.granted.enable`). Firefox managed by home-manager via NUR on both hosts: `multi-account-containers` (named containers per AWS account), `open-url-in-container` (handles `ext+container:` protocol from `login` function), `granted` (AWS console session management); serenity additionally has `onepassword-password-manager`. IAM keys stored in 1Password; `op-credential-process` (nix-managed wrapper) handles `GetSessionToken` with YubiKey MFA and caches sessions in 1Password — zero credentials on disk. `assume` function calls `assumego` directly. Next: configure SSO profiles. |
@@ -322,8 +322,12 @@ orphaned deps.
 ## Changelog
 
 - **`CHANGELOG.md`** generated from conventional commit messages using `git-cliff`
-- Updated automatically by the pre-commit hook on every commit (inside the devShell)
-- `git-cliff` is available in the devShell; run `just changelog` to regenerate manually
+- Regenerated only at release time by `.github/workflows/release.yml` (via
+  `orhun/git-cliff-action`); the per-commit pre-commit regen was removed because
+  it caused merge conflicts on every PR without adding information — `git log`
+  already carries the record `git-cliff` reads from
+- `git-cliff` is still available in the devShell; run `just changelog` to preview
+  or regenerate manually when needed
 - Config lives in `cliff.toml` at the repo root
 
 ### Versioning & tagging
@@ -390,7 +394,7 @@ The root `CLAUDE.md` covers Nix, which is the primary language of the repo.
 5. Merge via GitHub UI (squash merge) — branch is auto-deleted
 6. Deploy: `just deploy <host>`
 
-PRs are squash-merged to keep a clean commit history on `main`. No review required (solo repo). `CHANGELOG.md` is updated by the pre-commit hook on every commit.
+PRs are squash-merged to keep a clean commit history on `main`. No review required (solo repo). `CHANGELOG.md` is regenerated only at release time (see *Changelog* above).
 
 ## Pre-commit Hooks
 
@@ -400,7 +404,6 @@ Installed automatically when entering the devShell (`nix develop`):
 - **statix** — lints all staged `.nix` files after nixfmt; blocks the commit if any findings are present (run `just lint-fix` to auto-remediate)
 - **tofu fmt** — formats all staged `.tf` files and re-stages them
 - **flake.lock check** — errors if `flake.nix` is staged but `flake.lock` has unstaged changes (catches forgotten `nix flake lock` runs)
-- **git-cliff** — regenerates `CHANGELOG.md` (Unreleased section) and re-stages it on every commit; only runs inside the devShell where `git-cliff` is available
 
 ## Backup
 
