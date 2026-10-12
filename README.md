@@ -249,8 +249,14 @@ devShell defaults. Details: *AWS Isolation* and *Serenity and concinnity isolati
 ## Git Identity Isolation
 
 - Default identity: `Julius Blank <dev@juliusblank.de>` (from `home/common.nix`)
-- **concinnity:** repos under `~/github/taktile-org/` (and legacy `~/work/`) use work
-  email and signing via `includeIf` in `hosts/concinnity/home.nix`
+- Signing key is **per-host** — each machine signs with a personal SSH key its
+  1Password agent serves. serenity uses the main personal key; concinnity uses a
+  dedicated signing key stored in the work-side 1Password (so no personal 1Password
+  account is needed on the work laptop). All personal pubkeys are listed in
+  `home/common.nix` `personalAllowedSigners` so commits verify as me from either host.
+- **concinnity:** repos under `~/github/taktile-org/` (and legacy `~/work/`) use the
+  work email **and the work SSH signing key** via `includeIf` in
+  `hosts/concinnity/home.nix`.
 - **Both macOS hosts:** `nix-configs` lives at `~/github/juliusblank/nix-configs`
   (personal GitHub layout), **not** under `~/github/taktile-org/`, so this repo always
   uses the **personal** identity (see `docs/SPEC.md`).

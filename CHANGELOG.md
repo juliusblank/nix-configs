@@ -1,11 +1,12 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-10-01
+## Unreleased — 2026-10-12
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
 - **home:** remove stray ~/.gitconfig shadow, port needed settings to nix (#58)
+- **concinnity:** use exact Firefox bundle path in `login` helper (#56)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)
@@ -16,6 +17,8 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
 - **ci:** auto-label PRs by scope via actions/labeler (#71)
+- **aerospace:** include DELL P2419HC as primary external monitor (#67)
+- **concinnity:** declare taktile-skills marketplace and plugins for claude-code (#66)
 
 ### Performance
 - **ci:** parallelize host builds and cache concinnity closure (#65)

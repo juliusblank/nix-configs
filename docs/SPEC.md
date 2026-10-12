@@ -212,12 +212,29 @@ must have fields `access_key_id` and `secret_access_key`. The session cache item
 
 ## Git Identity Isolation
 
-- **Default identity** (Julius Blank / dev@juliusblank.de, personal SSH signing) comes
-  from `home/common.nix` for every host.
+- **Default identity** (Julius Blank / dev@juliusblank.de) comes from `home/common.nix`
+  for every host. `signing.signByDefault = true` is set there too; the signing **key**
+  is declared per-host (see below) so each machine signs with the pubkey whose private
+  counterpart its local 1Password agent actually serves.
+- **Per-host signing key:**
+  - **serenity** signs with the personal SSH key served by the host's 1Password agent
+    (`hosts/serenity/home.nix` sets `programs.git.signing.key`).
+  - **concinnity** signs with a **dedicated personal signing key** served from the
+    host's 1Password (`concinnity signing key` item, Employee vault) and registered
+    as a signing key on juliusblank's GitHub account. This key is scoped to this host,
+    so no personal 1Password account is required on the work laptop. GitHub binds any
+    pubkey to exactly one account; the work key is already registered under the
+    taktile-org identity, so it cannot double as a signing key for personal commits.
+  - `home/common.nix` lists all three personal pubkeys in `personalAllowedSigners`,
+    all tagged `dev@juliusblank.de`, so `git log --show-signature` verifies commits
+    as me regardless of which host signed them. The work pubkey is **not** listed
+    here — it signs only commits under the work `includeIf` paths on concinnity,
+    verified via `custom.extraAllowedSigners` as `julius.blank@taktile.com`.
 - **concinnity:** `programs.git.includes` in `hosts/concinnity/home.nix` applies work
-  name, email, and signing when `gitdir` matches `~/github/taktile-org/` (canonical
-  for all work org clones). `gitdir:~/work/` is still included for legacy checkouts
-  until they are moved.
+  name, email, **and the work signing key** when `gitdir` matches
+  `~/github/taktile-org/` (canonical for all work org clones). `gitdir:~/work/` is
+  still included for legacy checkouts until they are moved. Everything outside those
+  paths signs with the concinnity personal signing key from the top-level default.
 - **serenity:** no work `includeIf` on that machine.
 - **Stray `~/.gitconfig` shadow.** Git reads both `~/.gitconfig` and
   `~/.config/git/config`, with the former winning on conflicting keys. 1Password
