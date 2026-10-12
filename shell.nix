@@ -57,12 +57,11 @@ pkgs.mkShell {
       fi
     fi
 
-    # Regenerate CHANGELOG.md from conventional commits.
-    # Only runs inside the devShell where git-cliff is available; silently skipped outside.
-    if command -v git-cliff &>/dev/null; then
-      git-cliff --output CHANGELOG.md 2>/dev/null
-      git add CHANGELOG.md
-    fi
+    # CHANGELOG.md is generated only at release time by `.github/workflows/release.yml`
+    # (via `orhun/git-cliff-action`). Regenerating it on every commit caused churn and
+    # merge conflicts on every PR without adding information — `git-cliff` reads commit
+    # messages, so the record of what changed is already in the git log. For a manual
+    # preview, run `just changelog` inside the devShell.
     HOOKEOF
     chmod +x .git/hooks/pre-commit
 

@@ -15,8 +15,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Documentation
 - add roadmap items #23-24 and sync quick-reference commands (#61)
-- **spec:** document S3 cache retention / lifecycle policy
 - reflect per-host signing key split (#73)
+- **spec:** add roadmap row #26 — Claude Code session terminal management (#75)
+- **spec:** document S3 cache retention / lifecycle policy (#70)
 
 ### Features
 - **concinnity:** manage claude-code CLI via nix (#64)
