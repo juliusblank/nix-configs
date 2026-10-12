@@ -27,7 +27,7 @@ Sanity checks:
 
 1. **1Password** — app unlocked; **`op signin`** if the CLI needs it.
 2. **`gh auth login`** — stores credentials outside this repo (Keychain / `gh` state). Home Manager already enables `gh` and the default **git credential helper** for GitHub hosts.
-3. **Work commit signing (SSH)** — declarative in **`hosts/concinnity/home.nix`** (`workGitIdentity` + **`custom.extraAllowedSigners`** for **`~/.ssh/allowed_signers`**). Work repos under **`~/github/taktile-org/`** and **`~/work/`** use the work key from 1Password (**`github ssh key`**).
+3. **Commit signing (SSH)** — on concinnity, the **work key** (`github ssh key` in 1Password Private vault) is the **default signing key for every repo** — declared in `hosts/concinnity/home.nix` as `programs.git.signing.key`. It is the only key `agent.toml` exposes here. Verification uses `~/.ssh/allowed_signers`, assembled from `home/common.nix` (`personalAllowedSigners`, three pubkeys tagged `dev@juliusblank.de`) plus `custom.extraAllowedSigners` in `hosts/concinnity/home.nix` (same work pubkey tagged `julius.blank@taktile.com` for commits under `~/github/taktile-org/` and `~/work/`, where the `includeIf` sets the work email).
 
 ## 3. Homebrew cleanup
 
