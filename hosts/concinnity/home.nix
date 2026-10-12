@@ -41,15 +41,17 @@ in
     # purely private projects) should use a different SSH key that is not
     # listed here.
     file.".config/1password/ssh/agent.toml".text = ''
-      # Work SSH key — used for work GitHub repos and commit signing
+      # Work SSH key — used for cloning/pushing work GitHub repos and for signing
+      # commits made under ~/github/taktile-org/ and ~/work/ (via workGitIdentity below).
       [[ssh-keys]]
       item = "github ssh key"
       vault = "Private"
 
-      # Personal SSH key — grants access to personal repos that are useful
-      # in a work context (nix-configs, blog, etc.)
+      # Personal signing key dedicated to this host — signs every non-work commit
+      # authored as dev@juliusblank.de. Registered as a signing key on juliusblank's
+      # GitHub account; private key never leaves 1Password.
       [[ssh-keys]]
-      item = "serenity"
+      item = "concinnity signing key"
       vault = "Private"
     '';
 
@@ -167,10 +169,12 @@ in
         }
       ];
 
-      # Default signing key for commits on this host — the work SSH key is the only
-      # one the 1Password agent exposes here (see agent.toml above). Repos under
-      # ~/github/taktile-org/ and ~/work/ reuse the same key via `workGitIdentity`.
-      signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAwfAJRp8a2KepH2l6HNikRiebYfO6/EYs7OX1eewUfm";
+      # Default signing key for commits on this host — a personal SSH key dedicated
+      # to concinnity. Served by 1Password (`concinnity signing key` in Employee vault)
+      # and registered as a signing key on juliusblank's GitHub account. The work key
+      # from above still signs commits under ~/github/taktile-org/ and ~/work/ via
+      # `workGitIdentity.user.signingKey`.
+      signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICqzDzUYBHkpAe0EURy0G91tZMiUcoZAO4qjmBy/fbRQ";
 
       # Trust the corporate root CA that Aikido Security's endpoint protection
       # uses to inspect outbound HTTPS. Required for git-over-HTTPS on this host;
