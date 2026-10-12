@@ -7,9 +7,14 @@
 
 let
   # Public keys only — used for `git log --show-signature` / ssh signing verification.
+  # All three keys are tagged as `dev@juliusblank.de` so commits verify as me regardless
+  # of which host (and therefore which 1Password-served key) actually signed them.
+  # The work key is NOT listed here — it signs only commits under the work includeIf
+  # paths on concinnity, verified via `custom.extraAllowedSigners` as julius.blank@taktile.com.
   personalAllowedSigners = ''
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8Ng7SWMM85bS8nqmHqUZkEvgvrgNc/cnRLUIQyYDr3
+    dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICqzDzUYBHkpAe0EURy0G91tZMiUcoZAO4qjmBy/fbRQ
   '';
 in
 {
@@ -104,8 +109,8 @@ in
     git = {
       enable = true;
       signing = {
-        # Personal SSH key served by 1Password agent — private key never leaves 1Password
-        key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
+        # Signing key is set per-host (hosts/<name>/home.nix) — whichever key
+        # the 1Password agent on that machine actually serves.
         signByDefault = true;
       };
       settings = {
