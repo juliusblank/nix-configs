@@ -1,12 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-10-01
+## Unreleased — 2026-10-12
 
 ### Bug Fixes
 - **flake:** pin homebrew-cask and homebrew-aerospace to pre-postflight_steps commits (#62)
 - **home:** remove stray ~/.gitconfig shadow, port needed settings to nix (#58)
 - **concinnity:** use exact Firefox bundle path in `login` helper (#56)
+- **home:** split git signing key per host
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.09.2 (#60)

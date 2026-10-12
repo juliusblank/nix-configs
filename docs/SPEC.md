@@ -209,12 +209,23 @@ must have fields `access_key_id` and `secret_access_key`. The session cache item
 
 ## Git Identity Isolation
 
-- **Default identity** (Julius Blank / dev@juliusblank.de, personal SSH signing) comes
-  from `home/common.nix` for every host.
+- **Default identity** (Julius Blank / dev@juliusblank.de) comes from `home/common.nix`
+  for every host. `signing.signByDefault = true` is set there too; the signing **key**
+  is declared per-host (see below) so each machine signs with the pubkey whose private
+  counterpart its local 1Password agent actually serves.
+- **Per-host signing key:**
+  - **serenity** signs with the personal SSH key (`hosts/serenity/home.nix` sets
+    `programs.git.signing.key`).
+  - **concinnity** signs with the work SSH key (`hosts/concinnity/home.nix` sets
+    `programs.git.signing.key`) — the only key its `agent.toml` exposes for signing.
+  - `home/common.nix` lists all three personal pubkeys (two personal keys + the work key)
+    in `personalAllowedSigners`, all tagged `dev@juliusblank.de`, so `git log
+    --show-signature` verifies commits as me regardless of which host signed them.
 - **concinnity:** `programs.git.includes` in `hosts/concinnity/home.nix` applies work
   name, email, and signing when `gitdir` matches `~/github/taktile-org/` (canonical
   for all work org clones). `gitdir:~/work/` is still included for legacy checkouts
-  until they are moved.
+  until they are moved. The work `includeIf` resolves to the same signing key as the
+  top-level default on this host — the override there is for `user.email`, not the key.
 - **serenity:** no work `includeIf` on that machine.
 - **Stray `~/.gitconfig` shadow.** Git reads both `~/.gitconfig` and
   `~/.config/git/config`, with the former winning on conflicting keys. 1Password
