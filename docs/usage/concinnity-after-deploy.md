@@ -27,7 +27,7 @@ Sanity checks:
 
 1. **1Password** — app unlocked; **`op signin`** if the CLI needs it.
 2. **`gh auth login`** — stores credentials outside this repo (Keychain / `gh` state). Home Manager already enables `gh` and the default **git credential helper** for GitHub hosts.
-3. **Commit signing (SSH)** — on concinnity, the **work key** (`github ssh key` in 1Password Private vault) is the **default signing key for every repo** — declared in `hosts/concinnity/home.nix` as `programs.git.signing.key`. It is the only key `agent.toml` exposes here. Verification uses `~/.ssh/allowed_signers`, assembled from `home/common.nix` (`personalAllowedSigners`, three pubkeys tagged `dev@juliusblank.de`) plus `custom.extraAllowedSigners` in `hosts/concinnity/home.nix` (same work pubkey tagged `julius.blank@taktile.com` for commits under `~/github/taktile-org/` and `~/work/`, where the `includeIf` sets the work email).
+3. **Commit signing (SSH)** — concinnity signs with a **dedicated personal signing key** (`concinnity signing key` in the 1Password Employee vault, registered as a signing key on juliusblank's GitHub account). It is declared in `hosts/concinnity/home.nix` as `programs.git.signing.key`. Commits under `~/github/taktile-org/` and `~/work/` are overridden by the work `includeIf`: those sign with the **work key** (`github ssh key`, same 1Password vault), author as `julius.blank@taktile.com`, and verify under the work GitHub account. Local verification uses `~/.ssh/allowed_signers`, assembled from `home/common.nix` (`personalAllowedSigners`, three personal pubkeys tagged `dev@juliusblank.de`) plus `custom.extraAllowedSigners` in `hosts/concinnity/home.nix` (work pubkey tagged `julius.blank@taktile.com`).
 
 ## 3. Homebrew cleanup
 
