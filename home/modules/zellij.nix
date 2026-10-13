@@ -1,6 +1,59 @@
 { pkgs, ... }:
 
 let
+  # ----- Welcome banner script -----
+
+  /**
+    Prints a one-time welcome in a `ticket` / `project` / `review` shell pane.
+    First invocation per Zellij session writes a sentinel at
+    `~/.cache/zr/sessions/<name>.welcomed`; subsequent attaches skip the
+    banner. `zrk` deletes the sentinel along with the AWS side-car.
+  */
+  zrWelcome = pkgs.writeShellScriptBin "zr-welcome" ''
+    #!/bin/sh
+    set -eu
+    use_case="''${1:-}"
+    name="''${ZELLIJ_SESSION_NAME:-}"
+    [ -n "$use_case" ] || exit 0
+    [ -n "$name" ] || exit 0
+
+    dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zr/sessions"
+    sentinel="$dir/$name.welcomed"
+    [ -f "$sentinel" ] && exit 0
+    mkdir -p "$dir"
+    : > "$sentinel"
+
+    case "$use_case" in
+      ticket)
+        cat <<'ART'
+    ┏━━━━━━━━━━━┓
+    ┃  TICKET   ┃
+    ┗━━━━━━━━━━━┛
+    ART
+        printf '→ /ticket:start %s — prime ticket context (jbl-personal/ticket)\n' "$name"
+        ;;
+      project)
+        cat <<'ART'
+    ┏━━━━━━━━━━━┓
+    ┃  PROJECT  ┃
+    ┗━━━━━━━━━━━┛
+    ART
+        printf '→ /project:start %s — bootstrap master session (jbl-personal/project)\n' "$name"
+        ;;
+      review)
+        cat <<'ART'
+    ┏━━━━━━━━━━━┓
+    ┃  REVIEW   ┃
+    ┗━━━━━━━━━━━┛
+    ART
+        printf '→ /review:review %s is auto-sent in the claude pane (jbl-personal/review)\n' "$name"
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
+  '';
+
   # ----- Shared pane fragments -----
 
   /**
@@ -16,13 +69,31 @@ let
   '';
 
   /**
+    Shell pane. When `useCase` is non-null (ticket / project / review), the
+    pane runs `zr-welcome <useCase>` on first open to show a 3-line banner
+    + one-line hint, then execs zsh. For `code` / `code-resume` the pane is
+    plain zsh — no welcome, no indirection.
+  */
+  mkShellPane =
+    useCase:
+    if useCase == null then
+      ''pane name="shell"''
+    else
+      ''
+        pane name="shell" {
+            command "zsh"
+            args "-ic" "zr-welcome ${useCase}; exec zsh"
+        }
+      '';
+
+  /**
     Right-hand column shared by `code`, `project.master` and `ticket`:
     shell on top, tig status view below. tig only refreshes on user action,
     so this pane stays quiet (no periodic SSH-agent prompts).
   */
-  shellTigColumn = ''
+  shellTigColumn = useCase: ''
     pane split_direction="horizontal" {
-        pane name="shell"
+        ${mkShellPane useCase}
         pane name="git" {
             command "tig"
             args "status"
@@ -33,12 +104,13 @@ let
   /**
     Three-pane body — claude on the left, shellTigColumn on the right —
     the shape shared by `code`, `project.master` and `ticket`. `claudePane`
-    is the full pane node for the Claude command (different per layout).
+    is the full pane node for the Claude command (different per layout);
+    `useCase` toggles the shell-pane welcome.
   */
-  threePaneBody = claudePane: ''
+  threePaneBody = useCase: claudePane: ''
     pane split_direction="vertical" {
         ${claudePane}
-        ${shellTigColumn}
+        ${shellTigColumn useCase}
     }
   '';
 
@@ -98,15 +170,20 @@ in
   #
   #   code     — default. claude --continue · shell · tig status · status bar.
   #   project  — tabs: master (code shape, --continue) + full-screen
-  #              `claude agents`. Status via `default_tab_template`.
+  #              `claude agents`. Status via `default_tab_template`. Master
+  #              shell shows a one-time `/project:start` welcome banner.
   #   ticket   — `claude --worktree $ZELLIJ_SESSION_NAME` · shell · tig.
   #              Session name is the ticket ID; worktree is created / reused
-  #              at `.claude/worktrees/<id>`.
+  #              at `.claude/worktrees/<id>`. Shell shows a one-time
+  #              `/ticket:start` welcome banner.
   #   review   — fresh `claude "/review $ZELLIJ_SESSION_NAME"` · shell
   #              (no tig). Session name is the PR number convention
-  #              (`pr-<n>`). The `review` skill (in taktile-skills) handles
-  #              checkout; without it, the first message appears as literal
-  #              text.
+  #              (`pr-<n>`). The review command auto-fires in the claude
+  #              pane; the shell shows a one-time banner noting that.
+  #
+  # Welcome banners are a one-shot per session — a sentinel at
+  # `~/.cache/zr/sessions/<name>.welcomed` suppresses the banner on resume.
+  # `zrk` deletes the sentinel so a reused session name re-welcomes.
   #
   # `code-resume` is a `--resume`-picker variant used by `zrp`.
   #
@@ -125,24 +202,29 @@ in
   };
 
   home = {
-    packages = [ pkgs.tig ];
+    packages = [
+      pkgs.tig
+      zrWelcome
+    ];
 
     file = {
       # ----- Use-case layouts -----
 
-      ".config/zellij/layouts/code.kdl".text = mkSingleTreeLayout (threePaneBody codeClaudePane);
+      ".config/zellij/layouts/code.kdl".text = mkSingleTreeLayout (threePaneBody null codeClaudePane);
 
       ".config/zellij/layouts/code-resume.kdl".text = mkSingleTreeLayout (
-        threePaneBody codeResumeClaudePane
+        threePaneBody null codeResumeClaudePane
       );
 
-      ".config/zellij/layouts/ticket.kdl".text = mkSingleTreeLayout (threePaneBody ticketClaudePane);
+      ".config/zellij/layouts/ticket.kdl".text = mkSingleTreeLayout (
+        threePaneBody "ticket" ticketClaudePane
+      );
 
       # Review has no tig pane — just claude + shell + status bar.
       ".config/zellij/layouts/review.kdl".text = mkSingleTreeLayout ''
         pane split_direction="vertical" {
             ${reviewClaudePane}
-            pane name="shell"
+            ${mkShellPane "review"}
         }
       '';
 
@@ -155,7 +237,7 @@ in
                 ${statusBarPane}
             }
             tab name="master" focus=true {
-                ${threePaneBody codeClaudePane}
+                ${threePaneBody "project" codeClaudePane}
             }
             tab name="agents" {
                 pane {
@@ -367,7 +449,8 @@ in
     # clean and fully pushed. Uncommitted or unpushed state blocks removal
     # with a message explaining why.
     #
-    # Also deletes the AWS side-car for the session.
+    # Also deletes the AWS side-car and the welcome sentinel so a reused
+    # session name re-welcomes.
     zrk() {
       emulate -L zsh
       local name="''${ZELLIJ_SESSION_NAME:-}"
@@ -392,9 +475,9 @@ in
         fi
       fi
 
-      local sidecar
-      sidecar=$(_z_aws_sidecar "$name")
-      rm -f "$sidecar"
+      local dir
+      dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zr/sessions"
+      rm -f "$dir/$name.env" "$dir/$name.welcomed"
 
       zellij kill-session "$name"
     }
