@@ -227,7 +227,7 @@ in
         # assume <profile>              — start an interactive subshell with
         #                                 the profile's credentials.
         # assume <profile> -- CMD ARGS… — run CMD under the profile and exit
-        #                                 (used by `zr -a` to launch Zellij
+        #                                 (used by `zse -a` to launch Zellij
         #                                 inside an aws-vault subshell).
         assume() {
         	if [ -z "$1" ]; then

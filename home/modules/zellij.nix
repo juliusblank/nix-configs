@@ -6,10 +6,10 @@ let
   /**
     Prints a one-time welcome in a `ticket` / `project` / `review` shell pane.
     First invocation per Zellij session writes a sentinel at
-    `~/.cache/zr/sessions/<name>.welcomed`; subsequent attaches skip the
-    banner. `zrk` deletes the sentinel along with the AWS side-car.
+    `~/.cache/zse/sessions/<name>.welcomed`; subsequent attaches skip the
+    banner. `zsek` deletes the sentinel along with the AWS side-car.
   */
-  zrWelcome = pkgs.writeShellScriptBin "zr-welcome" ''
+  zseWelcome = pkgs.writeShellScriptBin "zse-welcome" ''
     #!/bin/sh
     set -eu
     use_case="''${1:-}"
@@ -17,7 +17,7 @@ let
     [ -n "$use_case" ] || exit 0
     [ -n "$name" ] || exit 0
 
-    dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zr/sessions"
+    dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
     sentinel="$dir/$name.welcomed"
     [ -f "$sentinel" ] && exit 0
     mkdir -p "$dir"
@@ -70,7 +70,7 @@ let
 
   /**
     Shell pane. When `useCase` is non-null (ticket / project / review), the
-    pane runs `zr-welcome <useCase>` on first open to show a 3-line banner
+    pane runs `zse-welcome <useCase>` on first open to show a 3-line banner
     + one-line hint, then execs zsh. For `code` / `code-resume` the pane is
     plain zsh — no welcome, no indirection.
   */
@@ -82,7 +82,7 @@ let
       ''
         pane name="shell" {
             command "zsh"
-            args "-ic" "zr-welcome ${useCase}; exec zsh"
+            args "-ic" "zse-welcome ${useCase}; exec zsh"
         }
       '';
 
@@ -184,10 +184,10 @@ in
   #              pane; the shell shows a one-time banner noting that.
   #
   # Welcome banners are a one-shot per session — a sentinel at
-  # `~/.cache/zr/sessions/<name>.welcomed` suppresses the banner on resume.
-  # `zrk` deletes the sentinel so a reused session name re-welcomes.
+  # `~/.cache/zse/sessions/<name>.welcomed` suppresses the banner on resume.
+  # `zsek` deletes the sentinel so a reused session name re-welcomes.
   #
-  # `code-resume` is a `--resume`-picker variant used by `zrp`.
+  # `code-resume` is a `--resume`-picker variant used by `zsep`.
   #
   # Zsh integration stays off deliberately — auto-attach misbehaves inside
   # Claude Code's PTY and nested shells.
@@ -206,7 +206,7 @@ in
   home = {
     packages = [
       pkgs.tig
-      zrWelcome
+      zseWelcome
     ];
 
     file = {
@@ -288,11 +288,11 @@ in
         | grep -qx "$1"
     }
 
-    # Path of the per-session AWS side-car (if any). Only written when `zr`
+    # Path of the per-session AWS side-car (if any). Only written when `zse`
     # is invoked with `-a`; otherwise absent. Stores AWS_PROFILE +
     # AWS_SESSION_EXPIRATION so later attaches can warn on expiry.
     _z_aws_sidecar() {
-      printf '%s/zr/sessions/%s.env' "''${XDG_CACHE_HOME:-$HOME/.cache}" "$1"
+      printf '%s/zse/sessions/%s.env' "''${XDG_CACHE_HOME:-$HOME/.cache}" "$1"
     }
 
     # Warn on stdout if the serialized expiry is within 15 min or past.
@@ -316,9 +316,9 @@ in
       now_epoch=$(date '+%s')
       remaining=$(( exp_epoch - now_epoch ))
       if (( remaining <= 0 )); then
-        print -u2 -r "zr: ⚠ session '$name' AWS creds (profile '$profile') expired at $exp — re-authenticate."
+        print -u2 -r "zse: ⚠ session '$name' AWS creds (profile '$profile') expired at $exp — re-authenticate."
       elif (( remaining <= 900 )); then
-        print -u2 -r "zr: ⚠ session '$name' AWS creds (profile '$profile') expire in $(( remaining / 60 ))m — re-authenticate soon."
+        print -u2 -r "zse: ⚠ session '$name' AWS creds (profile '$profile') expire in $(( remaining / 60 ))m — re-authenticate soon."
       fi
     }
 
@@ -335,7 +335,7 @@ in
       local dirty
       dirty=$( cd "$worktree" 2>/dev/null && git status --porcelain 2>/dev/null )
       if [[ -n $dirty ]]; then
-        print -u2 -r "zrk: worktree $worktree has uncommitted changes — skipping removal."
+        print -u2 -r "zsek: worktree $worktree has uncommitted changes — skipping removal."
         return 1
       fi
       local upstream unpushed
@@ -343,7 +343,7 @@ in
       if [[ -n $upstream ]]; then
         unpushed=$( cd "$worktree" && git rev-list "''${upstream}..HEAD" 2>/dev/null )
         if [[ -n $unpushed ]]; then
-          print -u2 -r "zrk: worktree $worktree has unpushed commits on $upstream — skipping removal."
+          print -u2 -r "zsek: worktree $worktree has unpushed commits on $upstream — skipping removal."
           return 1
         fi
       fi
@@ -352,7 +352,7 @@ in
       common_dir=$( cd "$worktree" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null )
       repo_root="''${common_dir%/.git}"
       [[ -d $repo_root ]] || {
-        print -u2 -r "zrk: cannot resolve parent repo for $worktree."
+        print -u2 -r "zsek: cannot resolve parent repo for $worktree."
         return 1
       }
 
@@ -365,20 +365,20 @@ in
         git worktree prune 2>/dev/null
         git branch -D "worktree-$wt_name" 2>/dev/null
       ) || return 1
-      print -r "zrk: removed worktree $worktree"
+      print -r "zsek: removed worktree $worktree"
     }
 
     # ----- Public commands -----
 
-    # zr [-l USE_CASE] [-a AWS_PROFILE] [NAME]
+    # zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
     #
     #   USE_CASE  — one of `code`, `project`, `ticket`, `review`. Defaults
-    #               to $ZR_LAYOUT if set (so devshells can bind a layout
+    #               to $ZSE_LAYOUT if set (so devshells can bind a layout
     #               per repo), else `code`.
     #   AWS_PROF  — binds an AWS profile to the session by launching Zellij
     #               through the host's `assume` fn (`aws-vault exec` on
     #               concinnity, YubiKey TOTP, 8h). The AWS profile and
-    #               expiration are side-car'd at ~/.cache/zr/sessions/<name>.env
+    #               expiration are side-car'd at ~/.cache/zse/sessions/<name>.env
     #               so later attaches warn on near / past expiry.
     #   NAME      — session name. Defaults to basename of $PWD. For `ticket`,
     #               pass the ticket ID; for `review`, pass `pr-<n>`. ticket
@@ -391,11 +391,11 @@ in
     #                cwds. Processes start fresh (claude's --continue picks
     #                up the conversation; ticket's --worktree reuses).
     #   none       → create a fresh session with the chosen layout.
-    zr() {
+    zse() {
       emulate -L zsh
       local -A opts
       zparseopts -D -E -A opts l: a: || return 1
-      local use_case="''${opts[-l]:-''${ZR_LAYOUT:-code}}"
+      local use_case="''${opts[-l]:-''${ZSE_LAYOUT:-code}}"
       local aws_profile="''${opts[-a]:-}"
       local name="''${1:-$(basename "$PWD")}"
       local sidecar
@@ -412,7 +412,7 @@ in
         name="pr-$pr"
         review_cwd="$HOME/github/$owner/$repo"
         if [[ ! -d $review_cwd/.git ]]; then
-          print -u2 -r "zr: $review_cwd is not a git checkout. Clone $owner/$repo there first."
+          print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
           return 1
         fi
         sidecar=$(_z_aws_sidecar "$name")
@@ -423,7 +423,7 @@ in
           local existing shown
           existing=$(sed -n 's/^AWS_PROFILE=//p' "$sidecar" 2>/dev/null)
           shown=''${existing:-<none>}
-          print -u2 -r "zr: session '$name' already exists; -a ignored (session uses $shown)."
+          print -u2 -r "zse: session '$name' already exists; -a ignored (session uses $shown)."
         fi
         _z_aws_warn "$name"
         zellij attach "$name"
@@ -442,19 +442,19 @@ in
             printf "AWS_PROFILE=%s\nAWS_SESSION_EXPIRATION=%s\n" \
               "$AWS_PROFILE" "$AWS_SESSION_EXPIRATION" > "$1"
             exec zellij -s "$2" -n "$3"
-          ' zr-aws "$sidecar" "$name" "$use_case"
+          ' zse-aws "$sidecar" "$name" "$use_case"
         else
           zellij -s "$name" -n "$use_case"
         fi
       )
     }
 
-    # zrp [NAME] — like zr but uses the `code-resume` layout, which opens
+    # zsep [NAME] — like zse but uses the `code-resume` layout, which opens
     # Claude's --resume picker over conversations in cwd instead of
     # auto-continuing the most recent. For non-code use cases a resume
     # picker doesn't apply (ticket reuses its worktree; review is fresh;
-    # project's agent dispatcher is live) — stay on `zr`.
-    zrp() {
+    # project's agent dispatcher is live) — stay on `zse`.
+    zsep() {
       emulate -L zsh
       local name="''${1:-$(basename "$PWD")}"
       if _z_session_exists "$name"; then
@@ -465,21 +465,21 @@ in
       fi
     }
 
-    # zrk — kill the current Zellij session and clean up after it.
+    # zsek — kill the current Zellij session and clean up after it.
     #
     # For sessions whose name matches a `.claude/worktrees/<name>` worktree
-    # under the current repo (the ticket / review convention), zrk prompts,
+    # under the current repo (the ticket / review convention), zsek prompts,
     # then removes the worktree + its auto-created branch when the tree is
     # clean and fully pushed. Uncommitted or unpushed state blocks removal
     # with a message explaining why.
     #
     # Also deletes the AWS side-car and the welcome sentinel so a reused
     # session name re-welcomes.
-    zrk() {
+    zsek() {
       emulate -L zsh
       local name="''${ZELLIJ_SESSION_NAME:-}"
       if [[ -z $name ]]; then
-        print -u2 -r "zrk: not inside a Zellij session (ZELLIJ_SESSION_NAME is empty)."
+        print -u2 -r "zsek: not inside a Zellij session (ZELLIJ_SESSION_NAME is empty)."
         return 1
       fi
 
@@ -489,18 +489,18 @@ in
       fi
 
       if [[ -n $worktree && -d $worktree ]]; then
-        printf 'zrk: remove worktree %s? [y/N] ' "$worktree"
+        printf 'zsek: remove worktree %s? [y/N] ' "$worktree"
         local reply
         read -r reply
         if [[ $reply == y* || $reply == Y* ]]; then
           _z_cleanup_worktree "$worktree" || return 1
         else
-          print -r "zrk: keeping worktree $worktree."
+          print -r "zsek: keeping worktree $worktree."
         fi
       fi
 
       local dir
-      dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zr/sessions"
+      dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
       rm -f "$dir/$name.env" "$dir/$name.welcomed"
 
       zellij kill-session "$name"
@@ -508,15 +508,15 @@ in
 
     # ----- Completion -----
 
-    # _zr completes `-l` with the known use cases and `-a` with AWS profile
+    # _zse completes `-l` with the known use cases and `-a` with AWS profile
     # names (reusing the host-defined `_aws_profile_completions` on
     # concinnity; on other hosts `-a` falls through to no completion).
-    _zr() {
+    _zse() {
       _arguments \
         '-l[layout / use-case]:use case:(code project ticket review)' \
         '-a[AWS profile]:profile:' \
         ':session name:'
     }
-    compdef _zr zr zrp
+    compdef _zse zse zsep
   '';
 }
