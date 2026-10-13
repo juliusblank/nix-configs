@@ -112,15 +112,20 @@ zsek
   `AWS_SESSION_EXPIRATION` is within 15 min or past. `-a` on an attach is
   a no-op with a one-line notice showing the profile the session actually
   uses.
-- `NAME` — defaults to `basename $PWD`. For `ticket`, pass the ticket ID;
-  for `review`, pass `pr-<n>` **or** a full GitHub PR URL
-  (`https://github.com/<owner>/<repo>/pull/<n>`). On a URL, `zse` extracts
-  `pr-<n>` as the session name AND launches Zellij from the matching
-  local checkout at `~/github/<owner>/<repo>` so the worktree lands in
-  the right repo. The URL form is for drive-by reviews with no linked
+- `NAME` — defaults to `basename $PWD` (or `zellij-<pid>` when that comes
+  back empty, e.g. in a devshell that exports `name=nix-shell-env`). For
+  `ticket`, pass the ticket ID; for `review`, pass a full GitHub PR URL
+  (`https://github.com/<owner>/<repo>/pull/<n>`) or the raw
+  `review-<repo>-pr<n>` form the URL expands to. On a URL, `zse` parses
+  `<owner>`, `<repo>`, `<n>` and sets the Zellij session name to
+  `review-<repo>-pr<n>` so the session list carries the repo + PR
+  context in one glance; Zellij is launched from the matching local
+  checkout at `~/github/<owner>/<repo>` so the worktree lands in the
+  right repo. The URL form is for drive-by reviews with no linked
   ticket — the ticket flow is still preferred when a ticket exists.
   `ticket` / `review` layouts read the name from `$ZELLIJ_SESSION_NAME`
-  at pane start.
+  at pane start. Welcome banner + tab name display a human-friendly
+  `[review] <repo> PR #<n>` label via `zellij action rename-tab`.
 - `zsep [NAME]` — like `zse` but uses the `code-resume` layout, which opens
   Claude's `--resume` picker. Only applies to the `code` shape; other use
   cases have no resume variant (ticket reuses its worktree, review is

@@ -17,6 +17,34 @@ let
     [ -n "$use_case" ] || exit 0
     [ -n "$name" ] || exit 0
 
+    # Rename the current Zellij tab to a human-friendly label where we can
+    # derive one from the session name. Review sessions carry
+    # `review-<repo>-pr<n>`; map that back to `[review] <repo> PR #<n>`.
+    # Ticket / project sessions already look clean, so just prefix the tag.
+    # Run on every pane start — Zellij ignores a rename-tab call whose
+    # target already matches, so this is cheap and idempotent.
+    case "$use_case" in
+      review)
+        case "$name" in
+          review-*-pr*)
+            repo=''${name#review-}
+            repo=''${repo%-pr*}
+            pr=''${name##*-pr}
+            zellij action rename-tab "[review] $repo PR #$pr" 2>/dev/null || true
+            ;;
+          *)
+            zellij action rename-tab "[review] $name" 2>/dev/null || true
+            ;;
+        esac
+        ;;
+      ticket)
+        zellij action rename-tab "[ticket] $name" 2>/dev/null || true
+        ;;
+      project)
+        zellij action rename-tab "[project] $name" 2>/dev/null || true
+        ;;
+    esac
+
     dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
     sentinel="$dir/$name.welcomed"
     [ -f "$sentinel" ] && exit 0
@@ -397,19 +425,33 @@ in
       zparseopts -D -E -A opts l: a: || return 1
       local use_case="''${opts[-l]:-''${ZSE_LAYOUT:-code}}"
       local aws_profile="''${opts[-a]:-}"
-      local name="''${1:-$(basename "$PWD")}"
+      # `name` may be inherited from a parent nix devShell as the exported
+      # `name=nix-shell-env` default. `local` declares the var function-scoped
+      # (`emulate -L zsh` keeps the usual semantics) and the assignment then
+      # reads $1 — never the inherited value — before falling back to the
+      # cwd's basename, which is sane for every non-review use case.
+      local name
+      name="''${1:-$(basename "$PWD")}"
+      [[ -z $name || $name == nix-shell-env ]] && name="zellij-$$"
+      local tab_name=""
       local sidecar
       sidecar=$(_z_aws_sidecar "$name")
 
       # Review mode: accept a GitHub PR URL as NAME. Extract the PR number
-      # for the session name (`pr-<n>`) and locate the matching local
-      # checkout at ~/github/<owner>/<repo>. zellij is launched from that
-      # checkout so `.claude/worktrees/pr-<n>` resolves inside the right
-      # repo. Non-review use cases keep the plain `basename $PWD` default.
+      # and set the session name to `review-<repo>-pr<n>` so the Zellij
+      # session list, the AWS side-car, the welcome sentinel and (when
+      # `/review:review $ZELLIJ_SESSION_NAME` fires in the layout) the
+      # checked-out worktree all carry the repo + PR context in one glance.
+      # The matching local checkout is at ~/github/<owner>/<repo>; zellij is
+      # launched from there so `.claude/worktrees/pr-<n>` resolves inside
+      # the right repo. Non-review use cases keep the plain `basename $PWD`
+      # default. `tab_name` carries the human-friendly label for the tab
+      # bar; applied via `zellij action rename-tab` after the session is up.
       local review_cwd=""
       if [[ $use_case == review && $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
         local owner=$match[1] repo=$match[2] pr=$match[3]
-        name="pr-$pr"
+        name="review-$repo-pr$pr"
+        tab_name="[review] $repo PR #$pr"
         review_cwd="$HOME/github/$owner/$repo"
         if [[ ! -d $review_cwd/.git ]]; then
           print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
