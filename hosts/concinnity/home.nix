@@ -300,12 +300,20 @@ in
     julius.blank@taktile.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAwfAJRp8a2KepH2l6HNikRiebYfO6/EYs7OX1eewUfm
   '';
 
-  # Claude Code: Taktile skill marketplace + plugins. Equivalent to
+  # Claude Code: Taktile skill marketplace + plugins + sandbox allowlist.
+  # Equivalent to:
   #   claude plugin marketplace add taktile-org/taktile-skills
   #   claude plugin install tktl-eng-data tktl-eng-frontend
+  #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
   # (read-only symlink) won't work. Deep-merge only these keys each activation; all other
   # settings are preserved. Claude Code installs enabled plugins on next startup.
+  #
+  # `sandbox.excludedCommands`: run `gh` outside the Claude Code sandbox so TLS
+  # verification can reach the macOS trust service (trustd). The sandbox blocks
+  # trustd by default, which breaks Go-based tools like `gh` with an opaque
+  # `x509: OSStatus -26276` error. `gh` still goes through the normal permission
+  # prompt — it just skips the sandbox wrapper.
   home.activation.claudePlugins =
     let
       pluginSettings = pkgs.writeText "claude-plugin-settings.json" (
@@ -318,6 +326,7 @@ in
             "tktl-eng-data@taktile-skills" = true;
             "tktl-eng-frontend@taktile-skills" = true;
           };
+          sandbox.excludedCommands = [ "gh" ];
         }
       );
     in
