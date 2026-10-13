@@ -222,13 +222,11 @@ in
   programs.zellij = {
     enable = true;
     enableZshIntegration = false;
-    settings = {
-      default_shell = "zsh";
-      theme = "ghostty-0x96f";
-      pane_frames = false;
-      copy_command = "pbcopy";
-      scroll_buffer_size = 50000;
-    };
+    # Config is written out of band at `.config/zellij/config.kdl` below so we
+    # can carry a `keybinds` block (the `settings` → KDL converter does not
+    # cleanly model Zellij's `bind "<key>" { Action "arg" { attr v; } }`
+    # shape; a hand-written KDL fragment is simpler and surfaces changes
+    # right in the diff).
   };
 
   home = {
@@ -238,6 +236,27 @@ in
     ];
 
     file = {
+      # ----- Config -----
+
+      # Flat KDL — same base as what `programs.zellij.settings` used to emit,
+      # plus a `shared` keybind that opens the Session Manager picker in one
+      # keystroke (`Ctrl Space`) instead of the three-step dance through
+      # Zellij's default session mode. `Ctrl Space` is unused by zsh at the
+      # prompt and by every other Zellij default binding, and reads as
+      # "activate the switcher".
+      ".config/zellij/config.kdl".text = ''
+        copy_command "pbcopy"
+        default_shell "zsh"
+        pane_frames false
+        scroll_buffer_size 50000
+        theme "ghostty-0x96f"
+        keybinds {
+            shared {
+                bind "Ctrl Space" { LaunchOrFocusPlugin "session-manager" { floating true; }; SwitchToMode "Normal"; }
+            }
+        }
+      '';
+
       # ----- Use-case layouts -----
 
       ".config/zellij/layouts/code.kdl".text = mkSingleTreeLayout (threePaneBody null codeClaudePane);
@@ -548,17 +567,43 @@ in
       zellij kill-session "$name"
     }
 
+    # zss NAME — switch the current Zellij session in place to a different
+    # live/exited session without detaching. Faster than `Ctrl Space, pick`
+    # when you already know the target name (`zss <TAB>` completes with the
+    # live session list via `_zse_sessions`).
+    zss() {
+      emulate -L zsh
+      if [[ -z $1 ]]; then
+        print -u2 -r "zss: usage: zss <session-name>"
+        return 1
+      fi
+      zellij action switch-session "$1"
+    }
+
     # ----- Completion -----
 
-    # _zse completes `-l` with the known use cases and `-a` with AWS profile
+    # Session names from `zellij list-sessions` for the positional NAME on
+    # `zse` / `zsep` / `zss`. Strips Zellij's ANSI colour and the trailing
+    # `(EXITED - attach to resurrect)` / `(current)` marker.
+    _zse_sessions() {
+      local -a sessions
+      sessions=(''${(f)"$(zellij list-sessions 2>/dev/null \
+        | sed 's/\x1b\[[0-9;]*m//g' \
+        | awk '{print $1}')"})
+      _describe -t sessions 'zellij session' sessions
+    }
+
+    # _zse completes `-l` with the known use cases, `-a` with AWS profile
     # names (reusing the host-defined `_aws_profile_completions` on
-    # concinnity; on other hosts `-a` falls through to no completion).
+    # concinnity; on other hosts `-a` falls through to no completion) and
+    # the positional NAME with live Zellij sessions.
     _zse() {
       _arguments \
         '-l[layout / use-case]:use case:(code project ticket review)' \
         '-a[AWS profile]:profile:' \
-        ':session name:'
+        ':session name:_zse_sessions'
     }
     compdef _zse zse zsep
+    compdef _zse_sessions zss
   '';
 }
