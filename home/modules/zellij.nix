@@ -1,52 +1,127 @@
 { pkgs, ... }:
 
 let
+  # ----- Shared pane fragments -----
+
   /**
-    Renders the shared Zellij "repo" layout with a parameterised Claude pane arg.
-     `claudeArg` is the single flag passed to `claude` (`--continue` or `--resume`),
-     which selects between auto-resume and the picker. All other panes (shell,
-     git, status-bar) are identical across variants.
+    Status-bar pane inline in a layout's own pane tree. Used by layouts that
+     do not define explicit `tab {}` blocks — `default_tab_template` only
+     fires for those, so single-pane-tree layouts need the plugin pane
+     declared directly.
   */
-  mkRepoLayout = claudeArg: ''
-    layout {
-        // The status-bar plugin has to appear in the layout's own pane tree —
-        // `default_tab_template` only runs for explicit `tab {}` blocks, which
-        // this layout doesn't use. Keep the status-bar inline as a 2-row
-        // borderless pane under the content split.
-        pane split_direction="horizontal" {
-            pane split_direction="vertical" {
-                pane name="claude" {
-                    command "claude"
-                    args "${claudeArg}"
-                }
-                pane split_direction="horizontal" {
-                    pane name="shell"
-                    pane name="git" {
-                        // tig opens on the status view (closer to the lazygit
-                        // workflow). tig only refreshes on user action, so it
-                        // doesn't trigger periodic SSH-agent prompts the way
-                        // lazygit's auto-fetch does.
-                        command "tig"
-                        args "status"
-                    }
-                }
-            }
-            pane size=2 borderless=true {
-                plugin location="zellij:status-bar"
-            }
+  statusBarPane = ''
+    pane size=2 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+  '';
+
+  /**
+    Right-hand column shared by `code`, `project.master` and `ticket`:
+     shell on top, tig status view below. tig only refreshes on user action,
+     so this pane stays quiet (no periodic SSH-agent prompts).
+  */
+  shellTigColumn = ''
+    pane split_direction="horizontal" {
+        pane name="shell"
+        pane name="git" {
+            command "tig"
+            args "status"
         }
+    }
+  '';
+
+  /**
+    Three-pane body — claude on the left, shellTigColumn on the right —
+     the shape shared by `code`, `project.master` and `ticket`. `claudePane`
+     is the full pane node for the Claude command (different per layout).
+  */
+  threePaneBody = claudePane: ''
+    pane split_direction="vertical" {
+        ${claudePane}
+        ${shellTigColumn}
+    }
+  '';
+
+  /**
+    Wrap a pane tree in a single-pane-tree layout with the inline status bar
+     underneath. Used by `code`, `code-resume`, `ticket` and `review`.
+     `project` uses `default_tab_template` instead and does not wrap here.
+  */
+  mkSingleTreeLayout = body: ''
+    layout {
+        pane split_direction="horizontal" {
+            ${body}
+            ${statusBarPane}
+        }
+    }
+  '';
+
+  # ----- Per-layout Claude panes -----
+
+  codeClaudePane = ''
+    pane name="claude" {
+        command "claude"
+        args "--continue"
+    }
+  '';
+
+  codeResumeClaudePane = ''
+    pane name="claude" {
+        command "claude"
+        args "--resume"
+    }
+  '';
+
+  # `claude --worktree $ZR_SESSION_NAME` — reuses an existing worktree with
+  # the same name, creates one otherwise (Phase 1 verified both branches).
+  # Routed through `sh -c` so `$ZR_SESSION_NAME` is expanded at pane start.
+  # Note: Zellij 0.43 inherits env vars at *server* startup, not per session,
+  # so the second ticket/review session on an existing server may not see a
+  # fresh value — PR 2's `zr` works around this by rendering the layout to a
+  # temp file with the name baked in.
+  ticketClaudePane = ''
+    pane name="claude" {
+        command "sh"
+        args "-c" "exec claude --worktree \"$ZR_SESSION_NAME\""
+    }
+  '';
+
+  # Fresh claude session (no `--continue`) that opens with `/review <pr>` as
+  # its first user message. $ZR_SESSION_NAME is the PR number convention
+  # (`pr-<n>`); the `review` skill (lives in taktile-skills, not in-repo yet)
+  # strips the prefix. If the skill is not installed, Claude Code shows the
+  # literal command and the user can type the prompt manually.
+  reviewClaudePane = ''
+    pane name="claude" {
+        command "sh"
+        args "-c" "exec claude \"/review $ZR_SESSION_NAME\""
     }
   '';
 
 in
 {
-  # Zellij terminal multiplexer — one session per project/Claude run.
+  # Zellij terminal multiplexer — one session per project / Claude workflow.
   #
-  # `zr [NAME]` / `zrp [NAME]` (zsh fns below) attach or create a session with
-  # the "repo" / "repo-resume" layout. Both layouts share the same pane tree
-  # (claude left, shell + tig right, status bar on top); they differ only in
-  # whether the claude pane auto-resumes the latest conversation in cwd or
-  # opens Claude's picker over past conversations.
+  # The repo recognises four use-case layouts:
+  #
+  #   code     — default. claude --continue · shell · tig status · status bar.
+  #              The shape current `zr` sessions use today.
+  #   project  — long-running "master" plan + a tab that owns `claude agents`
+  #              for dispatching parallel ticket sub-sessions. Two tabs:
+  #                master: claude --continue · shell · tig
+  #                agents: full-screen `claude agents`
+  #              Status bar via `default_tab_template` so both tabs get it.
+  #   ticket   — single-ticket work in its own worktree. Starts
+  #              `claude --worktree $ZR_SESSION_NAME` where NAME is the
+  #              ticket ID; worktree lives at `.claude/worktrees/<id>`.
+  #              Pane shape otherwise matches `code`.
+  #   review   — short-lived PR review. Fresh claude (no --continue) opens
+  #              with `/review <pr>` as its first message; no tig pane.
+  #              The `review` skill handles the PR checkout.
+  #
+  # Backwards-compat aliases `repo` and `repo-resume` point at `code` and
+  # `code-resume`; the `zr` / `zrp` zsh fns still invoke those names until
+  # PR 2 switches them to the new interface.
   #
   # Zsh integration stays off deliberately — auto-attach misbehaves inside
   # Claude Code's PTY and nested shells.
@@ -66,14 +141,52 @@ in
     packages = [ pkgs.tig ];
 
     file = {
-      # "repo" layout — `--continue` auto-resumes the most recent conversation
-      # in cwd (fresh otherwise). Use /clear inside Claude Code to drop the
-      # loaded history and start a new conversation in the same pane.
-      ".config/zellij/layouts/repo.kdl".text = mkRepoLayout "--continue";
+      # ----- Use-case layouts -----
 
-      # "repo-resume" layout — `--resume` opens Claude's picker over past
-      # conversations in cwd. Used by `zrp` when you want to pick explicitly.
-      ".config/zellij/layouts/repo-resume.kdl".text = mkRepoLayout "--resume";
+      ".config/zellij/layouts/code.kdl".text = mkSingleTreeLayout (threePaneBody codeClaudePane);
+
+      ".config/zellij/layouts/code-resume.kdl".text = mkSingleTreeLayout (
+        threePaneBody codeResumeClaudePane
+      );
+
+      ".config/zellij/layouts/ticket.kdl".text = mkSingleTreeLayout (threePaneBody ticketClaudePane);
+
+      # Review has no tig pane — just claude + shell + status bar.
+      ".config/zellij/layouts/review.kdl".text = mkSingleTreeLayout ''
+        pane split_direction="vertical" {
+            ${reviewClaudePane}
+            pane name="shell"
+        }
+      '';
+
+      # Project uses `default_tab_template` so the status bar renders in both
+      # tabs. `focus=true` on master makes it the default on session open.
+      ".config/zellij/layouts/project.kdl".text = ''
+        layout {
+            default_tab_template {
+                children
+                ${statusBarPane}
+            }
+            tab name="master" focus=true {
+                ${threePaneBody codeClaudePane}
+            }
+            tab name="agents" {
+                pane {
+                    command "claude"
+                    args "agents"
+                }
+            }
+        }
+      '';
+
+      # ----- Compat aliases (removed in PR 2 once zr/zrp switch to new names) -----
+
+      ".config/zellij/layouts/repo.kdl".text = mkSingleTreeLayout (threePaneBody codeClaudePane);
+      ".config/zellij/layouts/repo-resume.kdl".text = mkSingleTreeLayout (
+        threePaneBody codeResumeClaudePane
+      );
+
+      # ----- Theme -----
 
       # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix).
       # Shipped as a separate theme file so `programs.zellij.settings.theme`
@@ -114,6 +227,11 @@ in
     # zr [NAME] — attach, resurrect, or create a Zellij session with the
     # "repo" layout. NAME defaults to the current directory basename, so
     # `zr` from a repo root gives a session named after the repo.
+    #
+    # PR 2 of the use-case-layouts series will rewrite this to accept
+    # `-l USE_CASE` / `-a AWS_PROFILE` and dispatch to `code`, `project`,
+    # `ticket` or `review`. Until then `zr` and `zrp` still use the
+    # `repo` / `repo-resume` compat layouts.
     #
     # Behaviour by session state:
     #   live       → attach
