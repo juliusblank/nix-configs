@@ -27,6 +27,29 @@ compose into the per-layout `.kdl` files on activation.
 sets per pane at session creation. Each ticket / review session sees its
 own name without the layout files needing to be rendered per session.
 
+## Welcome banners
+
+The `ticket`, `project`, and `review` layouts show a one-time banner in
+the shell pane on fresh session creation, printed by the `zr-welcome`
+helper (installed via home-manager):
+
+```
+┏━━━━━━━━━━━┓
+┃  TICKET   ┃
+┗━━━━━━━━━━━┛
+→ /ticket:start PCS-13558 — prime ticket context (jbl-personal/ticket)
+```
+
+A sentinel at `~/.cache/zr/sessions/<name>.welcomed` suppresses the
+banner on resume. `zrk` deletes the sentinel so a reused session name
+re-welcomes. `code` and `code-resume` have no banner — those shell panes
+are plain zsh.
+
+For `review`, the claude pane auto-sends `/review:review $NAME` on
+create; the banner just reports what's running. For `ticket` and
+`project`, the user invokes the kickoff command manually from the
+banner's hint.
+
 ## Use-case specifics
 
 ### code
