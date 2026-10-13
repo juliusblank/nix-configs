@@ -13,8 +13,8 @@ Zellij session name = Claude workflow name = worktree / branch name
 |---|---|---|---|
 | **code** (default) | `code.kdl` | claude · (shell · tig) · status bar | `claude --continue` |
 | **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `claude --continue`; agents: `claude agents` |
-| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `claude --worktree $ZR_SESSION_NAME` |
-| **review** | `review.kdl` | claude · shell · status bar (no tig) | `claude "/review $ZR_SESSION_NAME"` |
+| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `claude --worktree $ZELLIJ_SESSION_NAME` |
+| **review** | `review.kdl` | claude · shell · status bar (no tig) | `claude "/review:review $ZELLIJ_SESSION_NAME"` |
 
 Plus a `code-resume.kdl` variant that uses `claude --resume` (opens the
 picker) instead of `--continue` — used by `zrp`.
@@ -75,7 +75,7 @@ The status bar renders in both tabs via `default_tab_template`.
 ### ticket
 
 A single standalone ticket (bug fix, ops task). The claude pane runs
-`claude --worktree $ZR_SESSION_NAME` — reuses an existing worktree with
+`claude --worktree $ZELLIJ_SESSION_NAME` — reuses an existing worktree with
 that name, or creates one at `.claude/worktrees/<id>` on a branch named
 `worktree-<id>`. Second `zr -l ticket <id>` with the same id is a no-op
 on worktree creation and simply attaches a fresh claude in the same
@@ -84,11 +84,12 @@ directory.
 ### review
 
 A short-lived PR review. Fresh claude session (no `--continue`); the
-pane opens with `/review $ZR_SESSION_NAME` as its first user message,
-where `$ZR_SESSION_NAME` is the PR number convention (`pr-<n>`). The
-`review` skill (in `taktile-skills`, not shipped by this repo) handles
-PR checkout under `.claude/worktrees/pr-<n>`. No tig pane — review is
-read-first, not commit-first.
+pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first user message,
+where `$ZELLIJ_SESSION_NAME` is the PR number convention (`pr-<n>`). The
+`review` command (`jbl-personal/review`, a local Claude Code marketplace
+at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
+`.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
+commit-first.
 
 ## CLI — `zr`, `zrp`, `zrk`
 
