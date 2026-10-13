@@ -317,16 +317,20 @@ in
   # Equivalent to:
   #   claude plugin marketplace add taktile-org/taktile-skills
   #   claude plugin install tktl-eng-data tktl-eng-frontend
-  #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh"]
+  #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
   # (read-only symlink) won't work. Deep-merge only these keys each activation; all other
   # settings are preserved. Claude Code installs enabled plugins on next startup.
   #
-  # `sandbox.excludedCommands`: run `gh` outside the Claude Code sandbox so TLS
-  # verification can reach the macOS trust service (trustd). The sandbox blocks
-  # trustd by default, which breaks Go-based tools like `gh` with an opaque
-  # `x509: OSStatus -26276` error. `gh` still goes through the normal permission
-  # prompt — it just skips the sandbox wrapper.
+  # `sandbox.excludedCommands`: run these tools outside the Claude Code sandbox.
+  # - `gh`: TLS verification needs the macOS trust service (trustd), which the
+  #   sandbox blocks by default — breaks Go-based tools like `gh` with an opaque
+  #   `x509: OSStatus -26276` error.
+  # - `aws`: same TLS story (Go-based AWS CLI v2 reaches STS/IAM endpoints), and
+  #   ticket / review sessions routinely want `aws sts get-caller-identity`,
+  #   `aws s3 ...`, etc. without a per-command permission prompt.
+  # The excluded commands still go through Claude Code's normal permission
+  # prompt — they just skip the sandbox wrapper.
   home.activation.claudePlugins =
     let
       pluginSettings = pkgs.writeText "claude-plugin-settings.json" (
@@ -339,7 +343,10 @@ in
             "tktl-eng-data@taktile-skills" = true;
             "tktl-eng-frontend@taktile-skills" = true;
           };
-          sandbox.excludedCommands = [ "gh" ];
+          sandbox.excludedCommands = [
+            "gh"
+            "aws"
+          ];
         }
       );
     in
