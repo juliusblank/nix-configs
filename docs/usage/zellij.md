@@ -113,8 +113,14 @@ zrk
   a no-op with a one-line notice showing the profile the session actually
   uses.
 - `NAME` — defaults to `basename $PWD`. For `ticket`, pass the ticket ID;
-  for `review`, pass `pr-<n>`. `ticket` / `review` layouts read the name
-  from `$ZELLIJ_SESSION_NAME` at pane start.
+  for `review`, pass `pr-<n>` **or** a full GitHub PR URL
+  (`https://github.com/<owner>/<repo>/pull/<n>`). On a URL, `zr` extracts
+  `pr-<n>` as the session name AND launches Zellij from the matching
+  local checkout at `~/github/<owner>/<repo>` so the worktree lands in
+  the right repo. The URL form is for drive-by reviews with no linked
+  ticket — the ticket flow is still preferred when a ticket exists.
+  `ticket` / `review` layouts read the name from `$ZELLIJ_SESSION_NAME`
+  at pane start.
 - `zrp [NAME]` — like `zr` but uses the `code-resume` layout, which opens
   Claude's `--resume` picker. Only applies to the `code` shape; other use
   cases have no resume variant (ticket reuses its worktree, review is
