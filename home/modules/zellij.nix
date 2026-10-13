@@ -329,9 +329,10 @@ in
       local worktree="$1" wt_name="''${1##*/}"
       [[ -d $worktree ]] || return 0
 
-      local status
-      status=$( cd "$worktree" 2>/dev/null && git status --porcelain 2>/dev/null )
-      if [[ -n $status ]]; then
+      # `status` is a read-only built-in in zsh (holds $?) — use `dirty`.
+      local dirty
+      dirty=$( cd "$worktree" 2>/dev/null && git status --porcelain 2>/dev/null )
+      if [[ -n $dirty ]]; then
         print -u2 -r "zrk: worktree $worktree has uncommitted changes — skipping removal."
         return 1
       fi
