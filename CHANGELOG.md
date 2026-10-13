@@ -12,6 +12,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Features
 - **home:** add use-case Zellij layouts (code, project, ticket, review) (#85)
 - **home:** zr/zrp/zrk CLI with use-case + AWS binding (#86)
+- **home:** one-time welcome banner in ticket/project/review shell panes (#87)
 
 ### Refactoring
 - **home:** extract Zellij config into its own module; swap pane to tig (#83)
