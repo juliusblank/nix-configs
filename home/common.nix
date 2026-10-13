@@ -170,6 +170,14 @@ in
   };
 
   home = {
+    # GitHub handle used as the branch prefix when `zse -l ticket` creates
+    # a worktree. Branches land at `<ZSE_BRANCH_USER>/<ticket>` instead of
+    # Claude Code's default `worktree-<ticket>`, matching the convention
+    # used in Taktile repos (and personal). Override per-host in
+    # hosts/<name>/home.nix if a host uses a different handle; unset to
+    # fall back to Claude's default.
+    sessionVariables.ZSE_BRANCH_USER = "juliusblank";
+
     file = {
       # Maps signing keys to emails for local `git log --show-signature` verification.
       # Hosts may append via `custom.extraAllowedSigners` (see concinnity).

@@ -74,12 +74,17 @@ The status bar renders in both tabs via `default_tab_template`.
 
 ### ticket
 
-A single standalone ticket (bug fix, ops task). The claude pane runs
-`claude --worktree $ZELLIJ_SESSION_NAME` — reuses an existing worktree with
-that name, or creates one at `.claude/worktrees/<id>` on a branch named
-`worktree-<id>`. Second `zse -l ticket <id>` with the same id is a no-op
-on worktree creation and simply attaches a fresh claude in the same
-directory.
+A single standalone ticket (bug fix, ops task). On fresh `zse -l ticket
+<id>`, before Zellij launches, `zse` creates the worktree at
+`.claude/worktrees/<id>` on branch `$ZSE_BRANCH_USER/<id>` (e.g.
+`juliusblank/PCS-14446`) when a `$ZSE_BRANCH_USER` is set — matching the
+Taktile PR-branch convention from the first commit, so there's no need to
+rename Claude Code's default `worktree-<id>` after the fact. The claude
+pane then runs `claude --worktree $ZELLIJ_SESSION_NAME` which reuses the
+pre-created worktree as-is. If `ZSE_BRANCH_USER` is empty or cwd isn't
+a git repo, `zse` falls back silently to Claude Code's default naming.
+Second `zse -l ticket <id>` with the same id is a no-op on worktree
+creation and simply attaches a fresh claude in the same directory.
 
 ### review
 
