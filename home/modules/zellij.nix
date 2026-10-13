@@ -401,6 +401,23 @@ in
       local sidecar
       sidecar=$(_z_aws_sidecar "$name")
 
+      # Review mode: accept a GitHub PR URL as NAME. Extract the PR number
+      # for the session name (`pr-<n>`) and locate the matching local
+      # checkout at ~/github/<owner>/<repo>. zellij is launched from that
+      # checkout so `.claude/worktrees/pr-<n>` resolves inside the right
+      # repo. Non-review use cases keep the plain `basename $PWD` default.
+      local review_cwd=""
+      if [[ $use_case == review && $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
+        local owner=$match[1] repo=$match[2] pr=$match[3]
+        name="pr-$pr"
+        review_cwd="$HOME/github/$owner/$repo"
+        if [[ ! -d $review_cwd/.git ]]; then
+          print -u2 -r "zr: $review_cwd is not a git checkout. Clone $owner/$repo there first."
+          return 1
+        fi
+        sidecar=$(_z_aws_sidecar "$name")
+      fi
+
       if _z_session_exists "$name"; then
         if [[ -n $aws_profile ]]; then
           local existing shown
@@ -413,19 +430,23 @@ in
         return
       fi
 
-      if [[ -n $aws_profile ]]; then
-        mkdir -p "''${sidecar%/*}"
-        # Hand off to the host's `assume` fn; the inner shell writes the
-        # side-car with the credentials it just got, then execs zellij so
-        # every pane inherits them.
-        assume "$aws_profile" -- zsh -c '
-          printf "AWS_PROFILE=%s\nAWS_SESSION_EXPIRATION=%s\n" \
-            "$AWS_PROFILE" "$AWS_SESSION_EXPIRATION" > "$1"
-          exec zellij -s "$2" -n "$3"
-        ' zr-aws "$sidecar" "$name" "$use_case"
-      else
-        zellij -s "$name" -n "$use_case"
-      fi
+      # Subshell so the `cd` for review mode never leaks into the caller.
+      (
+        [[ -n $review_cwd ]] && { cd "$review_cwd" || exit 1; }
+        if [[ -n $aws_profile ]]; then
+          mkdir -p "''${sidecar%/*}"
+          # Hand off to the host's `assume` fn; the inner shell writes the
+          # side-car with the credentials it just got, then execs zellij so
+          # every pane inherits them.
+          assume "$aws_profile" -- zsh -c '
+            printf "AWS_PROFILE=%s\nAWS_SESSION_EXPIRATION=%s\n" \
+              "$AWS_PROFILE" "$AWS_SESSION_EXPIRATION" > "$1"
+            exec zellij -s "$2" -n "$3"
+          ' zr-aws "$sidecar" "$name" "$use_case"
+        else
+          zellij -s "$name" -n "$use_case"
+        fi
+      )
     }
 
     # zrp [NAME] — like zr but uses the `code-resume` layout, which opens
