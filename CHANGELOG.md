@@ -1,10 +1,11 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-10-13
+## v2026.10.3 — 2026-10-13
 
 ### Bug Fixes
 - **home:** zr/zrp — attach to exited sessions to trigger resurrection (#84)
+- **home:** zrk — rename `status` local to avoid zsh read-only collision (#89)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.10.2 (#82)
@@ -13,6 +14,7 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 - **home:** add use-case Zellij layouts (code, project, ticket, review) (#85)
 - **home:** zr/zrp/zrk CLI with use-case + AWS binding (#86)
 - **home:** one-time welcome banner in ticket/project/review shell panes (#87)
+- **concinnity:** allow `gh` outside the Claude Code sandbox (#88)
 
 ### Refactoring
 - **home:** extract Zellij config into its own module; swap pane to tig (#83)
