@@ -5,6 +5,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.10.2 (#82)
+
+### Refactoring
+- **home:** extract Zellij config into its own module; swap pane to tig (#83)
 ## v2026.10.2 — 2026-10-12
 
 ### Bug Fixes

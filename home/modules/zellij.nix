@@ -99,9 +99,28 @@ in
   };
 
   programs.zsh.initContent = ''
-    # zr [NAME] — attach or create a Zellij session with the "repo" layout.
-    # NAME defaults to the current directory basename, so `zr` from a repo
-    # root gives a session named after the repo.
+    # Internal: does a session with NAME exist, live or resurrectable?
+    # `list-sessions -s` lists live sessions only; the unflagged form also
+    # includes exited sessions that Zellij has serialized to disk and can
+    # resurrect. Strip ANSI colouring (Zellij emits it even when piped) and
+    # take the first field as the session name.
+    _z_session_exists() {
+      zellij list-sessions 2>/dev/null \
+        | sed 's/\x1b\[[0-9;]*m//g' \
+        | cut -d' ' -f1 \
+        | grep -qx "$1"
+    }
+
+    # zr [NAME] — attach, resurrect, or create a Zellij session with the
+    # "repo" layout. NAME defaults to the current directory basename, so
+    # `zr` from a repo root gives a session named after the repo.
+    #
+    # Behaviour by session state:
+    #   live       → attach
+    #   exited     → attach (Zellij resurrects the serialized layout and
+    #                cwds; processes start fresh — claude's `--continue`
+    #                in the layout picks up where the conversation was)
+    #   none       → create a new session with the "repo" layout
     #
     # Zellij 0.43 note: `-l/--layout` with `-s/--session` means "add this
     # layout as a new tab in an *existing* session". The flag that starts
@@ -109,7 +128,7 @@ in
     # the create branch below uses that.
     zr() {
       local name="''${1:-$(basename "$PWD")}"
-      if zellij list-sessions -s 2>/dev/null | grep -qx "$name"; then
+      if _z_session_exists "$name"; then
         zellij attach "$name"
       else
         zellij -s "$name" -n repo
@@ -120,9 +139,12 @@ in
     # which opens the picker over conversations in the current directory.
     # Use when the cwd has multiple past conversations and you want to
     # pick one explicitly instead of auto-resuming the most recent.
+    #
+    # Resurrection uses the serialized layout, not the one named here, so
+    # `zrp <name>` on an exited session resurrects whatever layout it had.
     zrp() {
       local name="''${1:-$(basename "$PWD")}"
-      if zellij list-sessions -s 2>/dev/null | grep -qx "$name"; then
+      if _z_session_exists "$name"; then
         zellij attach "$name"
       else
         zellij -s "$name" -n repo-resume
