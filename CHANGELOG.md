@@ -1,7 +1,10 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
-## Unreleased — 2026-10-12
+## Unreleased — 2026-10-13
+
+### Bug Fixes
+- **home:** zr/zrp — attach to exited sessions to trigger resurrection (#84)
 
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.10.2 (#82)
