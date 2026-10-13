@@ -491,6 +491,31 @@ in
         return
       fi
 
+      # Ticket mode: pre-create the Claude Code worktree on branch
+      # `$ZSE_BRANCH_USER/<ticket>` instead of letting Claude Code default to
+      # `worktree-<ticket>`. Claude's `--worktree <name>` reuses an existing
+      # `.claude/worktrees/<name>` directory as-is, so creating it ahead of
+      # time with the branch we want is a no-op for Claude and spares us the
+      # rename-after-the-fact step. Skipped silently when:
+      #   - cwd is not inside a git repo (`zse -l ticket` from ~, etc.)
+      #   - the worktree directory already exists (idempotent)
+      #   - `ZSE_BRANCH_USER` is empty (fall back to Claude's default)
+      if [[ $use_case == ticket && -n ''${ZSE_BRANCH_USER:-} ]]; then
+        local repo_root
+        if repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+          local worktree_dir="$repo_root/.claude/worktrees/$name"
+          if [[ ! -d $worktree_dir ]]; then
+            local branch="$ZSE_BRANCH_USER/$name"
+            mkdir -p "$repo_root/.claude/worktrees"
+            if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
+              git -C "$repo_root" worktree add "$worktree_dir" "$branch" >/dev/null || return 1
+            else
+              git -C "$repo_root" worktree add -b "$branch" "$worktree_dir" >/dev/null || return 1
+            fi
+          fi
+        fi
+      fi
+
       # Subshell so the `cd` for review mode never leaks into the caller.
       (
         [[ -n $review_cwd ]] && { cd "$review_cwd" || exit 1; }
