@@ -91,12 +91,13 @@ at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
 `.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
 commit-first.
 
-## CLI — `zse`, `zsep`, `zsek`
+## CLI — `zse`, `zsep`, `zsek`, `zss`
 
 ```
 zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
 zsep [NAME]
 zsek
+zss NAME
 ```
 
 - `-l USE_CASE` — one of `code`, `project`, `ticket`, `review`. Defaults
@@ -136,6 +137,22 @@ zsek
   unpushed state is present, otherwise unlocks + removes + prunes + drops
   the auto-created `worktree-<name>` branch. Also deletes the AWS
   side-car.
+- `zss NAME` — switch the current session in place to `NAME` without
+  detaching (`zellij action switch-session`). Faster than opening the
+  picker when you already know the target. Pairs with the `_zse_sessions`
+  completer, so `zss <TAB>` lists every live/exited session; `zse <TAB>`
+  and `zsep <TAB>` complete the positional NAME the same way.
+
+### Switching sessions quickly
+
+Three ways, in order of effort:
+
+1. **`Ctrl Space`** — a `shared` keybind that opens the Session Manager
+   picker directly in a floating pane. One keystroke from any mode.
+2. **`zss <session> <enter>`** — in-place switch when you already know the
+   name; completes via `zse <TAB>`.
+3. **`Ctrl p d` → `zse <name>`** — the old flow: detach then re-attach.
+   Useful when you want the parent shell back.
 
 Session state matrix for `zse`:
 
