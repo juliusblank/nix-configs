@@ -9,6 +9,9 @@ Generated from conventional commit messages via [git-cliff](https://github.com/o
 ### Chores
 - **changelog:** update CHANGELOG.md for v2026.10.2 (#82)
 
+### Features
+- **home:** add use-case Zellij layouts (code, project, ticket, review) (#85)
+
 ### Refactoring
 - **home:** extract Zellij config into its own module; swap pane to tig (#83)
 ## v2026.10.2 — 2026-10-12

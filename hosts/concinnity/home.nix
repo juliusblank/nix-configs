@@ -211,14 +211,25 @@ in
       initContent = lib.mkAfter ''
         autoload -U +X bashcompinit && bashcompinit
 
+        # assume <profile>              — start an interactive subshell with
+        #                                 the profile's credentials.
+        # assume <profile> -- CMD ARGS… — run CMD under the profile and exit
+        #                                 (used by `zr -a` to launch Zellij
+        #                                 inside an aws-vault subshell).
         assume() {
         	if [ -z "$1" ]; then
-        		echo "Usage: assume <profile>";
+        		echo "Usage: assume <profile> [-- CMD ARGS...]";
         		return 1;
         	fi;
         	local profile="$1" duration="8h"
+        	shift
         	[[ "$profile" == *on-call-engineer-write* ]] && duration="2h"
-        	PATH="${ykmanBinPath}:$PATH" aws-vault exec "$profile" -d "$duration"
+        	if [[ "''${1:-}" == "--" ]]; then
+        		shift
+        		PATH="${ykmanBinPath}:$PATH" aws-vault exec "$profile" -d "$duration" -- "$@"
+        	else
+        		PATH="${ykmanBinPath}:$PATH" aws-vault exec "$profile" -d "$duration"
+        	fi
         }
 
         login() {
