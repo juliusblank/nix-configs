@@ -42,7 +42,8 @@ in
     # listed here.
     file.".config/1password/ssh/agent.toml".text = ''
       # Work SSH key — used for cloning/pushing work GitHub repos and for signing
-      # commits made under ~/github/taktile-org/ and ~/work/ (via workGitIdentity below).
+      # commits made under ~/github/taktile-org/, ~/github/jbl-taktile/ and ~/work/
+      # (via workGitIdentity below).
       [[ssh-keys]]
       item = "github ssh key"
       vault = "Private"
@@ -155,12 +156,24 @@ in
     # repo on both macOS hosts: ~/github/juliusblank/nix-configs — a sibling of the
     # work tree, so it never matches the includeIf rules below.
     #
-    # Work repos: clone under ~/github/taktile-org/ (primary). Legacy ~/work/ kept
-    # so old checkouts keep working until moved.
+    # Work repos:
+    #   - ~/github/taktile-org/ — org-owned work repos (primary).
+    #   - ~/github/jbl-taktile/ — personal-but-work-owned repos under the jbl-taktile
+    #     GitHub user (e.g. the Claude Code plugin marketplace jbl-personal lives at
+    #     ~/github/jbl-taktile/claude-skills). The owner is a work GitHub account, so
+    #     commits must author + sign as work, same as taktile-org/*. The signing key
+    #     (`workGitIdentity.user.signingKey`) is the same 1Password-served "github
+    #     ssh key" already registered on the jbl-taktile GitHub account for auth; add
+    #     it there a second time as a Signing key for GitHub to verify these commits.
+    #   - ~/work/ — legacy path, kept so old checkouts keep working until moved.
     git = {
       includes = [
         {
           condition = "gitdir:~/github/taktile-org/";
+          contents = workGitIdentity;
+        }
+        {
+          condition = "gitdir:~/github/jbl-taktile/";
           contents = workGitIdentity;
         }
         {
