@@ -155,10 +155,12 @@ let
     }
   '';
 
+  # Explicit namespace (`/review:review`) over the shorthand (`/review`) so
+  # the command stays unambiguous as more plugins add their own `review`.
   reviewClaudePane = ''
     pane name="claude" {
         command "sh"
-        args "-c" "exec claude \"/review $ZELLIJ_SESSION_NAME\""
+        args "-c" "exec claude \"/review:review $ZELLIJ_SESSION_NAME\""
     }
   '';
 
@@ -176,7 +178,7 @@ in
   #              Session name is the ticket ID; worktree is created / reused
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
   #              `/ticket:start` welcome banner.
-  #   review   — fresh `claude "/review $ZELLIJ_SESSION_NAME"` · shell
+  #   review   — fresh `claude "/review:review $ZELLIJ_SESSION_NAME"` · shell
   #              (no tig). Session name is the PR number convention
   #              (`pr-<n>`). The review command auto-fires in the claude
   #              pane; the shell shows a one-time banner noting that.
