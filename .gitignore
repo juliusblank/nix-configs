@@ -18,3 +18,4 @@ terraform/tfplan
 # OS
 .DS_Store
 *.swp
+adr-explainer-video.skill
