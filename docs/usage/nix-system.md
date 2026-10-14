@@ -174,28 +174,46 @@ just build concinnity    # build concinnity without activating
 just diff serenity       # show store-path diff vs. active system
 just deploy serenity     # build and activate (sudo + store-path darwin-rebuild switch)
 just deploy concinnity   # same for concinnity
-just status              # show active generation, last deploy, and HEAD drift
-just deployed            # latest GitHub deployment per host + this machine's revision
+just deploy concinnity release  # deploy the newest release tag
+just status              # active generation, HEAD drift, GitHub deployments per host
 just update              # update flake.lock
 just gc                  # delete all old generations and collect garbage
 ```
+
+## Deploying a release or another ref
+
+`just deploy <host>` deploys the current checkout. An optional second
+argument deploys a ref instead:
+
+```bash
+just deploy concinnity release      # newest v* tag
+just deploy concinnity v2026.10.3   # a specific tag (e.g. to roll back)
+just deploy concinnity main         # origin/main, freshly fetched
+just deploy concinnity feat/x       # origin/feat/x, to test a PR branch
+```
+
+With a ref, the recipe fetches, checks the ref out detached, deploys, and
+switches back to where you were, also when the deploy fails. It refuses
+to start when tracked files have uncommitted changes. It warns when the
+deploy is neither `main` nor a release tag.
 
 ## Deploy tracking on GitHub
 
 After a successful `darwin-rebuild switch`, `just deploy <host>` records a
 [GitHub Deployment](https://docs.github.com/en/rest/deployments) with
 environment `<host>` for the deployed commit. The repo sidebar then shows
-the commit each host runs, and a PR shows "deployed to `<host>`" when its
-head commit was deployed. The description names the branch, the
-generation, and whether the tree was dirty. Branch deploys are recorded
-too.
+the commit each host runs ("Deployments", or `/deployments`), and a PR
+shows "deployed to `<host>`" when its head commit was deployed. The
+description names what was deployed (`release v…`, `branch …` or
+`commit …`), the generation, and whether the tree was dirty.
 
 The record is best effort: if the commit is not pushed, or `gh` fails,
 `just deploy` prints a warning and the deploy itself still counts. The
 ground truth stays on the host: `darwin-version --json` returns
 `configurationRevision` (set from `self.rev` / `self.dirtyRev`).
-`just deployed` prints both, so you can see drift (for example a manual
-`darwin-rebuild switch` that bypassed the recipe).
+`just status` prints both (the `Revision:` line and the `GitHub
+deployments:` section), so you can see drift, for example after a manual
+`darwin-rebuild switch` that bypassed the recipe.
 
 ## Known issues: macOS and nix-darwin
 

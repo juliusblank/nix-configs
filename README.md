@@ -199,10 +199,10 @@ See [docs/usage/infra.md](docs/usage/infra.md) for the full workflow and example
 just --list              # show all recipes
 just check               # validate flake
 just build <host>        # build without activating
-just deploy <host>       # build and activate
+just deploy <host>       # build and activate the current checkout
+just deploy <host> release   # deploy the newest release tag (or: a tag / branch / SHA)
 just diff <host>         # show what would change
-just deployed            # which commit each host runs (GitHub Deployments)
-just status              # show active generation and HEAD drift
+just status              # active generation, HEAD drift, what each host runs
 just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files
 just update              # update flake inputs
