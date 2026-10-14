@@ -12,16 +12,28 @@ ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
-| **code** (default) | `code.kdl` | claude · (shell · tig) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --continue` |
-| **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `claude --remote-control $ZELLIJ_SESSION_NAME --continue`; agents: `claude agents` |
-| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · shell · status bar (no tig) | `claude --remote-control $ZELLIJ_SESSION_NAME "/review:review $ZELLIJ_SESSION_NAME"` |
-| **daily** | `daily.kdl` | claude · tasks (40 %) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --continue`; tasks pane runs `scripts/tasks-pane` |
+| **code** (default) | `code.kdl` | claude · (shell · tig) · status bar | `zse-claude --own` |
+| **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
+| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
+| **review** | `review.kdl` | claude · shell · status bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
+| **daily** | `daily.kdl` | claude · tasks (40 %) · status bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 
-Every interactive claude pane runs with `--remote-control
-"$ZELLIJ_SESSION_NAME"` so the session is addressable from the account's
-other Remote-Control-enrolled devices under the same name the Zellij
-session has locally. The `agents` tab in `project` stays bare `claude
+Every interactive claude pane runs `zse-claude` (installed by the
+module), which adds `--remote-control "$ZELLIJ_SESSION_NAME"` (the session
+is addressable from the account's other Remote-Control-enrolled devices
+under the same name the Zellij session has locally) and `--name
+"$ZELLIJ_SESSION_NAME"` (prompt box, `/resume` picker, terminal title).
+
+`zse-claude --own` gives each Zellij session **its own conversation**: the
+conversation ID is a UUID derived from the session name and the pane's
+start directory. If a transcript with that ID exists, the pane resumes it
+(`--resume <id>`); otherwise it starts a fresh conversation under that ID
+(`--session-id <id>`). This replaces `claude --continue`, which resumes
+the most recent conversation **in the directory** — so a new `project`
+master in a repo where a `code` session ran before picked up that
+session's conversation. Old conversations stay reachable via `/resume`.
+
+The `agents` tab in `project` stays bare `claude
 agents` — it's a management view, not an interactive REPL.
 
 Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily>`
@@ -34,7 +46,7 @@ resume, clear and compact, so the rules survive compaction. The rules
 live in the plugin repo, so changing them needs no nix deploy.
 
 Plus a `code-resume.kdl` variant that uses `claude --resume` (opens the
-picker) instead of `--continue` — used by `zsep`.
+picker) instead of `--own` — used by `zsep`.
 
 The source of truth is a Nix generator in `home/modules/zellij.nix`:
 shared pane fragments (`statusBarPane`, `shellTigColumn`, `threePaneBody`)
@@ -80,10 +92,9 @@ view that doesn't poll (so no periodic 1Password SSH-agent prompts).
 A long-running "master" plan that dispatches ticket sub-sessions via
 `claude agents`. Two explicit tabs:
 
-- **master** (default focus): `claude --remote-control $ZELLIJ_SESSION_NAME --continue` from the repo root.
-  Since worktree-based agent sub-sessions record their conversations
-  under the worktree's cwd (`~/.claude/projects/-...--claude-worktrees-<name>/`),
-  not the parent, repo-root `--continue` always picks up master.
+- **master** (default focus): `zse-claude --own` from the repo root — the
+  project's own conversation, independent of other sessions in the same
+  repo and of agent sub-sessions.
 - **agents**: full-screen `claude agents` for inspecting and dispatching
   background sessions.
 
@@ -97,8 +108,9 @@ A single standalone ticket (bug fix, ops task). On fresh `zse -l ticket
 `juliusblank/PCS-14446`) when a `$ZSE_BRANCH_USER` is set — matching the
 Taktile PR-branch convention from the first commit, so there's no need to
 rename Claude Code's default `worktree-<id>` after the fact. The claude
-pane then runs `claude --worktree $ZELLIJ_SESSION_NAME` which reuses the
-pre-created worktree as-is. If `ZSE_BRANCH_USER` is empty or cwd isn't
+pane then runs `zse-claude --own --worktree $ZELLIJ_SESSION_NAME`, which
+reuses the pre-created worktree as-is and resumes the ticket's own
+conversation after a pane restart. If `ZSE_BRANCH_USER` is empty or cwd isn't
 a git repo, `zse` falls back silently to Claude Code's default naming.
 Second `zse -l ticket <id>` with the same id is a no-op on worktree
 creation and simply attaches a fresh claude in the same directory.
@@ -194,7 +206,7 @@ Session state matrix for `zse`:
 | State | Behaviour |
 |---|---|
 | **live** | attach; `-a` ignored with notice; AWS-expiry warning if applicable |
-| **exited** (resurrectable) | attach — Zellij resurrects layout + cwds; processes start fresh (claude's `--continue` picks up the conversation; ticket's `--worktree` reuses) |
+| **exited** (resurrectable) | attach — Zellij resurrects layout + cwds; processes start fresh (`zse-claude --own` resumes the session's own conversation; ticket's `--worktree` reuses) |
 | **none** | create fresh session with the chosen layout, through `assume` if `-a` was given |
 
 The use case for a session is not persisted — it is implicit in the
