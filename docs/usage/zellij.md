@@ -24,6 +24,15 @@ other Remote-Control-enrolled devices under the same name the Zellij
 session has locally. The `agents` tab in `project` stays bare `claude
 agents` — it's a management view, not an interactive REPL.
 
+Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily>`
+(`code-resume` exports `code`). Plugins use it to tailor a session to its
+layout: the `jbl-personal` `project` plugin has a `SessionStart` hook that
+injects the master-session ground rules (`project/rules.md`: role,
+phases, ADR change handling) when `ZSE_USE_CASE=project` and the cwd is
+not a `.claude/worktrees/*` sub-session. The hook fires on startup,
+resume, clear and compact, so the rules survive compaction. The rules
+live in the plugin repo, so changing them needs no nix deploy.
+
 Plus a `code-resume.kdl` variant that uses `claude --resume` (opens the
 picker) instead of `--continue` — used by `zsep`.
 
