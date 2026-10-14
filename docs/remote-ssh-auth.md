@@ -26,7 +26,7 @@ Requirements:
   longer auto-lock.
 - Developer → SSH agent: "Remember key approval" until 1Password locks.
 - Scope the agent: put the key in a dedicated vault and list only that item
-  in `~/.config/1Password/ssh/agent.toml` (already managed in
+  in `~/.config/1password/ssh/agent.toml` (already managed in
   `hosts/concinnity/home.nix`).
 
 Limits: the agent scope narrows what the *agent* offers, but unlock is

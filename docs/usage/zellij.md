@@ -1,13 +1,14 @@
 # Zellij — Claude Code session terminal management
 
 This is how the `nix-configs` repo organises Claude Code work in a single
-Ghostty window. One Zellij session per Claude workflow, five named layouts
+Ghostty window. One Zellij session per Claude workflow, five use-case layouts
 picked by use case.
 
 ## Use cases and layouts
 
-Zellij session name = Claude workflow name = worktree / branch name
-(project slug, ticket ID or `pr-<number>`).
+Zellij session name = Claude workflow name = worktree name (project slug,
+ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
+`$ZSE_BRANCH_USER/<id>`, not the bare session name.
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
@@ -61,7 +62,7 @@ banner's hint.
 
 ### code
 
-Everything the current `zse` session does today: claude auto-resumes the
+The default `zse` shape: claude auto-resumes the
 most recent conversation in cwd, a shell to run commands, a tig status
 view that doesn't poll (so no periodic 1Password SSH-agent prompts).
 
@@ -70,7 +71,7 @@ view that doesn't poll (so no periodic 1Password SSH-agent prompts).
 A long-running "master" plan that dispatches ticket sub-sessions via
 `claude agents`. Two explicit tabs:
 
-- **master** (default focus): `claude --continue` from the repo root.
+- **master** (default focus): `claude --remote-control $ZELLIJ_SESSION_NAME --continue` from the repo root.
   Since worktree-based agent sub-sessions record their conversations
   under the worktree's cwd (`~/.claude/projects/-...--claude-worktrees-<name>/`),
   not the parent, repo-root `--continue` always picks up master.
@@ -97,7 +98,7 @@ creation and simply attaches a fresh claude in the same directory.
 
 A short-lived PR review. Fresh claude session (no `--continue`); the
 pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first user message,
-where `$ZELLIJ_SESSION_NAME` is the PR number convention (`pr-<n>`). The
+where `$ZELLIJ_SESSION_NAME` is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). The
 `review` command (`jbl-personal/review`, a local Claude Code marketplace
 at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
 `.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
@@ -128,7 +129,8 @@ zss NAME
   to `$ZSE_LAYOUT` (devshells can bind a per-repo default), else `code`.
   zsh completion offers the five names.
 - `-a AWS_PROFILE` — launches Zellij through the host's `assume` fn
-  (`aws-vault exec <profile> -d 8h` with YubiKey TOTP on concinnity).
+  (`aws-vault exec <profile> -d 8h`, 2h for on-call write, with YubiKey
+  TOTP on concinnity).
   Every pane inherits the aws-vault subshell credentials. If the Zellij
   session outlives the 8 h window, panes silently use stale creds — `zse`
   on attach reads a per-session side-car at
@@ -174,8 +176,8 @@ Three ways, in order of effort:
 1. **`Ctrl Space`** — a `shared` keybind that opens the Session Manager
    picker directly in a floating pane. One keystroke from any mode.
 2. **`zss <session> <enter>`** — in-place switch when you already know the
-   name; completes via `zse <TAB>`.
-3. **`Ctrl p d` → `zse <name>`** — the old flow: detach then re-attach.
+   name; `zss <TAB>` completes session names.
+3. **`Ctrl o d` → `zse <name>`** — the old flow: detach then re-attach.
    Useful when you want the parent shell back.
 
 Session state matrix for `zse`:
@@ -187,8 +189,10 @@ Session state matrix for `zse`:
 | **none** | create fresh session with the chosen layout, through `assume` if `-a` was given |
 
 The use case for a session is not persisted — it is implicit in the
-layout chosen at creation and (for ticket / review) reflected in the
-presence of a `.claude/worktrees/<name>` dir, which `zsek` keys off.
+layout chosen at creation and (for ticket) reflected in the presence of
+a `.claude/worktrees/<name>` dir, which `zsek` keys off. Review
+worktrees are named `pr-<n>`, not after the `review-<repo>-pr<n>`
+session, so `zsek` does not remove them yet (SPEC roadmap row 30).
 
 ## AWS handling
 

@@ -129,8 +129,8 @@ git push -u origin feat/home-tweak-example
 gh pr create --fill
 ```
 
-CI runs `nix flake check` and builds `serenity` on every PR — the build must be green before
-merging. Build `concinnity` locally before deploying it; CI does not build that host today.
+CI runs `nix flake check --no-build` and builds both `serenity` and `concinnity` (matrix) on
+every PR that touches nix files — the build must be green before merging. See `docs/ci.md`.
 
 ### 6. Deploy after merging
 
