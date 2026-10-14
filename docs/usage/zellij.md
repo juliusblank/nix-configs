@@ -11,10 +11,16 @@ Zellij session name = Claude workflow name = worktree / branch name
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
-| **code** (default) | `code.kdl` | claude · (shell · tig) · status bar | `claude --continue` |
-| **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `claude --continue`; agents: `claude agents` |
-| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `claude --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · shell · status bar (no tig) | `claude "/review:review $ZELLIJ_SESSION_NAME"` |
+| **code** (default) | `code.kdl` | claude · (shell · tig) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --continue` |
+| **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `claude --remote-control $ZELLIJ_SESSION_NAME --continue`; agents: `claude agents` |
+| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --worktree $ZELLIJ_SESSION_NAME` |
+| **review** | `review.kdl` | claude · shell · status bar (no tig) | `claude --remote-control $ZELLIJ_SESSION_NAME "/review:review $ZELLIJ_SESSION_NAME"` |
+
+Every interactive claude pane runs with `--remote-control
+"$ZELLIJ_SESSION_NAME"` so the session is addressable from the account's
+other Remote-Control-enrolled devices under the same name the Zellij
+session has locally. The `agents` tab in `project` stays bare `claude
+agents` — it's a management view, not an interactive REPL.
 
 Plus a `code-resume.kdl` variant that uses `claude --resume` (opens the
 picker) instead of `--continue` — used by `zsep`.
