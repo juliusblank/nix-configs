@@ -158,17 +158,22 @@ let
 
   # ----- Per-layout Claude panes -----
 
+  # Every interactive claude pane runs under `--remote-control
+  # "$ZELLIJ_SESSION_NAME"` so the session is reachable from the account's
+  # other Remote-Control-enabled devices (phone, laptop, iPad) under the
+  # same name the Zellij session has locally. One shell wraps the exec so
+  # `$ZELLIJ_SESSION_NAME` interpolates at pane start.
   codeClaudePane = ''
     pane name="claude" {
-        command "claude"
-        args "--continue"
+        command "sh"
+        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" --continue"
     }
   '';
 
   codeResumeClaudePane = ''
     pane name="claude" {
-        command "claude"
-        args "--resume"
+        command "sh"
+        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" --resume"
     }
   '';
 
@@ -179,7 +184,7 @@ let
   ticketClaudePane = ''
     pane name="claude" {
         command "sh"
-        args "-c" "exec claude --worktree \"$ZELLIJ_SESSION_NAME\""
+        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\""
     }
   '';
 
@@ -188,7 +193,7 @@ let
   reviewClaudePane = ''
     pane name="claude" {
         command "sh"
-        args "-c" "exec claude \"/review:review $ZELLIJ_SESSION_NAME\""
+        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" \"/review:review $ZELLIJ_SESSION_NAME\""
     }
   '';
 
