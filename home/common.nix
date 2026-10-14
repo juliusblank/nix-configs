@@ -65,6 +65,40 @@ in
           ''
         }
 
+        # Argument completion for this repo's host recipes, which `_just` lacks
+        # (it completes recipe names only). Active only inside a nix-configs
+        # checkout (git root has hosts/ + flake.nix); elsewhere plain `_just`.
+        #   just deploy|build|diff|push-cache <TAB>  → host names from hosts/
+        #   just deploy <host> <TAB>                → release, v* tags (newest
+        #                                             first), origin branches
+        _just_nixcfg() {
+          local root
+          root=$(git rev-parse --show-toplevel 2>/dev/null)
+          if [[ -n $root && -d $root/hosts && -f $root/flake.nix ]]; then
+            case ''${words[2]} in
+              deploy|build|diff|push-cache)
+                if (( CURRENT == 3 )); then
+                  local -a hosts=( $root/hosts/*(/N:t) )
+                  compadd -a hosts
+                  return
+                elif (( CURRENT == 4 )) && [[ ''${words[2]} == deploy ]]; then
+                  local -a tags branches
+                  tags=( ''${(f)"$(git -C $root tag --list 'v*' --sort=-v:refname)"} )
+                  branches=( ''${(M)''${(f)"$(git -C $root branch -r --format='%(refname:short)')"}:#origin/*} )
+                  branches=( ''${branches#origin/} )
+                  _alternative \
+                    'special:latest:((release\:"newest v* tag"))' \
+                    'tags:release tag:compadd -V tags -a tags' \
+                    'branches:branch:compadd -a branches'
+                  return
+                fi
+                ;;
+            esac
+          fi
+          _just "$@"
+        }
+        compdef _just_nixcfg just
+
         # mkdir + cd in one step
         mcd() { mkdir -p "$1" && cd "$1" }
 
