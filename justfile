@@ -124,17 +124,22 @@ setup-nix-cache-keys:
 # Day-to-day operations
 # ==============================================================================
 
-# Show the currently activated system generation and whether HEAD has drifted since
+# Show the active generation, HEAD drift, and what each host runs (GitHub Deployments)
 status:
     #!/usr/bin/env bash
     set -euo pipefail
     profile=/nix/var/nix/profiles/system
     active_gen=$(readlink "$profile" | grep -o '[0-9]*')
-    activated=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$profile" 2>/dev/null \
-                || stat --format="%y" "$profile" 2>/dev/null | cut -d. -f1)
+    # GNU stat first: the devShell puts coreutils on PATH, and GNU `stat -f`
+    # means "file system status", which succeeds with unrelated output.
+    activated=$(stat --format="%y" "$profile" 2>/dev/null | cut -d. -f1 \
+                || stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$profile" 2>/dev/null)
     echo "Host:       $(hostname -s)"
     echo "Generation: $active_gen  (system activated $activated)"
     echo "Version:    $(cat /run/current-system/darwin-version 2>/dev/null)"
+    if command -v darwin-version >/dev/null; then
+        echo "Revision:   $(darwin-version --json | jq -r '.configurationRevision // "unknown"' | cut -c1-12)"
+    fi
     echo ""
     if [[ -f .deploy-status ]]; then
         # shellcheck source=/dev/null
@@ -153,6 +158,15 @@ status:
     echo ""
     echo "Latest commit on main:"
     git log main --oneline -1 2>/dev/null || echo "  (not in a git repo)"
+    echo ""
+    # GitHub Deployments, written by `just deploy`. Compare with the
+    # Revision line above to spot deploys that bypassed the recipe.
+    echo "GitHub deployments:"
+    for host in serenity concinnity; do
+        gh api "repos/{owner}/{repo}/deployments?environment=$host&per_page=1" \
+          --jq "if length == 0 then \"  $host\t(no record)\" else .[0] | \"  $host\t\(.sha[0:7])  \(.created_at)  \(.description)\" end" \
+          2>/dev/null || echo "  $host: (gh lookup failed)"
+    done
 
 # Check the flake evaluates correctly
 check:
@@ -175,14 +189,74 @@ build host:
             ;;
     esac
 
-# Build and activate a host config
-deploy host:
+# Deploy without REF uses the current checkout. With REF, the recipe checks out
+# that tag / branch / SHA detached (`release` = newest `v*` tag), deploys it, and
+# switches back afterwards, also on failure. Everything after the checkout runs
+# inline (no nested `just` calls), because an older tag may carry an older justfile.
+# Build and activate a host config (REF: empty = checkout, `release`, tag, branch or SHA)
+deploy host ref="":
     #!/usr/bin/env bash
     set -euo pipefail
-    branch=$(git rev-parse --abbrev-ref HEAD)
-    if [ "$branch" != "main" ]; then
-        echo "WARNING: deploying from branch '$branch', not main."
+    ref="{{ref}}"
+    if [ -n "$ref" ]; then
+        if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "ERROR: uncommitted changes. Commit or stash them before deploying a ref."
+            exit 1
+        fi
+        git fetch --quiet --tags origin
+        if [ "$ref" = "release" ]; then
+            ref=$(git tag --list 'v*' --sort=-v:refname | head -1)
+            [ -n "$ref" ] || { echo "ERROR: no release tags found."; exit 1; }
+        fi
+        # A branch REF deploys the just-fetched remote branch, not a possibly stale local one.
+        target=$ref ref_branch=""
+        if git show-ref --verify --quiet "refs/remotes/origin/$ref"; then
+            target="origin/$ref" ref_branch=$ref
+        fi
+        prev=$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)
+        trap 'git switch --quiet "$prev" 2>/dev/null || git switch --quiet --detach "$prev"; echo "Back on $prev."' EXIT
+        git switch --quiet --detach "$target"
+        echo "Deploying $target ($(git rev-parse --short HEAD))"
     fi
+
+    # What is being deployed, for the warning, .deploy-status and GitHub.
+    sha=$(git rev-parse HEAD)
+    if tag=$(git describe --exact-match --tags HEAD 2>/dev/null); then
+        label="release $tag"
+    elif [ -n "${ref_branch:-}" ]; then
+        label="branch $ref_branch"
+    elif b=$(git symbolic-ref --quiet --short HEAD); then
+        label="branch $b"
+    else
+        label="commit ${sha:0:7}"
+    fi
+    case "$label" in
+        "branch main" | release\ *) ;;
+        *) echo "WARNING: deploying $label, not main or a release tag." ;;
+    esac
+
+    # Record the deploy as a GitHub Deployment (environment = host): the repo
+    # sidebar shows the SHA each host runs; PRs show "deployed to <host>".
+    # Best effort: the caller only warns on failure.
+    record_deployment() {
+        local gen=$1 desc id
+        desc="$label, generation $gen"
+        if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            desc="$desc, DIRTY tree (uncommitted changes not in ${sha:0:7})"
+        fi
+        # GitHub can only attach a deployment to a commit it knows.
+        if [ -z "$(git branch -r --contains "$sha" 2>/dev/null)" ]; then
+            echo "Skipping GitHub deployment: ${sha:0:7} is not pushed."
+            return 1
+        fi
+        id=$(jq -n --arg ref "$sha" --arg env "{{host}}" --arg desc "$desc" \
+            '{ref: $ref, environment: $env, description: $desc, auto_merge: false, required_contexts: [], production_environment: true}' \
+          | gh api --method POST 'repos/{owner}/{repo}/deployments' --input - --jq .id) || return 1
+        jq -n --arg desc "$desc" '{state: "success", description: $desc, auto_inactive: true}' \
+          | gh api --method POST "repos/{owner}/{repo}/deployments/$id/statuses" --input - --silent || return 1
+        echo "GitHub deployment $id recorded: {{host}} → ${sha:0:7} ($label)"
+    }
+
     case "{{host}}" in
         serenity|concinnity)
             # Non-interactive bash: no `darwin-rebuild` on PATH. New nix-darwin requires root
@@ -191,15 +265,16 @@ deploy host:
             drb=$(nix build --no-link --print-out-paths "{{nix_darwin_flake}}#darwin-rebuild")
             sudo "$drb/bin/darwin-rebuild" switch --flake ".#{{host}}"
             gen=$(readlink /nix/var/nix/profiles/system | grep -o '[0-9]*')
-            printf 'host=%s\ncommit=%s\nbranch=%s\ngeneration=%s\ndeployed_at=%s\n' \
+            # %q: `status` sources this file, and the label contains spaces.
+            printf 'host=%q\ncommit=%q\nbranch=%q\ngeneration=%q\ndeployed_at=%q\n' \
               "{{host}}" \
-              "$(git rev-parse --short HEAD)" \
-              "$(git rev-parse --abbrev-ref HEAD)" \
+              "${sha:0:7}" \
+              "$label" \
               "$gen" \
               "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
               > .deploy-status
             echo "Deploy recorded in .deploy-status (generation $gen)"
-            just _record-deployment "{{host}}" "$gen" || echo "WARNING: GitHub deployment record failed (deploy itself succeeded)."
+            record_deployment "$gen" || echo "WARNING: GitHub deployment record failed (deploy itself succeeded)."
             ;;
         pi-*)
             echo "For remote NixOS hosts, use:"
@@ -210,46 +285,6 @@ deploy host:
             exit 1
             ;;
     esac
-
-# Record a successful deploy as a GitHub Deployment (environment = host).
-# The repo sidebar then shows the SHA each host runs; PRs show "deployed to <host>".
-# Non-fatal: `deploy` only warns if this fails (offline, gh not authed, SHA not pushed).
-[private]
-_record-deployment host generation:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    sha=$(git rev-parse HEAD)
-    branch=$(git rev-parse --abbrev-ref HEAD)
-    desc="branch $branch, generation {{generation}}"
-    if ! git diff --quiet HEAD; then
-        desc="$desc, DIRTY tree (uncommitted changes not in $sha)"
-    fi
-    # GitHub can only attach a deployment to a commit it knows.
-    if [ -z "$(git branch -r --contains "$sha" 2>/dev/null)" ]; then
-        echo "Skipping GitHub deployment: $sha is not pushed."
-        exit 1
-    fi
-    id=$(jq -n --arg ref "$sha" --arg env "{{host}}" --arg desc "$desc" \
-        '{ref: $ref, environment: $env, description: $desc, auto_merge: false, required_contexts: [], production_environment: true}' \
-      | gh api --method POST 'repos/{owner}/{repo}/deployments' --input - --jq .id)
-    jq -n --arg desc "$desc" '{state: "success", description: $desc, auto_inactive: true}' \
-      | gh api --method POST "repos/{owner}/{repo}/deployments/$id/statuses" --input - --silent
-    echo "GitHub deployment $id recorded: {{host}} → ${sha:0:7}"
-
-# Compares this machine's actual system revision (`darwin-version`) with the GitHub
-# record, to spot deploys that bypassed `just deploy`.
-# Show the latest GitHub deployment per host and this machine's revision
-deployed:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for host in serenity concinnity; do
-        gh api "repos/{owner}/{repo}/deployments?environment=$host&per_page=1" \
-          --jq ".[0] // empty | \"$host\t\(.sha[0:7])\t\(.created_at)\t\(.description)\"" \
-          || true
-    done
-    if command -v darwin-version >/dev/null; then
-        echo "this machine ($(scutil --get LocalHostName)): $(darwin-version --json | jq -r '.configurationRevision // "unknown"' | cut -c1-12)"
-    fi
 
 # Push the full closure of a built host config to the S3 nix cache
 push-cache host:
