@@ -7,6 +7,7 @@
 #
 # github_nix-configs vault:
 #   - "GitHub PAT nix-configs"     field:  token
+#   - "Nix Cache Signing Key"      fields: private_key, public_key (CI push-cache only)
 
 AWS_ACCESS_KEY_ID=op://infrastructure/personal-nix-configs-infra/access_key_id
 AWS_SECRET_ACCESS_KEY=op://infrastructure/personal-nix-configs-infra/secret_access_key

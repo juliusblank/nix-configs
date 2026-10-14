@@ -215,7 +215,7 @@ in
 {
   # Zellij terminal multiplexer — one session per project / Claude workflow.
   #
-  # Five use-case layouts (see docs/usage/zellij.md for the long form):
+  # Use-case layouts (see docs/usage/zellij.md for the long form):
   #
   #   code     — default. claude --continue · shell · tig status · status bar.
   #   project  — tabs: master (code shape, --continue) + full-screen
@@ -226,8 +226,8 @@ in
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
   #              `/ticket:start` welcome banner.
   #   review   — fresh `claude "/review:review $ZELLIJ_SESSION_NAME"` · shell
-  #              (no tig). Session name is the PR number convention
-  #              (`pr-<n>`). The review command auto-fires in the claude
+  #              (no tig). Session name is `review-<repo>-pr<n>`, parsed
+  #              from a PR URL. The review command auto-fires in the claude
   #              pane; the shell shows a one-time banner noting that.
   #   daily    — claude --continue · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
@@ -330,7 +330,7 @@ in
       # ----- Theme -----
 
       # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix).
-      # Shipped as a separate theme file so `programs.zellij.settings.theme`
+      # Shipped as a separate theme file so the `theme` line in config.kdl
       # above just needs to name it.
       ".config/zellij/themes/ghostty-0x96f.kdl".text = ''
         themes {
@@ -458,7 +458,7 @@ in
     #               expiration are side-car'd at ~/.cache/zse/sessions/<name>.env
     #               so later attaches warn on near / past expiry.
     #   NAME      — session name. Defaults to basename of $PWD. For `ticket`,
-    #               pass the ticket ID; for `review`, pass `pr-<n>`. ticket
+    #               pass the ticket ID; for `review`, pass a PR URL. ticket
     #               and review layouts read the name via $ZELLIJ_SESSION_NAME
     #               so no layout rendering is involved.
     #
@@ -648,10 +648,9 @@ in
       _describe -t sessions 'zellij session' sessions
     }
 
-    # _zse completes `-l` with the known use cases, `-a` with AWS profile
-    # names (reusing the host-defined `_aws_profile_completions` on
-    # concinnity; on other hosts `-a` falls through to no completion) and
-    # the positional NAME with live Zellij sessions.
+    # _zse completes `-l` with the known use cases and the positional NAME
+    # with live Zellij sessions. `-a` takes a profile name but has no
+    # completion yet.
     _zse() {
       _arguments \
         '-l[layout / use-case]:use case:(code project ticket review daily)' \

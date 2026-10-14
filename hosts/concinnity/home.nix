@@ -1,7 +1,7 @@
 { pkgs, lib, ... }:
 
 let
-  # Work SSH signing — public key from 1Password → "github ssh key" (Private vault).
+  # Work SSH signing — public key from 1Password → "github ssh key" (Employee vault).
   # `includes[].contents` uses the same shape as `git-config(5)` / HM `toGitINI` (camelCase keys).
   workGitIdentity = {
     user = {
@@ -46,14 +46,14 @@ in
       # (via workGitIdentity below).
       [[ssh-keys]]
       item = "github ssh key"
-      vault = "Private"
+      vault = "Employee"
 
       # Personal signing key dedicated to this host — signs every non-work commit
       # authored as dev@juliusblank.de. Registered as a signing key on juliusblank's
       # GitHub account; private key never leaves 1Password.
       [[ssh-keys]]
       item = "concinnity signing key"
-      vault = "Private"
+      vault = "Employee"
     '';
 
     packages = with pkgs; [

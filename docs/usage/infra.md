@@ -71,8 +71,9 @@ Infrastructure definitions live in `terraform/`. One file per concern:
 | File | What it manages |
 |---|---|
 | `github.tf` | GitHub repository settings and branch protection |
-| `oidc.tf` | AWS OIDC provider |
-| `iam-ci.tf` | GitHub Actions IAM role + policies |
+| `github-labels.tf` | PR scope labels (kept in sync with `.github/labeler.yml`) |
+| `oidc.tf` | AWS OIDC provider, GitHub Actions IAM role, nix cache access policy, Actions secrets / variables |
+| `iam-ci.tf` | Scoped policies on the GitHub Actions role (state, backend, IAM, nix cache) |
 | `iam-user.tf` | `nix-configs-infra` IAM user + managed policy |
 | `s3-cache.tf` | S3 bucket for the nix binary cache |
 | `state-backend.tf` | S3 state bucket + DynamoDB lock table |

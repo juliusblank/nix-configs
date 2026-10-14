@@ -79,12 +79,15 @@ Secrets are never stored in the repo. Sensitive values live across two vaults in
 | AWS IAM access keys | `infrastructure` | `personal-nix-configs-infra` | `access_key_id`, `secret_access_key` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
+| Nix cache signing key (CI) | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
 
-Inject secrets at the point of use with `op read`:
+Inject secrets at the point of use with `op read`. Assign first, then export — `export X=$(…)`
+hides a failed `op read` behind `export`'s exit status:
 
 ```bash
-export AWS_ACCESS_KEY_ID=$(op read "op://infrastructure/personal-nix-configs-infra/access_key_id")
-export TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+AWS_ACCESS_KEY_ID=$(op read "op://infrastructure/personal-nix-configs-infra/access_key_id")
+TF_VAR_github_token=$(op read "op://github_nix-configs/GitHub PAT nix-configs/token")
+export AWS_ACCESS_KEY_ID TF_VAR_github_token
 ```
 
 The `.op-env` file at the repo root documents all required `op://` references. SSH keys are served
