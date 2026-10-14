@@ -1,7 +1,7 @@
 # Zellij — Claude Code session terminal management
 
 This is how the `nix-configs` repo organises Claude Code work in a single
-Ghostty window. One Zellij session per Claude workflow, four named layouts
+Ghostty window. One Zellij session per Claude workflow, five named layouts
 picked by use case.
 
 ## Use cases and layouts
@@ -15,6 +15,7 @@ Zellij session name = Claude workflow name = worktree / branch name
 | **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `claude --remote-control $ZELLIJ_SESSION_NAME --continue`; agents: `claude agents` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --worktree $ZELLIJ_SESSION_NAME` |
 | **review** | `review.kdl` | claude · shell · status bar (no tig) | `claude --remote-control $ZELLIJ_SESSION_NAME "/review:review $ZELLIJ_SESSION_NAME"` |
+| **daily** | `daily.kdl` | claude · tasks (40 %) · status bar | `claude --remote-control $ZELLIJ_SESSION_NAME --continue`; tasks pane runs `scripts/tasks-pane` |
 
 Every interactive claude pane runs with `--remote-control
 "$ZELLIJ_SESSION_NAME"` so the session is addressable from the account's
@@ -102,6 +103,18 @@ at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
 `.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
 commit-first.
 
+### daily
+
+For the `~/github/jbl-taktile/daily-tasks` repo. Start it with `zse -l
+daily` from the repo root. The right pane runs the repo's own
+`scripts/tasks-pane`: an fzf picker over the open tasks from all
+`vault/Daily/*.md` notes (Obsidian's Tasks query does not render in a
+terminal, so the script aggregates them). Keys tick / drop a task in
+place in the note it lives in; the list reloads when the vault changes.
+The layout only places the pane — all vault logic lives in daily-tasks.
+In a repo without `scripts/tasks-pane`, the pane prints a hint and
+drops to zsh.
+
 ## CLI — `zse`, `zsep`, `zsek`, `zss`
 
 ```
@@ -111,9 +124,9 @@ zsek
 zss NAME
 ```
 
-- `-l USE_CASE` — one of `code`, `project`, `ticket`, `review`. Defaults
+- `-l USE_CASE` — one of `code`, `project`, `ticket`, `review`, `daily`. Defaults
   to `$ZSE_LAYOUT` (devshells can bind a per-repo default), else `code`.
-  zsh completion offers the four names.
+  zsh completion offers the five names.
 - `-a AWS_PROFILE` — launches Zellij through the host's `assume` fn
   (`aws-vault exec <profile> -d 8h` with YubiKey TOTP on concinnity).
   Every pane inherits the aws-vault subshell credentials. If the Zellij

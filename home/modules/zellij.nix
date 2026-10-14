@@ -197,11 +197,25 @@ let
     }
   '';
 
+  /**
+    Task-list pane for the `daily` layout. Runs the repo's own
+    `scripts/tasks-pane` (the daily-tasks fzf picker: open tasks across all
+    daily notes, keys to tick / drop). The script owns all vault logic; this
+    layout only places it. Falls back to a hint + plain zsh when the script
+    is missing, so the layout still opens in any repo.
+  */
+  tasksPane = ''
+    pane name="tasks" size="40%" {
+        command "sh"
+        args "-c" "[ -x scripts/tasks-pane ] && exec scripts/tasks-pane; echo 'zse daily: no executable scripts/tasks-pane in this repo'; exec zsh"
+    }
+  '';
+
 in
 {
   # Zellij terminal multiplexer — one session per project / Claude workflow.
   #
-  # Four use-case layouts (see docs/usage/zellij.md for the long form):
+  # Five use-case layouts (see docs/usage/zellij.md for the long form):
   #
   #   code     — default. claude --continue · shell · tig status · status bar.
   #   project  — tabs: master (code shape, --continue) + full-screen
@@ -215,6 +229,8 @@ in
   #              (no tig). Session name is the PR number convention
   #              (`pr-<n>`). The review command auto-fires in the claude
   #              pane; the shell shows a one-time banner noting that.
+  #   daily    — claude --continue · tasks pane (`scripts/tasks-pane` from
+  #              the daily-tasks repo: fzf over open tasks, tick in place).
   #
   # Welcome banners are a one-shot per session — a sentinel at
   # `~/.cache/zse/sessions/<name>.welcomed` suppresses the banner on resume.
@@ -279,6 +295,15 @@ in
         pane split_direction="vertical" {
             ${reviewClaudePane}
             ${mkShellPane "review"}
+        }
+      '';
+
+      # Daily: claude + the daily-tasks task picker. No shell / tig — the
+      # vault is committed by `/eod`, and ticks happen in the tasks pane.
+      ".config/zellij/layouts/daily.kdl".text = mkSingleTreeLayout ''
+        pane split_direction="vertical" {
+            ${codeClaudePane}
+            ${tasksPane}
         }
       '';
 
@@ -424,7 +449,7 @@ in
 
     # zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
     #
-    #   USE_CASE  — one of `code`, `project`, `ticket`, `review`. Defaults
+    #   USE_CASE  — one of `code`, `project`, `ticket`, `review`, `daily`. Defaults
     #               to $ZSE_LAYOUT if set (so devshells can bind a layout
     #               per repo), else `code`.
     #   AWS_PROF  — binds an AWS profile to the session by launching Zellij
@@ -629,7 +654,7 @@ in
     # the positional NAME with live Zellij sessions.
     _zse() {
       _arguments \
-        '-l[layout / use-case]:use case:(code project ticket review)' \
+        '-l[layout / use-case]:use case:(code project ticket review daily)' \
         '-a[AWS profile]:profile:' \
         ':session name:_zse_sessions'
     }
