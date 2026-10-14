@@ -1,6 +1,30 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.4 — 2026-10-14
+
+### Bug Fixes
+- **home:** review layout — use explicit `/review:review` + doc sweep (#91)
+- **concinnity:** sign ~/github/jbl-taktile/ commits with the work key (#94)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.3 (#90)
+- **infra:** watch shell.nix in .envrc so hook body changes land immediately (#92)
+
+### Documentation
+- **spec:** add row 28 — Nix-ify jbl-personal marketplace once stable (#95)
+- remote SSH auth + signing options; SPEC row 29 TODO (#100)
+- **spec:** add TODO to fix the Zellij git pane (#102)
+
+### Features
+- **home:** zr -l review accepts a GitHub PR URL (#93)
+- **home:** rename `zr`/`zrp`/`zrk` → `zse`/`zsep`/`zsek` (#96)
+- **concinnity:** allow `aws` outside the Claude Code sandbox (#97)
+- **home:** one-stroke Zellij session switcher — `Ctrl Space` + `zss` (#98)
+- **home:** `zse -l ticket` creates worktree on `<USER>/<ticket>` branch (#99)
+- **home:** enable Claude Code Remote Control in every zse layout (#101)
+- **justfile:** record deploys as GitHub Deployments per host (#104)
+- **home:** add `daily` Zellij layout with a task-list pane (#103)
 ## v2026.10.3 — 2026-10-13
 
 ### Bug Fixes
