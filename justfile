@@ -199,6 +199,7 @@ deploy host:
               "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
               > .deploy-status
             echo "Deploy recorded in .deploy-status (generation $gen)"
+            just _record-deployment "{{host}}" "$gen" || echo "WARNING: GitHub deployment record failed (deploy itself succeeded)."
             ;;
         pi-*)
             echo "For remote NixOS hosts, use:"
@@ -209,6 +210,46 @@ deploy host:
             exit 1
             ;;
     esac
+
+# Record a successful deploy as a GitHub Deployment (environment = host).
+# The repo sidebar then shows the SHA each host runs; PRs show "deployed to <host>".
+# Non-fatal: `deploy` only warns if this fails (offline, gh not authed, SHA not pushed).
+[private]
+_record-deployment host generation:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sha=$(git rev-parse HEAD)
+    branch=$(git rev-parse --abbrev-ref HEAD)
+    desc="branch $branch, generation {{generation}}"
+    if ! git diff --quiet HEAD; then
+        desc="$desc, DIRTY tree (uncommitted changes not in $sha)"
+    fi
+    # GitHub can only attach a deployment to a commit it knows.
+    if [ -z "$(git branch -r --contains "$sha" 2>/dev/null)" ]; then
+        echo "Skipping GitHub deployment: $sha is not pushed."
+        exit 1
+    fi
+    id=$(jq -n --arg ref "$sha" --arg env "{{host}}" --arg desc "$desc" \
+        '{ref: $ref, environment: $env, description: $desc, auto_merge: false, required_contexts: [], production_environment: true}' \
+      | gh api --method POST 'repos/{owner}/{repo}/deployments' --input - --jq .id)
+    jq -n --arg desc "$desc" '{state: "success", description: $desc, auto_inactive: true}' \
+      | gh api --method POST "repos/{owner}/{repo}/deployments/$id/statuses" --input - --silent
+    echo "GitHub deployment $id recorded: {{host}} → ${sha:0:7}"
+
+# Compares this machine's actual system revision (`darwin-version`) with the GitHub
+# record, to spot deploys that bypassed `just deploy`.
+# Show the latest GitHub deployment per host and this machine's revision
+deployed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for host in serenity concinnity; do
+        gh api "repos/{owner}/{repo}/deployments?environment=$host&per_page=1" \
+          --jq ".[0] // empty | \"$host\t\(.sha[0:7])\t\(.created_at)\t\(.description)\"" \
+          || true
+    done
+    if command -v darwin-version >/dev/null; then
+        echo "this machine ($(scutil --get LocalHostName)): $(darwin-version --json | jq -r '.configurationRevision // "unknown"' | cut -c1-12)"
+    fi
 
 # Push the full closure of a built host config to the S3 nix cache
 push-cache host:

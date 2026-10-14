@@ -201,6 +201,7 @@ just check               # validate flake
 just build <host>        # build without activating
 just deploy <host>       # build and activate
 just diff <host>         # show what would change
+just deployed            # which commit each host runs (GitHub Deployments)
 just status              # show active generation and HEAD drift
 just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files

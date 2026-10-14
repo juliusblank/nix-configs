@@ -175,9 +175,27 @@ just diff serenity       # show store-path diff vs. active system
 just deploy serenity     # build and activate (sudo + store-path darwin-rebuild switch)
 just deploy concinnity   # same for concinnity
 just status              # show active generation, last deploy, and HEAD drift
+just deployed            # latest GitHub deployment per host + this machine's revision
 just update              # update flake.lock
 just gc                  # delete all old generations and collect garbage
 ```
+
+## Deploy tracking on GitHub
+
+After a successful `darwin-rebuild switch`, `just deploy <host>` records a
+[GitHub Deployment](https://docs.github.com/en/rest/deployments) with
+environment `<host>` for the deployed commit. The repo sidebar then shows
+the commit each host runs, and a PR shows "deployed to `<host>`" when its
+head commit was deployed. The description names the branch, the
+generation, and whether the tree was dirty. Branch deploys are recorded
+too.
+
+The record is best effort: if the commit is not pushed, or `gh` fails,
+`just deploy` prints a warning and the deploy itself still counts. The
+ground truth stays on the host: `darwin-version --json` returns
+`configurationRevision` (set from `self.rev` / `self.dirtyRev`).
+`just deployed` prints both, so you can see drift (for example a manual
+`darwin-rebuild switch` that bypassed the recipe).
 
 ## Known issues: macOS and nix-darwin
 
