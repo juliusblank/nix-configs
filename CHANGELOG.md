@@ -1,6 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.5 — 2026-10-14
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.4 (#105)
+
+### Features
+- **justfile:** deploy a release or any ref; fold `deployed` into `status` (#106)
 ## v2026.10.4 — 2026-10-14
 
 ### Bug Fixes
