@@ -159,34 +159,66 @@ let
   # ----- Per-layout Claude panes -----
 
   /**
-    Interactive claude pane for a use case. Every pane:
+    `zse-claude [--own] [CLAUDE_ARGS…]` — the claude launcher for every
+    interactive zse pane.
 
-    - runs under `--remote-control "$ZELLIJ_SESSION_NAME"`, so the session is
-      reachable from the account's other Remote-Control-enabled devices
-      (phone, laptop, iPad) under the same name the Zellij session has
-      locally;
-    - exports `ZSE_USE_CASE=<useCase>`, so plugins can tailor the session to
-      the layout. The jbl-personal `project` plugin's SessionStart hook keys
-      off it to inject the master-session ground rules (and re-inject them
-      after compaction).
+    Always adds `--remote-control "$ZELLIJ_SESSION_NAME"` (reachable from the
+    account's other Remote-Control devices under the Zellij session's name)
+    and `--name "$ZELLIJ_SESSION_NAME"` (shown in the prompt box, `/resume`
+    picker and terminal title).
 
-    One shell wraps the exec so `$ZELLIJ_SESSION_NAME` interpolates at pane
-    start. Zellij sets it per pane at session creation, so ticket / review
-    sessions share one layout file and each sees its own name. `args` is the
-    rest of the claude command line, already KDL-string-escaped.
+    `--own` gives the Zellij session its own conversation. The ID is a UUID
+    derived from the session name and the pane's start directory, so it is
+    stable across pane restarts and session resurrection. If a transcript
+    with that ID exists, resume it; otherwise start a fresh conversation
+    under that ID. `claude --continue` is not used: it resumes the most
+    recent conversation in the directory, so two zse sessions in the same
+    repo (e.g. a `code` session and a new `project` master) would share one
+    conversation. `--resume <id>` also works when the conversation's cwd is
+    a worktree (ticket), because the lookup is by ID.
+  */
+  zseClaude = pkgs.writeShellScriptBin "zse-claude" ''
+    set -euo pipefail
+    name=''${ZELLIJ_SESSION_NAME:?zse-claude: run inside a Zellij session}
+    base=(--remote-control "$name" --name "$name")
+
+    if [[ ''${1:-} != --own ]]; then
+      exec claude "''${base[@]}" "$@"
+    fi
+    shift
+
+    h=$(printf 'zse:%s:%s' "$name" "$PWD" | shasum -a 256 | cut -c1-32)
+    id="''${h:0:8}-''${h:8:4}-5''${h:13:3}-8''${h:17:3}-''${h:20:12}"
+
+    shopt -s nullglob
+    transcripts=("''${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$id".jsonl)
+    if ((''${#transcripts[@]})); then
+      exec claude "''${base[@]}" --resume "$id" "$@"
+    fi
+    exec claude "''${base[@]}" --session-id "$id" "$@"
+  '';
+
+  /**
+    Interactive claude pane for a use case. It exports `ZSE_USE_CASE=<useCase>`
+    (plugins key off it: the jbl-personal `project` plugin's SessionStart
+    hook injects the master-session ground rules) and runs `zse-claude` with
+    `args` (already KDL-string-escaped). One shell wraps the exec so
+    `$ZELLIJ_SESSION_NAME`, which Zellij sets per pane at session creation,
+    interpolates at pane start — ticket / review sessions share one layout
+    file and each sees its own name.
   */
   mkClaudePane = useCase: args: ''
     pane name="claude" {
         command "sh"
-        args "-c" "export ZSE_USE_CASE=${useCase}; exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" ${args}"
+        args "-c" "export ZSE_USE_CASE=${useCase}; exec ${zseClaude}/bin/zse-claude ${args}"
     }
   '';
 
-  codeClaudePane = mkClaudePane "code" "--continue";
+  codeClaudePane = mkClaudePane "code" "--own";
   codeResumeClaudePane = mkClaudePane "code" "--resume";
-  projectClaudePane = mkClaudePane "project" "--continue";
-  dailyClaudePane = mkClaudePane "daily" "--continue";
-  ticketClaudePane = mkClaudePane "ticket" ''--worktree \"$ZELLIJ_SESSION_NAME\"'';
+  projectClaudePane = mkClaudePane "project" "--own";
+  dailyClaudePane = mkClaudePane "daily" "--own";
+  ticketClaudePane = mkClaudePane "ticket" ''--own --worktree \"$ZELLIJ_SESSION_NAME\"'';
   # Explicit namespace (`/review:review`) over the shorthand (`/review`) so
   # the command stays unambiguous as more plugins add their own `review`.
   reviewClaudePane = mkClaudePane "review" ''\"/review:review $ZELLIJ_SESSION_NAME\"'';
@@ -248,6 +280,7 @@ in
     packages = [
       pkgs.tig
       zseWelcome
+      zseClaude
     ];
 
     file = {
