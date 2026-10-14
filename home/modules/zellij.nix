@@ -158,44 +158,38 @@ let
 
   # ----- Per-layout Claude panes -----
 
-  # Every interactive claude pane runs under `--remote-control
-  # "$ZELLIJ_SESSION_NAME"` so the session is reachable from the account's
-  # other Remote-Control-enabled devices (phone, laptop, iPad) under the
-  # same name the Zellij session has locally. One shell wraps the exec so
-  # `$ZELLIJ_SESSION_NAME` interpolates at pane start.
-  codeClaudePane = ''
+  /**
+    Interactive claude pane for a use case. Every pane:
+
+    - runs under `--remote-control "$ZELLIJ_SESSION_NAME"`, so the session is
+      reachable from the account's other Remote-Control-enabled devices
+      (phone, laptop, iPad) under the same name the Zellij session has
+      locally;
+    - exports `ZSE_USE_CASE=<useCase>`, so plugins can tailor the session to
+      the layout. The jbl-personal `project` plugin's SessionStart hook keys
+      off it to inject the master-session ground rules (and re-inject them
+      after compaction).
+
+    One shell wraps the exec so `$ZELLIJ_SESSION_NAME` interpolates at pane
+    start. Zellij sets it per pane at session creation, so ticket / review
+    sessions share one layout file and each sees its own name. `args` is the
+    rest of the claude command line, already KDL-string-escaped.
+  */
+  mkClaudePane = useCase: args: ''
     pane name="claude" {
         command "sh"
-        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" --continue"
+        args "-c" "export ZSE_USE_CASE=${useCase}; exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" ${args}"
     }
   '';
 
-  codeResumeClaudePane = ''
-    pane name="claude" {
-        command "sh"
-        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" --resume"
-    }
-  '';
-
-  # ticket and review read `$ZELLIJ_SESSION_NAME`, which Zellij sets per
-  # pane at session creation (verified in the installed binary). No layout
-  # rendering needed — multiple concurrent ticket/review sessions each see
-  # their own session name.
-  ticketClaudePane = ''
-    pane name="claude" {
-        command "sh"
-        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\""
-    }
-  '';
-
+  codeClaudePane = mkClaudePane "code" "--continue";
+  codeResumeClaudePane = mkClaudePane "code" "--resume";
+  projectClaudePane = mkClaudePane "project" "--continue";
+  dailyClaudePane = mkClaudePane "daily" "--continue";
+  ticketClaudePane = mkClaudePane "ticket" ''--worktree \"$ZELLIJ_SESSION_NAME\"'';
   # Explicit namespace (`/review:review`) over the shorthand (`/review`) so
   # the command stays unambiguous as more plugins add their own `review`.
-  reviewClaudePane = ''
-    pane name="claude" {
-        command "sh"
-        args "-c" "exec claude --remote-control \"$ZELLIJ_SESSION_NAME\" \"/review:review $ZELLIJ_SESSION_NAME\""
-    }
-  '';
+  reviewClaudePane = mkClaudePane "review" ''\"/review:review $ZELLIJ_SESSION_NAME\"'';
 
   /**
     Task-list pane for the `daily` layout. Runs the repo's own
@@ -302,7 +296,7 @@ in
       # vault is committed by `/eod`, and ticks happen in the tasks pane.
       ".config/zellij/layouts/daily.kdl".text = mkSingleTreeLayout ''
         pane split_direction="vertical" {
-            ${codeClaudePane}
+            ${dailyClaudePane}
             ${tasksPane}
         }
       '';
@@ -316,7 +310,7 @@ in
                 ${statusBarPane}
             }
             tab name="master" focus=true {
-                ${threePaneBody "project" codeClaudePane}
+                ${threePaneBody "project" projectClaudePane}
             }
             tab name="agents" {
                 pane {
