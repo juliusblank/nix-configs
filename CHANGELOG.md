@@ -1,6 +1,17 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.6 — 2026-10-14
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.5 (#108)
+
+### Documentation
+- sync spec and docs with code (#109)
+
+### Features
+- **home:** export ZSE_USE_CASE in every zse claude pane (#110)
+- **home:** zsh completion for `just deploy` hosts and refs (#107)
 ## v2026.10.5 — 2026-10-14
 
 ### Chores
