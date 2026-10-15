@@ -619,7 +619,8 @@ in
     # with a message explaining why.
     #
     # Also deletes the AWS side-car and the welcome sentinel so a reused
-    # session name re-welcomes.
+    # session name re-welcomes, and deletes the Zellij session itself (not
+    # only kills it) so a reused name starts from the current layout.
     zsek() {
       emulate -L zsh
       local name="''${ZELLIJ_SESSION_NAME:-}"
@@ -648,7 +649,11 @@ in
       dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
       rm -f "$dir/$name.env" "$dir/$name.welcomed"
 
-      zellij kill-session "$name"
+      # delete-session, not kill-session: kill leaves the serialized session
+      # ("EXITED - attach to resurrect"), and the next `zse <name>` would
+      # resurrect that old layout instead of creating a fresh one from the
+      # current layout file. --force kills the running session first.
+      zellij delete-session --force "$name"
     }
 
     # zss NAME — switch the current Zellij session in place to a different
