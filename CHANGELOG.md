@@ -1,6 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.8 — 2026-10-15
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.7 (#113)
+
+### Features
+- **home:** show tabs in zse layouts via zellij compact-bar (#114)
 ## v2026.10.7 — 2026-10-14
 
 ### Bug Fixes
