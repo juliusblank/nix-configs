@@ -85,14 +85,16 @@ let
   # ----- Shared pane fragments -----
 
   /**
-    Status-bar pane inline in a layout's own pane tree. Used by layouts that
-    do not define explicit `tab {}` blocks — `default_tab_template` only
-    fires for those, so single-pane-tree layouts need the plugin pane
-    declared directly.
+    Compact bar inline in a layout's own pane tree: one row with the session
+    name, the tabs (active one highlighted) and the current mode. Replaces
+    the two-row `status-bar`, which shows key hints but no tabs — so the
+    `project` layout's `master` / `agents` tabs were invisible. Layouts
+    without explicit `tab {}` blocks declare it directly;
+    `default_tab_template` only fires for layouts with tabs.
   */
-  statusBarPane = ''
-    pane size=2 borderless=true {
-        plugin location="zellij:status-bar"
+  barPane = ''
+    pane size=1 borderless=true {
+        plugin location="zellij:compact-bar"
     }
   '';
 
@@ -143,7 +145,7 @@ let
   '';
 
   /**
-    Wrap a pane tree in a single-pane-tree layout with the inline status bar
+    Wrap a pane tree in a single-pane-tree layout with the inline compact bar
     underneath. Used by `code`, `code-resume`, `ticket` and `review`.
     `project` uses `default_tab_template` instead and does not wrap here.
   */
@@ -151,7 +153,7 @@ let
     layout {
         pane split_direction="horizontal" {
             ${body}
-            ${statusBarPane}
+            ${barPane}
         }
     }
   '';
@@ -243,7 +245,7 @@ in
   #
   # Use-case layouts (see docs/usage/zellij.md for the long form):
   #
-  #   code     — default. claude --continue · shell · tig status · status bar.
+  #   code     — default. claude (own conversation) · shell · tig status · compact bar.
   #   project  — tabs: master (code shape, --continue) + full-screen
   #              `claude agents`. Status via `default_tab_template`. Master
   #              shell shows a one-time `/project:start` welcome banner.
@@ -317,7 +319,7 @@ in
         threePaneBody "ticket" ticketClaudePane
       );
 
-      # Review has no tig pane — just claude + shell + status bar.
+      # Review has no tig pane — just claude + shell + compact bar.
       ".config/zellij/layouts/review.kdl".text = mkSingleTreeLayout ''
         pane split_direction="vertical" {
             ${reviewClaudePane}
@@ -334,13 +336,13 @@ in
         }
       '';
 
-      # Project uses `default_tab_template` so the status bar renders in both
+      # Project uses `default_tab_template` so the compact bar renders in both
       # tabs. `focus=true` on master makes it the default on session open.
       ".config/zellij/layouts/project.kdl".text = ''
         layout {
             default_tab_template {
                 children
-                ${statusBarPane}
+                ${barPane}
             }
             tab name="master" focus=true {
                 ${threePaneBody "project" projectClaudePane}
