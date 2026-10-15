@@ -610,7 +610,8 @@ in
       fi
     }
 
-    # zsek — kill the current Zellij session and clean up after it.
+    # zsek [-k] — end the current Zellij session (default) or only stop it
+    # (-k, keep it resurrectable). `zsek -h` prints the difference.
     #
     # For sessions whose name matches a `.claude/worktrees/<name>` worktree
     # under the current repo (the ticket / review convention), zsek prompts,
@@ -623,10 +624,32 @@ in
     # only kills it) so a reused name starts from the current layout.
     zsek() {
       emulate -L zsh
+      local -A opts
+      zparseopts -D -E -A opts k h || return 1
+      if (( ''${+opts[-h]} )); then
+        cat <<'EOF'
+    usage: zsek [-k]
+
+      zsek     End the session: offer to remove its .claude/worktrees/<name>
+               worktree, drop the AWS side-car and welcome sentinel, then
+               delete the Zellij session. A reused name starts fresh from the
+               current layout file.
+      zsek -k  Keep the session: only stop it (zellij kill-session). It stays
+               in the session list as EXITED; zse <name> resurrects it with
+               its saved layout. No worktree prompt, no cleanup.
+    EOF
+        return 0
+      fi
+
       local name="''${ZELLIJ_SESSION_NAME:-}"
       if [[ -z $name ]]; then
         print -u2 -r "zsek: not inside a Zellij session (ZELLIJ_SESSION_NAME is empty)."
         return 1
+      fi
+
+      if (( ''${+opts[-k]} )); then
+        zellij kill-session "$name"
+        return
       fi
 
       local root worktree
@@ -693,5 +716,11 @@ in
     }
     compdef _zse zse zsep
     compdef _zse_sessions zss
+    _zsek() {
+      _arguments \
+        '-k[keep: only stop the session, resurrectable via zse]' \
+        '-h[show the difference between zsek and zsek -k]'
+    }
+    compdef _zsek zsek
   '';
 }
