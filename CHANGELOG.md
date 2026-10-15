@@ -1,6 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.7 — 2026-10-14
+
+### Bug Fixes
+- **home:** give each zse session its own Claude conversation (#112)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.6 (#111)
 ## v2026.10.6 — 2026-10-14
 
 ### Chores
