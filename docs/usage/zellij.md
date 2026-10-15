@@ -144,7 +144,7 @@ drops to zsh.
 ```
 zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
 zsep [NAME]
-zsek
+zsek [-k]
 zss NAME
 ```
 
@@ -180,9 +180,11 @@ zss NAME
   Claude's `--resume` picker. Only applies to the `code` shape; other use
   cases have no resume variant (ticket reuses its worktree, review is
   fresh, project's agent dispatcher is live).
-- `zsek` — kill **and delete** the current Zellij session (`zellij
+- `zsek` — **end** the current Zellij session: kill **and delete** it (`zellij
   delete-session --force`), so a reused name starts fresh from the current
-  layout file instead of resurrecting the old one. If the session name matches a
+  layout file instead of resurrecting the old one. `zsek -k` only **stops**
+  it (`zellij kill-session`, no cleanup): it stays EXITED and `zse <name>`
+  resurrects it with its saved layout. `zsek -h` prints the difference. If the session name matches a
   `.claude/worktrees/<name>` directory under the current repo, prompts
   for worktree removal, blocks it with a message when uncommitted or
   unpushed state is present, otherwise unlocks + removes + prunes + drops
