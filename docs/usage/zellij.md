@@ -12,11 +12,11 @@ ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
-| **code** (default) | `code.kdl` | claude · (shell · tig) · status bar | `zse-claude --own` |
+| **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
-| **ticket** | `ticket.kdl` | claude · (shell · tig) · status bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · shell · status bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
-| **daily** | `daily.kdl` | claude · tasks (40 %) · status bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
+| **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
+| **review** | `review.kdl` | claude · shell · compact bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
+| **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
 module), which adds `--remote-control "$ZELLIJ_SESSION_NAME"` (the session
@@ -49,7 +49,7 @@ Plus a `code-resume.kdl` variant that uses `claude --resume` (opens the
 picker) instead of `--own` — used by `zsep`.
 
 The source of truth is a Nix generator in `home/modules/zellij.nix`:
-shared pane fragments (`statusBarPane`, `shellTigColumn`, `threePaneBody`)
+shared pane fragments (`barPane`, `shellTigColumn`, `threePaneBody`)
 compose into the per-layout `.kdl` files on activation.
 
 `ticket` and `review` reference `$ZELLIJ_SESSION_NAME`, an env var Zellij
@@ -98,7 +98,9 @@ A long-running "master" plan that dispatches ticket sub-sessions via
 - **agents**: full-screen `claude agents` for inspecting and dispatching
   background sessions.
 
-The status bar renders in both tabs via `default_tab_template`.
+The compact bar renders in both tabs via `default_tab_template` and shows
+`master | agents` with the active tab highlighted. Switch tabs with
+`Alt ←` / `Alt →`, or `Ctrl t` then `←` / `→` or `1`–`9`.
 
 ### ticket
 
