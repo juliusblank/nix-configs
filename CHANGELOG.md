@@ -1,6 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.11 — 2026-10-16
+
+### Bug Fixes
+- **home:** zse keeps session names in devshell repos; panes load their devshell via zse-env (#121)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.10 (#120)
 ## v2026.10.10 — 2026-10-16
 
 ### Features
