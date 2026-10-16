@@ -15,7 +15,7 @@ ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
+| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
@@ -46,7 +46,7 @@ resume, clear and compact, so the rules survive compaction. The rules
 live in the plugin repo, so changing them needs no nix deploy.
 
 Plus a `code-resume.kdl` variant that uses `claude --resume` (opens the
-picker) instead of `--own` — used by `zsep`.
+picker) instead of `--own` — start it with `zse -l code-resume`.
 
 The source of truth is a Nix generator in `home/modules/zellij.nix`:
 shared pane fragments (`barPane`, `shellTigColumn`, `threePaneBody`)
@@ -70,12 +70,12 @@ helper (installed via home-manager):
 ```
 
 A sentinel at `~/.cache/zse/sessions/<name>.welcomed` suppresses the
-banner on resume. `zsek` deletes the sentinel so a reused session name
+banner on resume. `zse kill` deletes the sentinel so a reused session name
 re-welcomes. `code` and `code-resume` have no banner — those shell panes
 are plain zsh.
 
 For `review`, the claude pane auto-sends `/review:review $NAME` on
-create; the banner just reports what's running. For `ticket` and
+the first start (not on restore); the banner just reports what's running. For `ticket` and
 `project`, the user invokes the kickoff command manually from the
 banner's hint.
 
@@ -126,15 +126,18 @@ creation and simply attaches a fresh claude in the same directory.
 
 ### review
 
-A short-lived PR review. Fresh claude session (no `--continue`); the
-pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first user message,
-where `$ZELLIJ_SESSION_NAME` is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). The
+A short-lived PR review with its own conversation (`--own`). On the first
+start the pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first
+user message (`--first-prompt`); after `zse stop` / `zse restore` it resumes
+the conversation and does not run the review again. `$ZELLIJ_SESSION_NAME`
+is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). To review new
+pushes, run `/review:review $ZELLIJ_SESSION_NAME` again in the session. The
 `review` command (`jbl-personal/review`, a local Claude Code marketplace
 at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
 `.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
 commit-first. Instead, the **CI pane (`zse-ci`)** under the shell redraws
 `gh pr checks <n>` with the PR title every 30 s (`ZSE_CI_INTERVAL`), so new
-pushes show up; `gh` uses HTTPS, no SSH. `q` quits it. `zsek` in a review
+pushes show up; `gh` uses HTTPS, no SSH. `q` quits it. `zse kill` in a review
 session offers to remove `.claude/worktrees/pr-<n>`.
 
 ### daily
@@ -149,87 +152,116 @@ The layout only places the pane — all vault logic lives in daily-tasks.
 In a repo without `scripts/tasks-pane`, the pane prints a hint and
 drops to zsh.
 
-## CLI — `zse`, `zsep`, `zsek`, `zss`
+## CLI — `zse`
 
 ```
-zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
-zsep [NAME]
-zsek [-k]
-zss NAME
+zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]   start NAME, or attach if it runs
+zse ls                                      list registered and running sessions
+zse stop [NAME]                             stop a session, keep it registered
+zse kill [NAME]                             end a session and clean up
+zse restore [NAME...]                       start stopped sessions in the background
+zse switch NAME                             switch to NAME (start it if stopped)
+zse help
 ```
 
-- `-l USE_CASE` — one of `code`, `project`, `ticket`, `review`, `daily`. Defaults
-  to `$ZSE_LAYOUT` (devshells can bind a per-repo default), else `code`.
-  zsh completion offers the five names.
-- `-a AWS_PROFILE` — launches Zellij through the host's `assume` fn
+The CLI is plain zsh in `home/modules/zse.zsh`, sourced from `~/.zshrc`.
+
+### Session registry
+
+Zellij session serialization is **off** (`session_serialization false` in
+`config.kdl`). Zellij resurrection restored the *leaf* process of each
+pane, the old saved layout, and command panes suspended until Enter (see
+SPEC row 31). Instead, `zse` keeps a registry, one file per session:
+
+```
+~/.local/state/zse/sessions/<name>     ($XDG_STATE_HOME)
+    use_case=ticket
+    dir=/Users/.../github/org/repo
+    aws_profile=
+    created=2026-10-16T09:00:00Z
+    last_started=2026-10-16T11:00:00Z
+```
+
+`zse` writes it on every start; `zse kill` removes it. A session always
+starts from the **current** layout file, and `zse-claude --own` resumes
+the session's own conversation, so a stop / restore cycle (or a crash or
+reboot) loses nothing.
+
+### Commands
+
+- **`zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]`** — start or attach.
+  - Running → attach (inside Zellij: switch in place). `-a` is ignored
+    with a notice that shows the profile the session uses; AWS-expiry
+    warning if it applies.
+  - Registered but stopped → start it again with its registered use case,
+    start directory and AWS profile (`-l` / `-a` override them). It works
+    from any directory.
+  - Unknown → start a new session in `$PWD`, through `assume` if `-a` is
+    given. Inside Zellij, the new session starts in the background and
+    `zse` switches to it (not with `-a`: start those outside Zellij).
+  - An old EXITED session from before serialization was turned off is
+    deleted first, so it does not come back with its old layout.
+- **`zse ls`** — every registered session with use case, state, AWS flag
+  and start directory. States: `running`, `stopped`, `orphan` (start
+  directory is gone; `zse kill` it), plus `untracked` (a live Zellij
+  session that zse did not start) and `old-exited` (a serialized session
+  from before the registry).
+- **`zse stop [NAME]`** — stop the session (`zellij kill-session`).
+  Registry entry, worktree and Claude conversation stay. Default NAME: the
+  current session.
+- **`zse kill [NAME]`** — end the session. If the repo of its start
+  directory has a `.claude/worktrees/<name>` worktree (review sessions:
+  `pr-<n>`), it asks to remove it; it refuses when the worktree has
+  uncommitted or unpushed changes. On removal it unlocks, removes, prunes,
+  and deletes Claude's default `worktree-<name>` branch (a
+  `$ZSE_BRANCH_USER/<name>` branch stays). Then it removes the AWS
+  side-car, the welcome sentinel and the registry entry, and deletes the
+  Zellij session (`zellij delete-session --force`). Default NAME: the
+  current session.
+- **`zse restore [NAME...]`** — start the given (default: all) registered,
+  stopped sessions in the background (`zellij attach --create-background`).
+  It skips orphans, and sessions with an AWS profile (`assume` needs the
+  YubiKey): for those it prints the command to start them. Use it after a
+  crash or a reboot.
+- **`zse switch NAME`** — switch to NAME; restore it first if it is
+  stopped. Inside Zellij it switches in place (`zellij action
+  switch-session`), outside it attaches.
+
+Options and names:
+
+- `-l USE_CASE` — `code`, `project`, `ticket`, `review`, `daily`,
+  `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
+  (devshells can bind a per-repo default), else `code`.
+- `-a AWS_PROFILE` — start Zellij through the host's `assume` fn
   (`aws-vault exec <profile> -d 8h`, 2h for on-call write, with YubiKey
-  TOTP on concinnity).
-  Every pane inherits the aws-vault subshell credentials. If the Zellij
-  session outlives the 8 h window, panes silently use stale creds — `zse`
-  on attach reads a per-session side-car at
-  `~/.cache/zse/sessions/<name>.env` (written at session creation; auto-
-  deleted when the session no longer exists) and prints a warning when
-  `AWS_SESSION_EXPIRATION` is within 15 min or past. `-a` on an attach is
-  a no-op with a one-line notice showing the profile the session actually
-  uses.
-- `NAME` — defaults to `basename $PWD` (or `zellij-<pid>` when that comes
-  back empty, e.g. in a devshell that exports `name=nix-shell-env`). For
-  `ticket`, pass the ticket ID; for `review`, pass a full GitHub PR URL
-  (`https://github.com/<owner>/<repo>/pull/<n>`) or the raw
-  `review-<repo>-pr<n>` form the URL expands to. On a URL, `zse` parses
-  `<owner>`, `<repo>`, `<n>` and sets the Zellij session name to
-  `review-<repo>-pr<n>` so the session list carries the repo + PR
-  context in one glance; Zellij is launched from the matching local
-  checkout at `~/github/<owner>/<repo>` so the worktree lands in the
-  right repo. The URL form is for drive-by reviews with no linked
-  ticket — the ticket flow is still preferred when a ticket exists.
-  `ticket` / `review` layouts read the name from `$ZELLIJ_SESSION_NAME`
-  at pane start. Welcome banner + tab name display a human-friendly
-  `[review] <repo> PR #<n>` label via `zellij action rename-tab`.
-- `zsep [NAME]` — like `zse` but uses the `code-resume` layout, which opens
-  Claude's `--resume` picker. Only applies to the `code` shape; other use
-  cases have no resume variant (ticket reuses its worktree, review is
-  fresh, project's agent dispatcher is live).
-- `zsek` — **end** the current Zellij session: kill **and delete** it (`zellij
-  delete-session --force`), so a reused name starts fresh from the current
-  layout file instead of resurrecting the old one. `zsek -k` only **stops**
-  it (`zellij kill-session`, no cleanup): it stays EXITED and `zse <name>`
-  resurrects it with its saved layout. `zsek -h` prints the difference. If the session name matches a
-  `.claude/worktrees/<name>` directory under the current repo, prompts
-  for worktree removal, blocks it with a message when uncommitted or
-  unpushed state is present, otherwise unlocks + removes + prunes + drops
-  the auto-created `worktree-<name>` branch. Also deletes the AWS
-  side-car.
-- `zss NAME` — switch the current session in place to `NAME` without
-  detaching (`zellij action switch-session`). Faster than opening the
-  picker when you already know the target. Pairs with the `_zse_sessions`
-  completer, so `zss <TAB>` lists every live/exited session; `zse <TAB>`
-  and `zsep <TAB>` complete the positional NAME the same way.
+  TOTP on concinnity). Every pane inherits the credentials. If the session
+  outlives them, panes silently use stale creds: on attach, `zse` reads a
+  side-car at `~/.cache/zse/sessions/<name>.env` and warns when
+  `AWS_SESSION_EXPIRATION` is within 15 min or past.
+- `NAME` — default: `basename $PWD` (`zellij-<pid>` in a devshell that
+  exports `name=nix-shell-env`). For `ticket`, the ticket ID; for
+  `review`, a GitHub PR URL (`https://github.com/<owner>/<repo>/pull/<n>`):
+  `zse` names the session `review-<repo>-pr<n>` and starts it in the
+  local checkout at `~/github/<owner>/<repo>`, so the worktree lands in
+  the right repo. The URL form is for drive-by reviews without a ticket.
+  `ticket` / `review` layouts read the name from `$ZELLIJ_SESSION_NAME`.
+
+zsh completion: verbs, `-l` use cases, and session names (running and
+registered) for the positional NAME and for `stop` / `kill` / `restore` /
+`switch`.
+
+Deprecated aliases (they print a hint; removal in a later release):
+`zsek` → `zse kill`, `zsek -k` → `zse stop`, `zss NAME` → `zse switch
+NAME`, `zsep [NAME]` → `zse -l code-resume [NAME]`.
 
 ### Switching sessions quickly
 
-Three ways, in order of effort:
-
 1. **`Ctrl Space`** — a `shared` keybind that opens the Session Manager
-   picker directly in a floating pane. One keystroke from any mode.
-2. **`zss <session> <enter>`** — in-place switch when you already know the
-   name; `zss <TAB>` completes session names.
-3. **`Ctrl o d` → `zse <name>`** — the old flow: detach then re-attach.
-   Useful when you want the parent shell back.
-
-Session state matrix for `zse`:
-
-| State | Behaviour |
-|---|---|
-| **live** | attach; `-a` ignored with notice; AWS-expiry warning if applicable |
-| **exited** (resurrectable) | attach — Zellij resurrects the **saved** layout + cwds (not the current layout file — to pick up layout changes, delete the session with `zsek` or `zellij delete-session` first); processes start fresh (`zse-claude --own` resumes the session's own conversation; ticket's `--worktree` reuses) |
-| **none** | create fresh session with the chosen layout, through `assume` if `-a` was given |
-
-The use case for a session is not persisted — it is implicit in the
-layout chosen at creation and (for ticket) reflected in the presence of
-a `.claude/worktrees/<name>` dir, which `zsek` keys off. Review
-worktrees are named `pr-<n>`, not after the `review-<repo>-pr<n>`
-session, so `zsek` does not remove them yet (SPEC roadmap row 30).
+   picker in a floating pane. One keystroke from any mode.
+2. **`zse switch <name>`** — in-place switch when you know the name;
+   `<TAB>` completes it.
+3. **`Ctrl o d` → `zse <name>`** — detach, then attach again. Use it when
+   you want the parent shell back.
 
 ## AWS handling
 
@@ -254,13 +286,13 @@ Side-car layout:
     AWS_SESSION_EXPIRATION=<RFC3339>
 ```
 
-`zse` reads this on every `zse <existing-session>` and `zsep <existing-session>`
-and warns if the expiration is within 15 min or past. `zsek` deletes the
-side-car when it kills a session; `zse` deletes a stale side-car on first
+`zse` reads this on every attach to a running session and warns if the
+expiration is within 15 min or past. `zse kill` deletes the side-car; `zse` deletes a stale side-car on first
 check if the session no longer exists.
 
 ## Related
 
-- `home/modules/zellij.nix` — the module (layouts, package, zsh fns).
+- `home/modules/zellij.nix` — the module (layouts, helper packages, config).
+- `home/modules/zse.zsh` — the `zse` CLI.
 - `docs/SPEC.md` roadmap row 26 — Zellij as the chosen pattern for
   Claude Code session terminal management.
