@@ -13,7 +13,7 @@ ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
-| **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
+| **project** | `project.kdl` | tabs: master (claude · (shell · (git \| agents status))) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents --cwd <repo>` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
 | **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
@@ -33,8 +33,8 @@ the most recent conversation **in the directory** — so a new `project`
 master in a repo where a `code` session ran before picked up that
 session's conversation. Old conversations stay reachable via `/resume`.
 
-The `agents` tab in `project` stays bare `claude
-agents` — it's a management view, not an interactive REPL.
+The `agents` tab in `project` runs `claude agents --cwd <repo>` — a
+management view, not an interactive REPL.
 
 Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily>`
 (`code-resume` exports `code`). Plugins use it to tailor a session to its
@@ -108,8 +108,16 @@ A long-running "master" plan that dispatches ticket sub-sessions via
 - **master** (default focus): `zse-claude --own` from the repo root — the
   project's own conversation, independent of other sessions in the same
   repo and of agent sub-sessions.
-- **agents**: full-screen `claude agents` for inspecting and dispatching
-  background sessions.
+  The git row on the right splits into git (left) and the **agents
+  status pane (`zse-agents`)** (right): one line per Claude session under
+  the repo root (state, name, `int` / `bg`, age, worktree), redrawn every
+  5 s (`ZSE_AGENTS_INTERVAL`), master itself left out. Source is
+  `claude agents --json --cwd <repo>` — Claude Code has no compact or
+  embeddable agent view of its own. `q` quits; Enter restarts it.
+- **agents**: full-screen `claude agents --cwd <repo>` for inspecting,
+  attaching to, and dispatching sessions. `--cwd` keeps the list to
+  sessions started under the repo root (including `.claude/worktrees/*`);
+  other sessions in the same repo (e.g. a `code` session) also show.
 
 The compact bar renders in both tabs via `default_tab_template` and shows
 `master | agents` with the active tab highlighted. Switch tabs with
