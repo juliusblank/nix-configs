@@ -189,18 +189,85 @@ let
   '';
 
   /**
-    Right-hand column shared by `code`, `project.master` and `ticket`:
-    shell on top, the `zse-git` pane below.
+    `zse-agents` — the agents pane of the `project` master tab. Redraws the
+    Claude sessions started under the pane's directory (the repo root, so
+    ticket worktrees at `.claude/worktrees/<id>` are included) every
+    `$ZSE_AGENTS_INTERVAL` seconds (default 5): state, name, kind, age,
+    worktree. Source is `claude agents --json --cwd`, the only stable
+    interface for agent status; `state` / `waitingFor` are shown when the
+    JSON has them, else `status`. The master's own session is left out.
+    `q` quits; the command pane then waits for Enter to restart it.
   */
-  shellTigColumn = useCase: ''
-    pane split_direction="horizontal" {
-        ${mkShellPane useCase}
+  zseAgents = pkgs.writeShellScriptBin "zse-agents" ''
+    set -uo pipefail
+    self=''${ZELLIJ_SESSION_NAME:-}
+    dir=$PWD
+    interval=''${ZSE_AGENTS_INTERVAL:-5}
+    while :; do
+      if json=$(claude agents --json --cwd "$dir" 2>&1); then
+        body=$(printf '%s' "$json" | ${pkgs.jq}/bin/jq -r \
+          --arg self "$self" --arg dir "$dir" --argjson now "$(date +%s)" '
+            map(select(.name != $self or .cwd != $dir))
+            | sort_by(.startedAt)
+            | .[]
+            | [ (.state // .status // "-"),
+                .name,
+                (if .kind == "background" then "bg" else "int" end),
+                (($now - (.startedAt / 1000 | floor)) as $s
+                  | if $s < 3600 then "\($s / 60 | floor)m"
+                    elif $s < 86400 then "\($s / 3600 | floor)h"
+                    else "\($s / 86400 | floor)d" end),
+                ((.cwd | capture("/\\.claude/worktrees/(?<w>[^/]+)").w) // "-"),
+                (.waitingFor // "")
+              ]
+            | @tsv' | column -t -s $'\t')
+        [[ -n $body ]] || body="no other sessions under $dir"
+      else
+        body="zse-agents: claude agents --json failed: $json"
+      fi
+      clear
+      printf 'agents · %s · every %ss · q quits\n\n%s\n' \
+        "$(date '+%H:%M:%S')" "$interval" "$body"
+      if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
+        exit 0
+      fi
+    done
+  '';
+
+  /**
+    Right-hand column shared by `code`, `project.master` and `ticket`:
+    shell on top, the `zse-git` pane below. In `project` the bottom row
+    splits into git (left) and `zse-agents` (right).
+  */
+  shellTigColumn =
+    useCase:
+    let
+      gitPane = ''
         pane name="git" {
             command "${zseEnv}/bin/zse-env"
             args "${zseGit}/bin/zse-git" "${if useCase == null then "code" else useCase}"
         }
-    }
-  '';
+      '';
+      bottom =
+        if useCase == "project" then
+          ''
+            pane split_direction="vertical" {
+                ${gitPane}
+                pane name="agents" {
+                    command "${zseEnv}/bin/zse-env"
+                    args "${zseAgents}/bin/zse-agents"
+                }
+            }
+          ''
+        else
+          gitPane;
+    in
+    ''
+      pane split_direction="horizontal" {
+          ${mkShellPane useCase}
+          ${bottom}
+      }
+    '';
 
   /**
     Three-pane body — claude on the left, shellTigColumn on the right —
@@ -328,9 +395,11 @@ in
   # Use-case layouts (see docs/usage/zellij.md for the long form):
   #
   #   code     — default. claude (own conversation) · shell · tig status · compact bar.
-  #   project  — tabs: master (code shape, --continue) + full-screen
-  #              `claude agents`. Status via `default_tab_template`. Master
-  #              shell shows a one-time `/project:start` welcome banner.
+  #   project  — tabs: master (code shape, own conversation; git row split
+  #              with the `zse-agents` status pane) + full-screen
+  #              `claude agents --cwd <repo>`. Status via
+  #              `default_tab_template`. Master shell shows a one-time
+  #              `/project:start` welcome banner.
   #   ticket   — `claude --worktree $ZELLIJ_SESSION_NAME` · shell · tig.
   #              Session name is the ticket ID; worktree is created / reused
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
@@ -368,6 +437,7 @@ in
       zseClaude
       zseGit
       zseCi
+      zseAgents
       zseEnv
     ];
 
@@ -454,8 +524,8 @@ in
             }
             tab name="agents" {
                 pane {
-                    command "${zseEnv}/bin/zse-env"
-                    args "claude" "agents"
+                    command "sh"
+                    args "-c" "exec ${zseEnv}/bin/zse-env claude agents --cwd \"$PWD\""
                 }
             }
         }
