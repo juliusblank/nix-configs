@@ -7,7 +7,7 @@ let
     Prints a one-time welcome in a `ticket` / `project` / `review` shell pane.
     First invocation per Zellij session writes a sentinel at
     `~/.cache/zse/sessions/<name>.welcomed`; subsequent attaches skip the
-    banner. `zsek` deletes the sentinel along with the AWS side-car.
+    banner. `zse kill` deletes the sentinel along with the AWS side-car.
   */
   zseWelcome = pkgs.writeShellScriptBin "zse-welcome" ''
     #!/bin/sh
@@ -229,7 +229,7 @@ let
 
     `--own` gives the Zellij session its own conversation. The ID is a UUID
     derived from the session name and the pane's start directory, so it is
-    stable across pane restarts and session resurrection. If a transcript
+    stable across pane restarts and `zse stop` / `zse restore`. If a transcript
     with that ID exists, resume it; otherwise start a fresh conversation
     under that ID. `claude --continue` is not used: it resumes the most
     recent conversation in the directory, so two zse sessions in the same
@@ -320,9 +320,9 @@ in
   #
   # Welcome banners are a one-shot per session — a sentinel at
   # `~/.cache/zse/sessions/<name>.welcomed` suppresses the banner on resume.
-  # `zsek` deletes the sentinel so a reused session name re-welcomes.
+  # `zse kill` deletes the sentinel so a reused session name re-welcomes.
   #
-  # `code-resume` is a `--resume`-picker variant used by `zsep`.
+  # `code-resume` is a `--resume`-picker variant (`zse -l code-resume`).
   #
   # Zsh integration stays off deliberately — auto-attach misbehaves inside
   # Claude Code's PTY and nested shells.
@@ -360,6 +360,11 @@ in
         pane_frames false
         scroll_buffer_size 50000
         theme "ghostty-0x96f"
+        // No resurrection: an EXITED session would come back with its old
+        // saved layout. The zse registry (~/.local/state/zse/sessions)
+        // records the sessions; `zse restore` re-creates them from the
+        // current layout files.
+        session_serialization false
         keybinds {
             shared {
                 bind "Ctrl Space" { LaunchOrFocusPlugin "session-manager" { floating true; }; SwitchToMode "Normal"; }
@@ -454,349 +459,9 @@ in
     };
   };
 
+  # The zse CLI (zse / zse ls|stop|kill|restore|switch, deprecated zsek /
+  # zss / zsep, completion) lives in ./zse.zsh — plain zsh, no Nix escaping.
   programs.zsh.initContent = ''
-    # ----- Internal helpers -----
-
-    # Does a session with NAME exist, live or resurrectable? Unflagged
-    # `list-sessions` includes exited (serialized) sessions; strip ANSI
-    # colouring (Zellij emits it even when piped) and take the first field.
-    _z_session_exists() {
-      zellij list-sessions 2>/dev/null \
-        | sed 's/\x1b\[[0-9;]*m//g' \
-        | cut -d' ' -f1 \
-        | grep -qx "$1"
-    }
-
-    # Path of the per-session AWS side-car (if any). Only written when `zse`
-    # is invoked with `-a`; otherwise absent. Stores AWS_PROFILE +
-    # AWS_SESSION_EXPIRATION so later attaches can warn on expiry.
-    _z_aws_sidecar() {
-      printf '%s/zse/sessions/%s.env' "''${XDG_CACHE_HOME:-$HOME/.cache}" "$1"
-    }
-
-    # Warn on stdout if the serialized expiry is within 15 min or past.
-    # Silently removes the side-car if the session no longer exists.
-    _z_aws_warn() {
-      emulate -L zsh
-      local name="$1" sidecar
-      sidecar=$(_z_aws_sidecar "$name")
-      [[ -r $sidecar ]] || return 0
-      if ! _z_session_exists "$name"; then
-        rm -f "$sidecar"
-        return 0
-      fi
-      local profile exp exp_epoch now_epoch remaining
-      profile=$(sed -n 's/^AWS_PROFILE=//p' "$sidecar")
-      exp=$(sed -n 's/^AWS_SESSION_EXPIRATION=//p' "$sidecar")
-      [[ -n $exp ]] || return 0
-      exp_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "''${exp%+00:00}Z" '+%s' 2>/dev/null) \
-        || exp_epoch=$(date -jf '%Y-%m-%dT%H:%M:%SZ' "$exp" '+%s' 2>/dev/null) \
-        || return 0
-      now_epoch=$(date '+%s')
-      remaining=$(( exp_epoch - now_epoch ))
-      if (( remaining <= 0 )); then
-        print -u2 -r "zse: ⚠ session '$name' AWS creds (profile '$profile') expired at $exp — re-authenticate."
-      elif (( remaining <= 900 )); then
-        print -u2 -r "zse: ⚠ session '$name' AWS creds (profile '$profile') expire in $(( remaining / 60 ))m — re-authenticate soon."
-      fi
-    }
-
-    # Clean up a `.claude/worktrees/<name>` worktree if it exists and is safe:
-    # no uncommitted changes, no unpushed commits (relative to its upstream).
-    # Prints the reason it skipped on stderr. Also deletes the auto-created
-    # `worktree-<name>` branch that `claude --worktree` leaves behind.
-    _z_cleanup_worktree() {
-      emulate -L zsh
-      local worktree="$1" wt_name="''${1##*/}"
-      [[ -d $worktree ]] || return 0
-
-      # `status` is a read-only built-in in zsh (holds $?) — use `dirty`.
-      local dirty
-      dirty=$( cd "$worktree" 2>/dev/null && git status --porcelain 2>/dev/null )
-      if [[ -n $dirty ]]; then
-        print -u2 -r "zsek: worktree $worktree has uncommitted changes — skipping removal."
-        return 1
-      fi
-      local upstream unpushed
-      upstream=$( cd "$worktree" && git rev-parse --abbrev-ref '@{u}' 2>/dev/null )
-      if [[ -n $upstream ]]; then
-        unpushed=$( cd "$worktree" && git rev-list "''${upstream}..HEAD" 2>/dev/null )
-        if [[ -n $unpushed ]]; then
-          print -u2 -r "zsek: worktree $worktree has unpushed commits on $upstream — skipping removal."
-          return 1
-        fi
-      fi
-
-      local common_dir repo_root
-      common_dir=$( cd "$worktree" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null )
-      repo_root="''${common_dir%/.git}"
-      [[ -d $repo_root ]] || {
-        print -u2 -r "zsek: cannot resolve parent repo for $worktree."
-        return 1
-      }
-
-      (
-        cd "$repo_root" || exit 1
-        # `claude --worktree` locks the worktree; `unlock` fails silently
-        # when it's already unlocked, so we don't gate on its exit code.
-        git worktree unlock "$worktree" 2>/dev/null
-        git worktree remove "$worktree" || exit 1
-        git worktree prune 2>/dev/null
-        git branch -D "worktree-$wt_name" 2>/dev/null
-      ) || return 1
-      print -r "zsek: removed worktree $worktree"
-    }
-
-    # ----- Public commands -----
-
-    # zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
-    #
-    #   USE_CASE  — one of `code`, `project`, `ticket`, `review`, `daily`. Defaults
-    #               to $ZSE_LAYOUT if set (so devshells can bind a layout
-    #               per repo), else `code`.
-    #   AWS_PROF  — binds an AWS profile to the session by launching Zellij
-    #               through the host's `assume` fn (`aws-vault exec` on
-    #               concinnity, YubiKey TOTP, 8h). The AWS profile and
-    #               expiration are side-car'd at ~/.cache/zse/sessions/<name>.env
-    #               so later attaches warn on near / past expiry.
-    #   NAME      — session name. Defaults to basename of $PWD. For `ticket`,
-    #               pass the ticket ID; for `review`, pass a PR URL. ticket
-    #               and review layouts read the name via $ZELLIJ_SESSION_NAME
-    #               so no layout rendering is involved.
-    #
-    # Session state matrix:
-    #   live       → attach (ignore -a with a one-line warning)
-    #   exited     → attach — Zellij resurrects the serialized layout and
-    #                cwds. Processes start fresh (claude's --continue picks
-    #                up the conversation; ticket's --worktree reuses).
-    #   none       → create a fresh session with the chosen layout.
-    zse() {
-      emulate -L zsh
-      local -A opts
-      zparseopts -D -E -A opts l: a: || return 1
-      local use_case="''${opts[-l]:-''${ZSE_LAYOUT:-code}}"
-      local aws_profile="''${opts[-a]:-}"
-      # `name` may be inherited from a parent nix devShell as the exported
-      # `name=nix-shell-env` default. `local` declares the var function-scoped
-      # (`emulate -L zsh` keeps the usual semantics) and the assignment then
-      # reads $1 — never the inherited value — before falling back to the
-      # cwd's basename, which is sane for every non-review use case.
-      local name
-      name="''${1:-$(basename "$PWD")}"
-      [[ -z $name || $name == nix-shell-env ]] && name="zellij-$$"
-      local tab_name=""
-      local sidecar
-      sidecar=$(_z_aws_sidecar "$name")
-
-      # Review mode: accept a GitHub PR URL as NAME. Extract the PR number
-      # and set the session name to `review-<repo>-pr<n>` so the Zellij
-      # session list, the AWS side-car, the welcome sentinel and (when
-      # `/review:review $ZELLIJ_SESSION_NAME` fires in the layout) the
-      # checked-out worktree all carry the repo + PR context in one glance.
-      # The matching local checkout is at ~/github/<owner>/<repo>; zellij is
-      # launched from there so `.claude/worktrees/pr-<n>` resolves inside
-      # the right repo. Non-review use cases keep the plain `basename $PWD`
-      # default. `tab_name` carries the human-friendly label for the tab
-      # bar; applied via `zellij action rename-tab` after the session is up.
-      local review_cwd=""
-      if [[ $use_case == review && $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
-        local owner=$match[1] repo=$match[2] pr=$match[3]
-        name="review-$repo-pr$pr"
-        tab_name="[review] $repo PR #$pr"
-        review_cwd="$HOME/github/$owner/$repo"
-        if [[ ! -d $review_cwd/.git ]]; then
-          print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
-          return 1
-        fi
-        sidecar=$(_z_aws_sidecar "$name")
-      fi
-
-      if _z_session_exists "$name"; then
-        if [[ -n $aws_profile ]]; then
-          local existing shown
-          existing=$(sed -n 's/^AWS_PROFILE=//p' "$sidecar" 2>/dev/null)
-          shown=''${existing:-<none>}
-          print -u2 -r "zse: session '$name' already exists; -a ignored (session uses $shown)."
-        fi
-        _z_aws_warn "$name"
-        zellij attach "$name"
-        return
-      fi
-
-      # Ticket mode: pre-create the Claude Code worktree on branch
-      # `$ZSE_BRANCH_USER/<ticket>` instead of letting Claude Code default to
-      # `worktree-<ticket>`. Claude's `--worktree <name>` reuses an existing
-      # `.claude/worktrees/<name>` directory as-is, so creating it ahead of
-      # time with the branch we want is a no-op for Claude and spares us the
-      # rename-after-the-fact step. Skipped silently when:
-      #   - cwd is not inside a git repo (`zse -l ticket` from ~, etc.)
-      #   - the worktree directory already exists (idempotent)
-      #   - `ZSE_BRANCH_USER` is empty (fall back to Claude's default)
-      if [[ $use_case == ticket && -n ''${ZSE_BRANCH_USER:-} ]]; then
-        local repo_root
-        if repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
-          local worktree_dir="$repo_root/.claude/worktrees/$name"
-          if [[ ! -d $worktree_dir ]]; then
-            local branch="$ZSE_BRANCH_USER/$name"
-            mkdir -p "$repo_root/.claude/worktrees"
-            if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
-              git -C "$repo_root" worktree add "$worktree_dir" "$branch" >/dev/null || return 1
-            else
-              git -C "$repo_root" worktree add -b "$branch" "$worktree_dir" >/dev/null || return 1
-            fi
-          fi
-        fi
-      fi
-
-      # Subshell so the `cd` for review mode never leaks into the caller.
-      (
-        [[ -n $review_cwd ]] && { cd "$review_cwd" || exit 1; }
-        if [[ -n $aws_profile ]]; then
-          mkdir -p "''${sidecar%/*}"
-          # Hand off to the host's `assume` fn; the inner shell writes the
-          # side-car with the credentials it just got, then execs zellij so
-          # every pane inherits them.
-          assume "$aws_profile" -- zsh -c '
-            printf "AWS_PROFILE=%s\nAWS_SESSION_EXPIRATION=%s\n" \
-              "$AWS_PROFILE" "$AWS_SESSION_EXPIRATION" > "$1"
-            exec zellij -s "$2" -n "$3"
-          ' zse-aws "$sidecar" "$name" "$use_case"
-        else
-          zellij -s "$name" -n "$use_case"
-        fi
-      )
-    }
-
-    # zsep [NAME] — like zse but uses the `code-resume` layout, which opens
-    # Claude's --resume picker over conversations in cwd instead of
-    # auto-continuing the most recent. For non-code use cases a resume
-    # picker doesn't apply (ticket reuses its worktree; review is fresh;
-    # project's agent dispatcher is live) — stay on `zse`.
-    zsep() {
-      emulate -L zsh
-      local name="''${1:-$(basename "$PWD")}"
-      if _z_session_exists "$name"; then
-        _z_aws_warn "$name"
-        zellij attach "$name"
-      else
-        zellij -s "$name" -n code-resume
-      fi
-    }
-
-    # zsek [-k] — end the current Zellij session (default) or only stop it
-    # (-k, keep it resurrectable). `zsek -h` prints the difference.
-    #
-    # For sessions whose name matches a `.claude/worktrees/<name>` worktree
-    # under the current repo (the ticket / review convention), zsek prompts,
-    # then removes the worktree + its auto-created branch when the tree is
-    # clean and fully pushed. Uncommitted or unpushed state blocks removal
-    # with a message explaining why.
-    #
-    # Also deletes the AWS side-car and the welcome sentinel so a reused
-    # session name re-welcomes, and deletes the Zellij session itself (not
-    # only kills it) so a reused name starts from the current layout.
-    zsek() {
-      emulate -L zsh
-      local -A opts
-      zparseopts -D -E -A opts k h || return 1
-      if (( ''${+opts[-h]} )); then
-        cat <<'EOF'
-    usage: zsek [-k]
-
-      zsek     End the session: offer to remove its .claude/worktrees/<name>
-               worktree, drop the AWS side-car and welcome sentinel, then
-               delete the Zellij session. A reused name starts fresh from the
-               current layout file.
-      zsek -k  Keep the session: only stop it (zellij kill-session). It stays
-               in the session list as EXITED; zse <name> resurrects it with
-               its saved layout. No worktree prompt, no cleanup.
-    EOF
-        return 0
-      fi
-
-      local name="''${ZELLIJ_SESSION_NAME:-}"
-      if [[ -z $name ]]; then
-        print -u2 -r "zsek: not inside a Zellij session (ZELLIJ_SESSION_NAME is empty)."
-        return 1
-      fi
-
-      if (( ''${+opts[-k]} )); then
-        zellij kill-session "$name"
-        return
-      fi
-
-      # Review sessions are named `review-<repo>-pr<n>`, but /review:review
-      # checks the PR out into `.claude/worktrees/pr-<n>`.
-      local root worktree wt_name="$name"
-      [[ $name =~ '^review-.+-pr([0-9]+)$' ]] && wt_name="pr-$match[1]"
-      if root=$(git rev-parse --show-toplevel 2>/dev/null); then
-        worktree="$root/.claude/worktrees/$wt_name"
-      fi
-
-      if [[ -n $worktree && -d $worktree ]]; then
-        printf 'zsek: remove worktree %s? [y/N] ' "$worktree"
-        local reply
-        read -r reply
-        if [[ $reply == y* || $reply == Y* ]]; then
-          _z_cleanup_worktree "$worktree" || return 1
-        else
-          print -r "zsek: keeping worktree $worktree."
-        fi
-      fi
-
-      local dir
-      dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
-      rm -f "$dir/$name.env" "$dir/$name.welcomed"
-
-      # delete-session, not kill-session: kill leaves the serialized session
-      # ("EXITED - attach to resurrect"), and the next `zse <name>` would
-      # resurrect that old layout instead of creating a fresh one from the
-      # current layout file. --force kills the running session first.
-      zellij delete-session --force "$name"
-    }
-
-    # zss NAME — switch the current Zellij session in place to a different
-    # live/exited session without detaching. Faster than `Ctrl Space, pick`
-    # when you already know the target name (`zss <TAB>` completes with the
-    # live session list via `_zse_sessions`).
-    zss() {
-      emulate -L zsh
-      if [[ -z $1 ]]; then
-        print -u2 -r "zss: usage: zss <session-name>"
-        return 1
-      fi
-      zellij action switch-session "$1"
-    }
-
-    # ----- Completion -----
-
-    # Session names from `zellij list-sessions` for the positional NAME on
-    # `zse` / `zsep` / `zss`. Strips Zellij's ANSI colour and the trailing
-    # `(EXITED - attach to resurrect)` / `(current)` marker.
-    _zse_sessions() {
-      local -a sessions
-      sessions=(''${(f)"$(zellij list-sessions 2>/dev/null \
-        | sed 's/\x1b\[[0-9;]*m//g' \
-        | awk '{print $1}')"})
-      _describe -t sessions 'zellij session' sessions
-    }
-
-    # _zse completes `-l` with the known use cases and the positional NAME
-    # with live Zellij sessions. `-a` takes a profile name but has no
-    # completion yet.
-    _zse() {
-      _arguments \
-        '-l[layout / use-case]:use case:(code project ticket review daily)' \
-        '-a[AWS profile]:profile:' \
-        ':session name:_zse_sessions'
-    }
-    compdef _zse zse zsep
-    compdef _zse_sessions zss
-    _zsek() {
-      _arguments \
-        '-k[keep: only stop the session, resurrectable via zse]' \
-        '-h[show the difference between zsek and zsek -k]'
-    }
-    compdef _zsek zsek
+    source ${./zse.zsh}
   '';
 }

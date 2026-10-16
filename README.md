@@ -224,7 +224,8 @@ just changelog           # regenerate CHANGELOG.md locally
 │       ├── aerospace.nix  # AeroSpace tiling WM
 │       ├── aws.nix        # declarative ~/.aws/config (serenity)
 │       ├── granted.nix    # Granted AWS credential manager
-│       ├── zellij.nix     # Zellij layouts + zse/zsep/zsek/zss
+│       ├── zellij.nix     # Zellij layouts + config
+│       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
