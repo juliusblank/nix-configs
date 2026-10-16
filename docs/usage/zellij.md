@@ -52,6 +52,12 @@ The source of truth is a Nix generator in `home/modules/zellij.nix`:
 shared pane fragments (`barPane`, `shellTigColumn`, `threePaneBody`)
 compose into the per-layout `.kdl` files on activation.
 
+Every command pane (claude, git, CI, tasks, `claude agents`) starts through
+`zse-env`, which loads the devshell of the pane's directory (`direnv export`,
+nix-direnv) and then runs the command. Command panes do not run the zsh
+direnv hook, and the Zellij server env does not decide which devshell a pane
+gets. Shell panes run the hook as usual.
+
 `ticket` and `review` reference `$ZELLIJ_SESSION_NAME`, an env var Zellij
 sets per pane at session creation. Each ticket / review session sees its
 own name without the layout files needing to be rendered per session.

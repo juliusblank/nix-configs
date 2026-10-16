@@ -188,32 +188,27 @@ _z_launch() {
     zellij delete-session "$name" >/dev/null 2>&1
   fi
   _z_reg_write "$name" "$use_case" "$dir" "$aws"
-  local sidecar=""
-  [[ -n $aws ]] && sidecar=$(_z_aws_sidecar "$name")
   (
-    # Load the repo's devshell explicitly, as a shell in $dir would, so the
-    # command panes (claude, tig, zse-ci) get its tools. `cd -q` skips the
-    # chpwd hooks; the devshell exports variables like `name=nix-shell-env`,
-    # so keep our values in `_zse_*` copies first.
-    local _zse_name=$name _zse_uc=$use_case _zse_aws=$aws _zse_bg=$bg _zse_sidecar=$sidecar
+    # -q: no chpwd hooks. direnv's hook would export the devshell's
+    # `name=nix-shell-env` over our local `name`. The panes load the devshell
+    # themselves (`zse-env`, home/modules/zellij.nix).
     cd -q "$dir" || exit 1
-    if (( $+commands[direnv] )); then
-      eval "$(direnv export zsh 2>/dev/null)"
-    fi
-    if [[ -n $_zse_bg ]]; then
-      zellij attach --create-background "$_zse_name" options --default-layout "$_zse_uc"
-    elif [[ -n $_zse_aws ]]; then
-      mkdir -p "${_zse_sidecar:h}"
+    if [[ -n $bg ]]; then
+      zellij attach --create-background "$name" options --default-layout "$use_case"
+    elif [[ -n $aws ]]; then
+      local sidecar
+      sidecar=$(_z_aws_sidecar "$name")
+      mkdir -p "${sidecar:h}"
       # Hand off to the host's `assume` fn; the inner shell writes the
       # side-car with the credentials it just got, then execs zellij so every
       # pane inherits them.
-      assume "$_zse_aws" -- zsh -c '
+      assume "$aws" -- zsh -c '
         printf "AWS_PROFILE=%s\nAWS_SESSION_EXPIRATION=%s\n" \
           "$AWS_PROFILE" "$AWS_SESSION_EXPIRATION" > "$1"
         exec zellij -s "$2" -n "$3"
-      ' zse-aws "$_zse_sidecar" "$_zse_name" "$_zse_uc"
+      ' zse-aws "$sidecar" "$name" "$use_case"
     else
-      zellij -s "$_zse_name" -n "$_zse_uc"
+      zellij -s "$name" -n "$use_case"
     fi
   ) || return
   [[ -n $switch ]] && zellij action switch-session "$name"
