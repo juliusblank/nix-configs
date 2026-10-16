@@ -117,6 +117,19 @@ let
       '';
 
   /**
+    `zse-env CMD [ARGS…]` — run CMD with the devshell of the current
+    directory (the repo's `.envrc`, through nix-direnv), then exec it. Every
+    command pane in the layouts starts through it: command panes do not run
+    the zsh direnv hook, and the Zellij server env (from whoever ran `zse`)
+    must not decide which devshell a pane gets. No `.envrc`, or a blocked
+    one: CMD runs with the env it has.
+  */
+  zseEnv = pkgs.writeShellScriptBin "zse-env" ''
+    eval "$(${pkgs.direnv}/bin/direnv export bash 2>/dev/null)"
+    exec "$@"
+  '';
+
+  /**
     `zse-git [USE_CASE]` — the git pane. For `ticket` it waits (up to 30 s)
     for the session's worktree at `.claude/worktrees/<id>`, then shows only
     the ticket's commits: `tig <origin default branch>..HEAD` (origin, so a
@@ -183,8 +196,8 @@ let
     pane split_direction="horizontal" {
         ${mkShellPane useCase}
         pane name="git" {
-            command "${zseGit}/bin/zse-git"
-            args "${if useCase == null then "code" else useCase}"
+            command "${zseEnv}/bin/zse-env"
+            args "${zseGit}/bin/zse-git" "${if useCase == null then "code" else useCase}"
         }
     }
   '';
@@ -279,7 +292,7 @@ let
   mkClaudePane = useCase: args: ''
     pane name="claude" {
         command "sh"
-        args "-c" "export ZSE_USE_CASE=${useCase}; exec ${zseClaude}/bin/zse-claude ${args}"
+        args "-c" "export ZSE_USE_CASE=${useCase}; exec ${zseEnv}/bin/zse-env ${zseClaude}/bin/zse-claude ${args}"
     }
   '';
 
@@ -304,7 +317,7 @@ let
   tasksPane = ''
     pane name="tasks" size="40%" {
         command "sh"
-        args "-c" "[ -x scripts/tasks-pane ] && exec scripts/tasks-pane; echo 'zse daily: no executable scripts/tasks-pane in this repo'; exec zsh"
+        args "-c" "[ -x scripts/tasks-pane ] && exec ${zseEnv}/bin/zse-env scripts/tasks-pane; echo 'zse daily: no executable scripts/tasks-pane in this repo'; exec zsh"
     }
   '';
 
@@ -355,6 +368,7 @@ in
       zseClaude
       zseGit
       zseCi
+      zseEnv
     ];
 
     file = {
@@ -411,7 +425,8 @@ in
             pane split_direction="horizontal" {
                 ${mkShellPane "review"}
                 pane name="ci" {
-                    command "${zseCi}/bin/zse-ci"
+                    command "${zseEnv}/bin/zse-env"
+                    args "${zseCi}/bin/zse-ci"
                 }
             }
         }
@@ -439,8 +454,8 @@ in
             }
             tab name="agents" {
                 pane {
-                    command "claude"
-                    args "agents"
+                    command "${zseEnv}/bin/zse-env"
+                    args "claude" "agents"
                 }
             }
         }

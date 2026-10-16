@@ -118,15 +118,15 @@ _z_cleanup_worktree() {
   [[ -d $worktree ]] || return 0
 
   local dirty
-  dirty=$(cd "$worktree" 2>/dev/null && git status --porcelain 2>/dev/null)
+  dirty=$(cd -q "$worktree" 2>/dev/null && git status --porcelain 2>/dev/null)
   if [[ -n $dirty ]]; then
     print -u2 -r "zse: worktree $worktree has uncommitted changes — skipping removal."
     return 1
   fi
   local upstream unpushed
-  upstream=$(cd "$worktree" && git rev-parse --abbrev-ref '@{u}' 2>/dev/null)
+  upstream=$(cd -q "$worktree" && git rev-parse --abbrev-ref '@{u}' 2>/dev/null)
   if [[ -n $upstream ]]; then
-    unpushed=$(cd "$worktree" && git rev-list "${upstream}..HEAD" 2>/dev/null)
+    unpushed=$(cd -q "$worktree" && git rev-list "${upstream}..HEAD" 2>/dev/null)
     if [[ -n $unpushed ]]; then
       print -u2 -r "zse: worktree $worktree has unpushed commits on $upstream — skipping removal."
       return 1
@@ -134,7 +134,7 @@ _z_cleanup_worktree() {
   fi
 
   local common_dir repo_root
-  common_dir=$(cd "$worktree" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  common_dir=$(cd -q "$worktree" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
   repo_root="${common_dir%/.git}"
   if [[ ! -d $repo_root ]]; then
     print -u2 -r "zse: cannot resolve parent repo for $worktree."
@@ -142,7 +142,7 @@ _z_cleanup_worktree() {
   fi
 
   (
-    cd "$repo_root" || exit 1
+    cd -q "$repo_root" || exit 1
     # `claude --worktree` locks the worktree; unlock fails silently when it
     # is already unlocked.
     git worktree unlock "$worktree" 2>/dev/null
@@ -189,7 +189,10 @@ _z_launch() {
   fi
   _z_reg_write "$name" "$use_case" "$dir" "$aws"
   (
-    cd "$dir" || exit 1
+    # -q: no chpwd hooks. direnv's hook would export the devshell's
+    # `name=nix-shell-env` over our local `name`. The panes load the devshell
+    # themselves (`zse-env`, home/modules/zellij.nix).
+    cd -q "$dir" || exit 1
     if [[ -n $bg ]]; then
       zellij attach --create-background "$name" options --default-layout "$use_case"
     elif [[ -n $aws ]]; then
