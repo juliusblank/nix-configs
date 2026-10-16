@@ -219,8 +219,8 @@ let
   # ----- Per-layout Claude panes -----
 
   /**
-    `zse-claude [--own] [CLAUDE_ARGS…]` — the claude launcher for every
-    interactive zse pane.
+    `zse-claude [--own [--first-prompt TEXT]] [CLAUDE_ARGS…]` — the claude
+    launcher for every interactive zse pane.
 
     Always adds `--remote-control "$ZELLIJ_SESSION_NAME"` (reachable from the
     account's other Remote-Control devices under the Zellij session's name)
@@ -236,6 +236,10 @@ let
     repo (e.g. a `code` session and a new `project` master) would share one
     conversation. `--resume <id>` also works when the conversation's cwd is
     a worktree (ticket), because the lookup is by ID.
+
+    `--first-prompt TEXT` (after `--own`) sends TEXT as the first user
+    message only when the conversation is new. On resume it is dropped, so
+    a stopped / restored `review` session does not run the review again.
   */
   zseClaude = pkgs.writeShellScriptBin "zse-claude" ''
     set -euo pipefail
@@ -246,6 +250,11 @@ let
       exec claude "''${base[@]}" "$@"
     fi
     shift
+    first=()
+    if [[ ''${1:-} == --first-prompt ]]; then
+      first=("''${2:?zse-claude: --first-prompt needs a text}")
+      shift 2
+    fi
 
     h=$(printf 'zse:%s:%s' "$name" "$PWD" | shasum -a 256 | cut -c1-32)
     id="''${h:0:8}-''${h:8:4}-5''${h:13:3}-8''${h:17:3}-''${h:20:12}"
@@ -255,7 +264,7 @@ let
     if ((''${#transcripts[@]})); then
       exec claude "''${base[@]}" --resume "$id" "$@"
     fi
-    exec claude "''${base[@]}" --session-id "$id" "$@"
+    exec claude "''${base[@]}" --session-id "$id" "$@" "''${first[@]}"
   '';
 
   /**
@@ -281,7 +290,9 @@ let
   ticketClaudePane = mkClaudePane "ticket" ''--own --worktree \"$ZELLIJ_SESSION_NAME\"'';
   # Explicit namespace (`/review:review`) over the shorthand (`/review`) so
   # the command stays unambiguous as more plugins add their own `review`.
-  reviewClaudePane = mkClaudePane "review" ''\"/review:review $ZELLIJ_SESSION_NAME\"'';
+  # `--first-prompt`: the review runs on the first start only; a restored
+  # session resumes its conversation.
+  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/review:review $ZELLIJ_SESSION_NAME\"'';
 
   /**
     Task-list pane for the `daily` layout. Runs the repo's own
@@ -311,11 +322,12 @@ in
   #              Session name is the ticket ID; worktree is created / reused
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
   #              `/ticket:start` welcome banner.
-  #   review   — `claude "/review:review $ZELLIJ_SESSION_NAME"` · shell ·
-  #              CI pane (`zse-ci`, no tig). Session name is `review-<repo>-pr<n>`, parsed
-  #              from a PR URL. The review command auto-fires in the claude
-  #              pane; the shell shows a one-time banner noting that.
-  #   daily    — claude --continue · tasks pane (`scripts/tasks-pane` from
+  #   review   — `zse-claude --own --first-prompt "/review:review $NAME"` ·
+  #              shell · CI pane (`zse-ci`, no tig). Session name is
+  #              `review-<repo>-pr<n>`, parsed from a PR URL. The review
+  #              command auto-fires on the first start only; a restored
+  #              session resumes. The shell shows a one-time banner.
+  #   daily    — claude (own conversation) · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
   #
   # Welcome banners are a one-shot per session — a sentinel at

@@ -15,7 +15,7 @@ ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
+| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
@@ -75,7 +75,7 @@ re-welcomes. `code` and `code-resume` have no banner — those shell panes
 are plain zsh.
 
 For `review`, the claude pane auto-sends `/review:review $NAME` on
-create; the banner just reports what's running. For `ticket` and
+the first start (not on restore); the banner just reports what's running. For `ticket` and
 `project`, the user invokes the kickoff command manually from the
 banner's hint.
 
@@ -126,9 +126,12 @@ creation and simply attaches a fresh claude in the same directory.
 
 ### review
 
-A short-lived PR review. Fresh claude session (no `--continue`); the
-pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first user message,
-where `$ZELLIJ_SESSION_NAME` is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). The
+A short-lived PR review with its own conversation (`--own`). On the first
+start the pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first
+user message (`--first-prompt`); after `zse stop` / `zse restore` it resumes
+the conversation and does not run the review again. `$ZELLIJ_SESSION_NAME`
+is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). To review new
+pushes, run `/review:review $ZELLIJ_SESSION_NAME` again in the session. The
 `review` command (`jbl-personal/review`, a local Claude Code marketplace
 at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
 `.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
