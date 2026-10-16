@@ -15,7 +15,7 @@ ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · shell · compact bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
+| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude "/review:review $ZELLIJ_SESSION_NAME"` (fresh) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
@@ -83,9 +83,16 @@ banner's hint.
 
 ### code
 
-The default `zse` shape: claude auto-resumes the
-most recent conversation in cwd, a shell to run commands, a tig status
-view that doesn't poll (so no periodic 1Password SSH-agent prompts).
+The default `zse` shape: claude resumes the session's own conversation, a
+shell to run commands, and the git pane.
+
+**Git pane (`zse-git`).** `tig status` at the repo root; in `ticket`
+sessions it waits for `.claude/worktrees/<id>` and shows only the
+ticket's commits (`tig origin/<default>..HEAD`). In tig: `Enter` opens a
+commit's diff, `s` the status, `t` the file tree at that commit, `q` goes
+back. tig refreshes every 5 s (`~/.config/tig/config`, `refresh-mode
+periodic`) — local `git status` only, never a fetch, so no 1Password
+SSH-agent prompts.
 
 ### project
 
@@ -125,7 +132,10 @@ where `$ZELLIJ_SESSION_NAME` is `review-<repo>-pr<n>` (from `zse -l review <PR U
 `review` command (`jbl-personal/review`, a local Claude Code marketplace
 at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
 `.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
-commit-first.
+commit-first. Instead, the **CI pane (`zse-ci`)** under the shell redraws
+`gh pr checks <n>` with the PR title every 30 s (`ZSE_CI_INTERVAL`), so new
+pushes show up; `gh` uses HTTPS, no SSH. `q` quits it. `zsek` in a review
+session offers to remove `.claude/worktrees/pr-<n>`.
 
 ### daily
 
