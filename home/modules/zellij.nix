@@ -117,16 +117,74 @@ let
       '';
 
   /**
+    `zse-git [USE_CASE]` — the git pane. For `ticket` it waits (up to 30 s)
+    for the session's worktree at `.claude/worktrees/<id>`, then shows only
+    the ticket's commits: `tig <origin default branch>..HEAD` (origin, so a
+    stale local `main` does not skew it). Every other use case shows
+    `tig status` at the pane's directory. Refresh comes from tig's periodic
+    mode (`~/.config/tig/config` below) — local `git status` only, never a
+    fetch, so no SSH-agent / 1Password prompts.
+  */
+  zseGit = pkgs.writeShellScriptBin "zse-git" ''
+    set -uo pipefail
+    if [[ ''${1:-} == ticket ]]; then
+      name=''${ZELLIJ_SESSION_NAME:?zse-git: run inside a Zellij session}
+      root=$(git rev-parse --show-toplevel 2>/dev/null) || exec tig status
+      wt="$root/.claude/worktrees/$name"
+      for _ in $(seq 1 30); do
+        [[ -d $wt ]] && break
+        sleep 1
+      done
+      if [[ ! -d $wt ]]; then
+        echo "zse-git: $wt not found after 30 s; showing repo status instead"
+        sleep 2
+        exec tig status
+      fi
+      cd "$wt" || exit 1
+      base=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
+      exec tig "$base..HEAD"
+    fi
+    exec tig status
+  '';
+
+  /**
+    `zse-ci` — the CI pane of the `review` layout. Reads the PR number from
+    the `review-<repo>-pr<n>` session name and redraws `gh pr checks <n>`
+    with the PR title every `$ZSE_CI_INTERVAL` seconds (default 30), so new
+    pushes show up too. `gh` talks HTTPS with its own token — no SSH. `q`
+    quits; the command pane then waits for Enter to restart it.
+  */
+  zseCi = pkgs.writeShellScriptBin "zse-ci" ''
+    set -uo pipefail
+    name=''${ZELLIJ_SESSION_NAME:-}
+    if [[ ! $name =~ -pr([0-9]+)$ ]]; then
+      echo "zse-ci: no PR number in session name '$name'"
+      exec zsh
+    fi
+    pr=''${BASH_REMATCH[1]}
+    interval=''${ZSE_CI_INTERVAL:-30}
+    while :; do
+      title=$(gh pr view "$pr" --json title,state --jq '.title + "  [" + .state + "]"' 2>&1)
+      checks=$(gh pr checks "$pr" 2>&1)
+      clear
+      printf 'PR #%s  %s\n%s · every %ss · q quits\n\n%s\n' \
+        "$pr" "$title" "$(date '+%H:%M:%S')" "$interval" "$checks"
+      if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
+        exit 0
+      fi
+    done
+  '';
+
+  /**
     Right-hand column shared by `code`, `project.master` and `ticket`:
-    shell on top, tig status view below. tig only refreshes on user action,
-    so this pane stays quiet (no periodic SSH-agent prompts).
+    shell on top, the `zse-git` pane below.
   */
   shellTigColumn = useCase: ''
     pane split_direction="horizontal" {
         ${mkShellPane useCase}
         pane name="git" {
-            command "tig"
-            args "status"
+            command "${zseGit}/bin/zse-git"
+            args "${if useCase == null then "code" else useCase}"
         }
     }
   '';
@@ -253,8 +311,8 @@ in
   #              Session name is the ticket ID; worktree is created / reused
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
   #              `/ticket:start` welcome banner.
-  #   review   — fresh `claude "/review:review $ZELLIJ_SESSION_NAME"` · shell
-  #              (no tig). Session name is `review-<repo>-pr<n>`, parsed
+  #   review   — `claude "/review:review $ZELLIJ_SESSION_NAME"` · shell ·
+  #              CI pane (`zse-ci`, no tig). Session name is `review-<repo>-pr<n>`, parsed
   #              from a PR URL. The review command auto-fires in the claude
   #              pane; the shell shows a one-time banner noting that.
   #   daily    — claude --continue · tasks pane (`scripts/tasks-pane` from
@@ -283,6 +341,8 @@ in
       pkgs.tig
       zseWelcome
       zseClaude
+      zseGit
+      zseCi
     ];
 
     file = {
@@ -307,6 +367,13 @@ in
         }
       '';
 
+      # tig: periodic refresh, so the git pane follows Claude's edits and
+      # commits without a manual `R`. Local `git status` only (no fetch).
+      ".config/tig/config".text = ''
+        set refresh-mode = periodic
+        set refresh-interval = 5
+      '';
+
       # ----- Use-case layouts -----
 
       ".config/zellij/layouts/code.kdl".text = mkSingleTreeLayout (threePaneBody null codeClaudePane);
@@ -319,11 +386,17 @@ in
         threePaneBody "ticket" ticketClaudePane
       );
 
-      # Review has no tig pane — just claude + shell + compact bar.
+      # Review: claude + (shell over the CI pane). No tig — review is
+      # read-first; the CI status is what a reviewer needs next to the diff.
       ".config/zellij/layouts/review.kdl".text = mkSingleTreeLayout ''
         pane split_direction="vertical" {
             ${reviewClaudePane}
-            ${mkShellPane "review"}
+            pane split_direction="horizontal" {
+                ${mkShellPane "review"}
+                pane name="ci" {
+                    command "${zseCi}/bin/zse-ci"
+                }
+            }
         }
       '';
 
@@ -652,9 +725,12 @@ in
         return
       fi
 
-      local root worktree
+      # Review sessions are named `review-<repo>-pr<n>`, but /review:review
+      # checks the PR out into `.claude/worktrees/pr-<n>`.
+      local root worktree wt_name="$name"
+      [[ $name =~ '^review-.+-pr([0-9]+)$' ]] && wt_name="pr-$match[1]"
       if root=$(git rev-parse --show-toplevel 2>/dev/null); then
-        worktree="$root/.claude/worktrees/$name"
+        worktree="$root/.claude/worktrees/$wt_name"
       fi
 
       if [[ -n $worktree && -d $worktree ]]; then
