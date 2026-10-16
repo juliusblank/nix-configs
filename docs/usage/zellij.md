@@ -144,7 +144,7 @@ drops to zsh.
 ```
 zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]
 zsep [NAME]
-zsek
+zsek [-k]
 zss NAME
 ```
 
@@ -180,7 +180,11 @@ zss NAME
   Claude's `--resume` picker. Only applies to the `code` shape; other use
   cases have no resume variant (ticket reuses its worktree, review is
   fresh, project's agent dispatcher is live).
-- `zsek` — kill the current Zellij session. If the session name matches a
+- `zsek` — **end** the current Zellij session: kill **and delete** it (`zellij
+  delete-session --force`), so a reused name starts fresh from the current
+  layout file instead of resurrecting the old one. `zsek -k` only **stops**
+  it (`zellij kill-session`, no cleanup): it stays EXITED and `zse <name>`
+  resurrects it with its saved layout. `zsek -h` prints the difference. If the session name matches a
   `.claude/worktrees/<name>` directory under the current repo, prompts
   for worktree removal, blocks it with a message when uncommitted or
   unpushed state is present, otherwise unlocks + removes + prunes + drops
@@ -208,7 +212,7 @@ Session state matrix for `zse`:
 | State | Behaviour |
 |---|---|
 | **live** | attach; `-a` ignored with notice; AWS-expiry warning if applicable |
-| **exited** (resurrectable) | attach — Zellij resurrects layout + cwds; processes start fresh (`zse-claude --own` resumes the session's own conversation; ticket's `--worktree` reuses) |
+| **exited** (resurrectable) | attach — Zellij resurrects the **saved** layout + cwds (not the current layout file — to pick up layout changes, delete the session with `zsek` or `zellij delete-session` first); processes start fresh (`zse-claude --own` resumes the session's own conversation; ticket's `--worktree` reuses) |
 | **none** | create fresh session with the chosen layout, through `assume` if `-a` was given |
 
 The use case for a session is not persisted — it is implicit in the
