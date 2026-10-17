@@ -613,9 +613,29 @@ At the end of the evaluation:
 
 - **Pass:** T1, T2 and T5 pass (T1 / T2 passed with known limitations, see
   [docs/harmonic-dj.md](harmonic-dj.md)). Then:
-  - Move the scope from the evaluation folder to a **larger, cleaned-up subset** of the
-    library, so HDJ has a pool to suggest from (T5b). The full library must be cleaned
-    up first.
+  - **Decide HDJ's analysis scope** (decide after T6) — which parts of the collection
+    HDJ analyzes. HDJ only suggests tracks it has analyzed, so the scope is the pool
+    for T5b.
+    - **Options:** (1) **curated subset** — what you play (e.g. Beatport 2024+, main
+      genre folders, the folders behind set playlists); (2) **grow on demand** — base
+      lists add their tracks, plus a defined suggestion pool (only if T6 shows HDJ adds
+      and analyzes unknown tracks); (3) **whole collection** — only after the cleanup,
+      not as a start.
+    - **Clean up first** (required). `~/Music` holds ≈6200 audio files; **2614 are in
+      `rekordbox_backup/rekordbox_bak`** and must never be analyzed (HDJ would suggest
+      backup copies). Main folders: `purchased/Beatport` (2481), `Fineschliff` (407),
+      `purchased/Main` (138), `purchased/Bandcamp` (62) — counts from 2026-10-18.
+    - **`#` paths:** HDJ handles them, but suggested tracks with `#` disappear on import
+      into rekordbox. Do the rename TODO before widening the scope, or check the track
+      count after each import.
+    - **Absolute paths:** HDJ and rekordbox key tracks by full path. Do not move files
+      after analysis, or plan the re-link in both.
+    - **Structure:** mirror the scope in HDJ groups (e.g. per year or genre), so a Mix's
+      suggestion source can be limited to them.
+    - **Cost:** DB ≈ 24 KB per track (655 KB for 27; whole collection ≈ 150 MB — fine
+      for the backup). Analysis time: not measured cleanly (27 tracks, 167 min of audio,
+      in under ≈ 10 min); measure on the first larger batch.
+    - **Record** the decision (folders, groups, exclusions) in `docs/harmonic-dj.md`.
   - Decide on **Pro**. Community saves at most **5 tracks per Mix**; a real set
     (≈15–30 tracks) needs Pro ($40 one-time) for the intended use.
 - **HDJ as the single analyzer: not planned.** Revisit only if T3 brings key and BPM into
