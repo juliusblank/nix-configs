@@ -372,6 +372,53 @@ not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a pa
 manual step (delete the old playlist and rename `<name> (1)`, or keep both as versions);
 (b) tracks with `#` are dropped on the way back into rekordbox (known issue below).
 
+### T4 — analysis comparison (2026-10-18): data done, listening pending
+
+**Method.** `scripts/dj/hdj_compare_keys.py` (read-only) on the 27 evaluation tracks:
+rekordbox from a collection XML **export** (File → Export Collection in xml format),
+HDJ from a DB copy (all 14 profiles), Beatport from the file names (26 with a key). HDJ
+modes map to major (ionian, lydian, mixolydian) or minor (aeolian, dorian, phrygian).
+Run: `nix shell nixpkgs#python3 -c python3 scripts/dj/hdj_compare_keys.py <xml> <db> <folder>`.
+
+- **rekordbox key format:** the XML `Tonality` holds Camelot (`5A`), most likely because
+  of Preferences → View → Key display format = **Alphanumeric** (not verified with
+  Classic; the script reads both). "Display key information on the database" is **off**,
+  so rekordbox shows its **own analysis**, not the file tag ("key is displayed as
+  recorded on the track" when on — manual 7.2.16). Useful for T3: switching it on shows
+  the tag key in rekordbox.
+
+**Key results** (relations: same · same-scale = HDJ parent scale equals the other's
+Camelot · parallel = same root, other major / minor · adjacent · other):
+
+| Comparison | same | same-scale | parallel | adjacent | other |
+|---|---|---|---|---|---|
+| HDJ `ecma418` vs rekordbox (n=27) | 9 | 3 | **13** | 1 | 1 |
+| HDJ `none` vs rekordbox | 13 | 0 | **13** | 0 | 1 |
+| HDJ `ecma418` vs Beatport (n=26) | **19** | 2 | 4 | 0 | 1 |
+| rekordbox vs Beatport (n=26) | 8 | 0 | **16** | 0 | 2 |
+
+- **Roots agree almost always; the dispute is major vs minor.** rekordbox reports minor
+  for 25 of 26 tracks (rekordbox / Beatport: m/M 18, m/m 7, M/M 1). HDJ sides with
+  Beatport, mostly as lydian / mixolydian on the same root.
+- **Profiles barely matter:** HDJ vs Beatport "same" is 73–77 % for every profile;
+  `iso226-*@73` and `iso226-2023@68` are best by one track. `none` agrees most with
+  rekordbox (48 %).
+- **BPM:** HDJ and rekordbox agree on all 27 (±0.5). Beatport file names differ on 4
+  (e.g. 162 vs 102), so they are no BPM reference.
+- **Camelot consequence:** C (8B) and Cm (5A) are three steps apart. If rekordbox labels
+  modal / major tracks as minor, Camelot mixing on rekordbox keys points to the wrong
+  neighbours for these tracks.
+
+**Listening (pending).** Not "hear the key": the root is agreed, so only major vs minor
+third is open. Method: play a major and a minor chord on the root next to the track
+(piano app; HDJ may have a chord preview — clickable keys, `chordGain` setting —
+unverified), or mix against a track all three agree on (e.g. *Temple Tears – Ludo*, Cm).
+Check 4–5 parallel cases, e.g. Gunce Aci (C), Nada – Colmena (C), Johannes Klingebiel (E),
+Laaar – Dream for Dreaming (F), Organic Mood – UFO (A). Record which tool was right.
+
+**Sample size:** 27 tracks ≈ 4 percentage points per track — enough for clear
+differences, not for close ones. A second folder (e.g. `20260815`) can be added later.
+
 ### Known issue: rekordbox M3U import drops tracks with `#` in the path (open)
 
 - **Symptom:** a track whose path contains `#` is missing after importing an M3U into

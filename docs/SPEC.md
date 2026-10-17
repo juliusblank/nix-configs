@@ -370,6 +370,7 @@ Where a dedicated formatter exists, it is the authority on style:
 | HCL | `tofu fmt` | — | 2 spaces |
 | YAML | — (manual) | — | 2 spaces |
 | Shell | — (manual) | — | 2 spaces |
+| Python | — (manual, PEP 8) | — | 4 spaces |
 
 **Nix linting with statix:** `statix check` catches anti-patterns the formatter cannot fix — shadowed `with` scopes, useless `let … in`, redundant `inherit`, empty `let` blocks, and similar. Run `just lint` to check, `just lint-fix` to auto-remediate. The pre-commit hook runs statix on staged `.nix` files and blocks the commit if findings are present.
 
@@ -383,6 +384,7 @@ Describe *what* the thing is and any non-obvious constraints; omit comments that
 | Nix | `/**` block comment immediately before the definition (nixdoc-compatible) |
 | HCL | `#` description block before each `resource`, `variable`, `output`, or `module` |
 | Shell | `#` comment block directly above the function |
+| Python | Module docstring (purpose, inputs, read-only note); one-line docstring on functions |
 | YAML | Top-level `#` comment on each workflow file; inline `#` on non-obvious steps |
 
 ### Language isolation
@@ -395,6 +397,7 @@ The root `CLAUDE.md` covers Nix, which is the primary language of the repo.
 |---|---|
 | `terraform/` | HCL (OpenTofu) |
 | `.github/` | YAML (GitHub Actions) |
+| `scripts/dj/` | Python 3, stdlib only (DJ toolchain helpers; run via `nix shell nixpkgs#python3`) |
 
 ## Development Workflow
 
@@ -641,8 +644,12 @@ These tasks need serenity, because the music library and rekordbox run there:
 - **Profiles.** The key changes with the loudness profile. Default in the UI:
   `ECMA-418 (Precise)` (`profile_id` `ecma418`) with level reference `K-System (83 dB SPL)`.
   The DB stores all 14 profiles per track. The choice is a **per-Mix** setting
-  (`settings.keyProfile` in `mixes/<id>.hdjmix`, answered on serenity). Still open:
-  which profile do we use (decide in T4), and which profile does a new Mix start with?
+  (`settings.keyProfile` in `mixes/<id>.hdjmix`, answered on serenity); a new Mix starts
+  with `ecma418`. T4: the profile changes agreement with Beatport by at most one track
+  of 27, so the default is fine unless listening says otherwise.
+- **rekordbox vs HDJ keys (T4).** Roots agree almost always; rekordbox reports minor for
+  25 of 26 tracks where Beatport and HDJ mostly say major / major mode. Listening on a
+  few "parallel" cases decides which is right. See [docs/harmonic-dj.md](harmonic-dj.md).
 - **Confidence.** The key accuracy was low (50–57 %) on the 4 test tracks. Is this
   typical?
 - **Tags and modes.**

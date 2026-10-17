@@ -234,6 +234,7 @@ just changelog           # regenerate CHANGELOG.md locally
 │   └── pi-moodpi/         # NixOS + home-manager (planned)
 ├── lib/                   # helper derivations (e.g. gh-stack-bin.nix)
 ├── overlays/              # placeholder (not imported by flake.nix yet)
+├── scripts/dj/            # DJ toolchain helpers (Python, read-only analysis)
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
 ├── .github/workflows/     # CI
 └── docs/
