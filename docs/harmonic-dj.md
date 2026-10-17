@@ -367,6 +367,13 @@ not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a pa
   Together with T1c (plain, `file://` URL, `%23`): **no M3U spelling works.**
 - **Remaining routes (not pursued for now):** rekordbox XML import (risk of overwriting
   existing track data; needs a library backup first), or renaming the 126 files (no `#`).
+- **Research (2026-10-17):** the release notes of the versions after 7.2.14 (7.2.16,
+  7.2.17, 7.2.18, 7.2.19 of 2026-09-24) do not mention playlist import, M3U, file names
+  or special characters; their FIXED entries are feature-specific or "Bug fixes and
+  stability improvements". rekordbox has no public issue tracker. The only related
+  report found is an old Pioneer DJ forum thread about special characters (`é`, `°`, `'`)
+  in M3U imports (forum closed, page returns 403). Nothing about `#`. Whether a newer
+  version fixes it is unknown; re-test after the next rekordbox update.
 - **Until fixed:** after importing an HDJ M3U, compare the track count with the HDJ Mix
   and add missing `#` tracks by hand. Reporting it to AlphaTheta (rekordbox support) is
   an option.
