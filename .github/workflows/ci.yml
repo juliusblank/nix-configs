@@ -2,11 +2,11 @@
 #
 # Job flow:
 #   changes          — detects which file groups changed (skipped on release branches)
-#   check-flake      — nix flake check + matrix build of both hosts; only when nix files changed
+#   check-flake      — nix flake check + matrix build of both hosts; only when nix files changed.
+#                      On merge to main and same-repo PRs it also signs and pushes each
+#                      closure to the S3 cache (seeds new paths before merge)
 #   validate-release — tag + changelog checks; only on chore/release-* branches
 #   ci-passed        — fan-in aggregator; always runs; the single required status check
-#   push-cache       — push nix closures to S3 (both hosts, matrix); runs on merge to main
-#                      and on same-repo PR builds (seeds new paths before merge)
 #
 # ci-passed is the required branch-protection status check so PRs are never
 # blocked by a check that didn't fire due to path or branch conditions.
@@ -29,6 +29,13 @@ on:
 permissions:
   id-token: write   # OIDC
   contents: read
+
+# A new push to a PR supersedes the running build: cancel it to save macOS minutes.
+# A running build on main is never cancelled; if several merges queue up, GitHub keeps
+# only the newest pending run, whose closure contains the latest state anyway.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Detect which file groups changed. Skipped on release branches since those
@@ -58,11 +65,21 @@ jobs:
   # vs. sequential builds. `nix flake check --no-build` runs on the serenity leg only,
   # since evaluation is identical across hosts. Skipped when no nix-relevant files
   # changed, and skipped entirely on release branches (changes job is skipped there).
+  #
+  # The same leg then pushes its closure to the S3 cache, so the closure is built once
+  # (a separate push job rebuilt it on a fresh runner). The build needs no AWS
+  # credentials: the cache bucket is public-read. Credentials are fetched only right
+  # before the push, so the 1h OIDC session cannot expire during a long build.
   check-flake:
     name: Build (${{ matrix.host }})
     needs: changes
     if: needs.changes.outputs.nix == 'true'
     runs-on: macos-15
+    env:
+      PUSH_CACHE: >-
+        ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository) }}
     # `fail-fast: false` — surface errors on both hosts even if one fails first;
     # avoids a re-run cycle to see what the other host would have reported.
     strategy:
@@ -81,12 +98,6 @@ jobs:
             substituters = https://cache.nixos.org https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com
             trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI=
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-central-1
-
       # Flake check is host-agnostic; run once (serenity leg) to save minutes.
       - name: Nix flake check
         if: matrix.host == 'serenity'
@@ -94,6 +105,37 @@ jobs:
 
       - name: Build ${{ matrix.host }}
         run: nix build .#darwinConfigurations.${{ matrix.host }}.system
+
+      # Cache push: merge to main and same-repo PRs only. Fork PRs have no OIDC or
+      # secrets access. A failed push does not fail the build (it never blocked a
+      # merge before either); check the step log when the cache looks cold.
+      - name: Configure AWS credentials (OIDC)
+        if: env.PUSH_CACHE == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Load signing key from 1Password
+        if: env.PUSH_CACHE == 'true'
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          NIX_CACHE_SIGNING_KEY: "op://github_nix-configs/Nix Cache Signing Key/private_key"
+
+      - name: Push closure to S3 cache
+        if: env.PUSH_CACHE == 'true'
+        continue-on-error: true
+        run: |
+          # The key file is removed on every exit path, not only on success.
+          key_file=$(mktemp)
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s\n' "$NIX_CACHE_SIGNING_KEY" > "$key_file"
+          store_path=$(readlink result)
+          nix store sign --key-file "$key_file" --recursive "$store_path"
+          nix copy --to "s3://${{ vars.NIX_CACHE_BUCKET }}?region=eu-central-1" "$store_path"
 
   # Fast release-specific checks. Only runs on chore/release-* branches.
   validate-release:
@@ -157,64 +199,3 @@ jobs:
           echo "  check-flake:      ${{ needs.check-flake.result }}"
           echo "  validate-release: ${{ needs.validate-release.result }}"
           echo "All checks passed or were skipped"
-
-  # Push each host's closure to the S3 nix binary cache on merge to main *and*
-  # on same-repo PR builds. Seeding on PR means a derivation introduced by the
-  # PR (e.g. a nixpkgs bump that invalidates a hash) lands in the cache before
-  # merge, so the next CI run on this PR, and the final merge-to-main run, both
-  # get cache hits instead of rebuilding from source.
-  #
-  # Matrix so serenity and concinnity push in parallel; concinnity was previously
-  # missing from the cache, forcing every PR to cold-build its host-specific paths
-  # (aws-vault override, granted, ykman, op-credential-process wrapper).
-  #
-  # Fork PRs are excluded via the `head.repo.full_name` check: those runs don't
-  # have OIDC/secrets access and the step would fail at the AWS creds config.
-  push-cache:
-    name: Push cache (${{ matrix.host }})
-    needs: check-flake
-    runs-on: macos-15
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [serenity, concinnity]
-    steps:
-      - uses: actions/checkout@v4
-
-      # v31+ installs a Nix whose installer puts the build users at UID 351+ on
-      # macOS 15; the v27 installer used 301-306, which macOS 15 already uses.
-      - uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            substituters = https://cache.nixos.org https://juliusblank-nix-cache.s3.eu-central-1.amazonaws.com
-            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= juliusblank-nix-cache:4dcYEtIVp1o7kLv6cGGYoMTMhg83XmSjfNA9l+In+SI=
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-central-1
-
-      - name: Load signing key from 1Password
-        uses: 1password/load-secrets-action@v2
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          NIX_CACHE_SIGNING_KEY: "op://github_nix-configs/Nix Cache Signing Key/private_key"
-
-      - name: Build ${{ matrix.host }}
-        run: nix build .#darwinConfigurations.${{ matrix.host }}.system
-
-      - name: Push closure to S3 cache
-        run: |
-          echo "$NIX_CACHE_SIGNING_KEY" > /tmp/cache-priv-key.pem
-          store_path=$(readlink result)
-          nix store sign --key-file /tmp/cache-priv-key.pem --recursive "$store_path"
-          nix copy --to "s3://${{ vars.NIX_CACHE_BUCKET }}?region=eu-central-1" "$store_path"
-          rm /tmp/cache-priv-key.pem

@@ -9,7 +9,7 @@ flowchart TD
     end
 
     subgraph "Skipped when no nix files changed"
-        check-flake["check-flake matrix\n(macos-15 × 2)\nbuild serenity | build concinnity\n(flake check on serenity leg)"]
+        check-flake["check-flake matrix\n(macos-15 × 2)\nbuild serenity | build concinnity\n(flake check on serenity leg)\nsame-repo PR or push to main:\nsign + push closure to S3 cache"]
     end
 
     subgraph "Only on chore/release-* branches"
@@ -18,19 +18,16 @@ flowchart TD
 
     ci-passed["ci-passed\n(ubuntu)\nfan-in aggregator\n★ required status check"]
 
-    subgraph "Same-repo PRs + push to main"
-        push-cache["push-cache matrix\n(macos-15 × 2)\nsign + push each host closure\nto S3 cache"]
-    end
-
     PR --> changes
     PR --> validate-release
     changes -->|nix == true| check-flake
     changes -->|nix == false| ci-passed
     check-flake --> ci-passed
     validate-release --> ci-passed
-    check-flake -->|same-repo PR or push to main| push-cache
 ```
 
 `ci-passed` is the single required branch-protection status check. Skipped jobs count as passing, so a docs-only PR is never blocked waiting for `check-flake` to run.
+
+The cache push runs in the same `check-flake` leg as the build, so each closure is built once. A failed push does not fail the leg (`continue-on-error`). A new push to a PR cancels the PR's running CI (`concurrency`); runs on `main` are not cancelled. Dependabot (`.github/dependabot.yml`) opens one grouped PR per week for action updates.
 
 See [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) for the full workflow definition.
