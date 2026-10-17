@@ -193,7 +193,7 @@ created.
 - **Backup:**
   - **Tested:** copying `~/Library/APU Harmonic DJ/` while the app was closed gave a
     database that passed `PRAGMA integrity_check`.
-  - **Not tested:** that the app opens a restored copy without a rescan.
+  - **Restore with the app:** tested on serenity, see *Restore test* below (passed).
   - **Gotcha:** both data folders are named `APU Harmonic DJ`. Copy them to separate
     destinations, or they merge.
 
@@ -220,9 +220,27 @@ created.
 
   Paths match the concinnity run. A default empty Mix is created at first launch.
 - **Defaults** (UI toolbar, unchanged): key profile `ECMA-418 (Precise)`, level reference
-  `K-System (83 dB SPL)`, Active Mix target `-14.0 LUFS` (pre-limiter). The global
-  settings file does not store the profile; the encoded `filterState` in `.settings` is
-  the likely place (to be confirmed by changing it once).
+  `K-System (83 dB SPL)`, Active Mix target `-14.0 LUFS` (pre-limiter). Neither settings
+  file stores the profile. `filterState` in `.settings` is a JUCE base64 block
+  (`<size>.<data>`); decoded, it is the plugin editor state only:
+  `<APUHarmonicDJ editorWidth="1152" editorHeight="648" chordGain="-18.0" preferDark="1"
+  hostBPM="0"/>`. Where (or whether) the profile choice persists is still open.
+
+### Restore test (2026-10-17): passed
+
+With the app closed:
+1. `ditto` both folders to separate destinations (`hdj-data/`, `hdj-settings/`);
+   `integrity_check` = `ok`; per-file `shasum` manifest saved.
+2. Moved the originals away (same effect as deleting, but reversible), then `ditto`
+   the copies back. Restored files equal the manifest.
+3. Started the app: 27 tracks, group `evaluation`, keys and BPM shown, status **Ready**,
+   nothing queued. Quit with ⌘Q (closing the window leaves the process running).
+4. Compared the DB after the run with the backup: `harmonic-dj.sqlite` and all Mix
+   files are **byte-identical**; `tracks` (`scanned_time_ms`, `status`, `content_hash`,
+   analysis columns), `track_key_profiles`, groups, membership and scan queues show
+   0 differences. → **No rescan.**
+5. The only changed file is `.settings`: `filterState` is rewritten on quit
+   (`chordGain` `-18.0` → `-18.00000190734863`, float formatting only).
 
 ### Evaluation folder
 
@@ -298,8 +316,8 @@ BPM: 22 equal (rounded), 4 different, none half / double (Beatport 125 → HDJ 1
 ## Backup handoff
 
 > For the backup work (roadmap #10, draft PR #126: restic, `home/modules/backup.nix`).
-> This section has all the facts. Status: copy tested on concinnity (v1.2.9); restore
-> with the app not tested yet.
+> This section has all the facts. Status: copy tested on concinnity (v1.2.9); copy and
+> restore with the app tested on serenity (v1.2.9, 27 tracks), no rescan.
 
 **What to change in `custom.backup` (serenity):**
 - `paths`: add `~/Library/APU Harmonic DJ` and
@@ -343,8 +361,8 @@ Do **not** back up these, because the system or the app creates them again:
    `sqlite3 "file:<copy>/harmonic-dj.sqlite?immutable=1" "pragma integrity_check"`. The
    result must be `ok`.
 
-**Restore (not tested with the app yet):**
-1. Quit the app.
+**Restore (tested on serenity 2026-10-17, see *Restore test*):**
+1. Quit the app with ⌘Q and check it is gone (`pgrep`, rule 1).
 2. Copy `hdj-data/` back to `~/Library/APU Harmonic DJ/` and `hdj-settings/` back to
    `~/Library/Application Support/APU Harmonic DJ/`.
 3. Start the app. The library must be complete, without a rescan.

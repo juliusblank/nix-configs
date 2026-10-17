@@ -540,7 +540,7 @@ code signature. The vendor pkg is signed and notarized (Developer ID, team
 | `~/Library/APU Harmonic DJ/harmonic-dj.sqlite` | Library DB: tracks (absolute `path` is the key), analysis, key profiles, ratings, groups, Gems |
 | `~/Library/APU Harmonic DJ/mixes.json`, `mixes/*.hdjmix`, `mix-history/` | Mixes and their revision history |
 | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.global.settings` | App settings (JUCE XML) |
-| `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.settings` | Window position, audio setup, encoded `filterState` (JUCE XML) |
+| `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.settings` | Window position, audio setup, `filterState` (plugin editor state, JUCE base64) |
 
 Confirmed on serenity (2026-10-17, v1.2.9, nix-store build). The non-global `.settings`
 file was not seen on concinnity; it is in the same folder, so the backup covers it.
@@ -621,7 +621,8 @@ These tasks need serenity, because the music library and rekordbox run there:
 3. Restore test, **before** T1–T5 so that a failed restore costs no evaluation data:
    back up both folders with the app closed, then delete them, restore them, and start
    the app. The library must be complete, with no rescan. Optionally repeat it after T5,
-   when the DB holds Mixes, ratings and groups.
+   when the DB holds Mixes, ratings and groups. **Passed 2026-10-17** (DB byte-identical
+   after the app ran, no rescan).
 4. Run T1–T5.
 5. Only if you start the Pro trial: find where the license is stored (files changed
    after activation) and record it.
@@ -637,7 +638,8 @@ These tasks need serenity, because the music library and rekordbox run there:
 - **Profiles.** The key changes with the loudness profile. Default in the UI:
   `ECMA-418 (Precise)` (`profile_id` `ecma418`) with level reference `K-System (83 dB SPL)`.
   The DB stores all 14 profiles per track. Which profile do we use (decide in T4), and
-  where is the choice stored (likely the encoded `filterState` in `.settings`)?
+  where is the choice stored? Not in either settings file (`filterState` decodes to the
+  plugin editor state only).
 - **Confidence.** The key accuracy was low (50–57 %) on the 4 test tracks. Is this
   typical?
 - **Tags and modes.**
