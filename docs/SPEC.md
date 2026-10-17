@@ -540,6 +540,10 @@ code signature. The vendor pkg is signed and notarized (Developer ID, team
 | `~/Library/APU Harmonic DJ/harmonic-dj.sqlite` | Library DB: tracks (absolute `path` is the key), analysis, key profiles, ratings, groups, Gems |
 | `~/Library/APU Harmonic DJ/mixes.json`, `mixes/*.hdjmix`, `mix-history/` | Mixes and their revision history |
 | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.global.settings` | App settings (JUCE XML) |
+| `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.settings` | Window position, audio setup, encoded `filterState` (JUCE XML) |
+
+Confirmed on serenity (2026-10-17, v1.2.9, nix-store build). The non-global `.settings`
+file was not seen on concinnity; it is in the same folder, so the backup covers it.
 
 - **Location:** the default paths. We found no setting to move them, and the app
   ignores `HOME`.
@@ -626,11 +630,14 @@ These tasks need serenity, because the music library and rekordbox run there:
 
 #### Open questions
 
-- **Key codes.** The mapping of HDJ key codes to Camelot is not confirmed. They look like
-  a Camelot number plus a mode letter, for example `09A`, `12L`, `04D`. The numbers for
-  modes other than Ionian and Aeolian do not match the Camelot number of the root.
-- **Profiles.** The key changes with the loudness profile (`none`, `ecma418`,
-  `iso226-*`). Which profile do we use, and where is the choice stored?
+- **Key codes — answered (serenity, 490 of 490 key values).** The number is the Camelot
+  number of the mode's **parent major scale**; the letter is the mode (`B` ionian, `D`
+  dorian, `P` phrygian, `L` lydian, `M` mixolydian, `A` aeolian). Same number = same
+  scale, so `B`/`A` codes equal Camelot. Details: [docs/harmonic-dj.md](harmonic-dj.md).
+- **Profiles.** The key changes with the loudness profile. Default in the UI:
+  `ECMA-418 (Precise)` (`profile_id` `ecma418`) with level reference `K-System (83 dB SPL)`.
+  The DB stores all 14 profiles per track. Which profile do we use (decide in T4), and
+  where is the choice stored (likely the encoded `filterState` in `.settings`)?
 - **Confidence.** The key accuracy was low (50–57 %) on the 4 test tracks. Is this
   typical?
 - **Tags and modes.**

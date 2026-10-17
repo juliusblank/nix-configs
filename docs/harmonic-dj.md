@@ -197,6 +197,80 @@ created.
   - **Gotcha:** both data folders are named `APU Harmonic DJ`. Copy them to separate
     destinations, or they merge.
 
+## Evaluation on serenity
+
+### Setup (2026-10-17)
+
+- **Install:** module `custom.harmonicDj` deployed (generation 101, branch
+  `docs/harmonic-dj`). App: `~/Applications/Home Manager Apps/APU Harmonic DJ.app` →
+  nix store. `codesign --verify --deep --strict` ok; `spctl`: Notarized Developer ID.
+- **First run:** one click (appearance setup). No library folder or license prompt.
+- **Files created** (all files newer than a marker set before first launch):
+
+  | Path | In *Storage* table? |
+  |---|---|
+  | `~/Library/APU Harmonic DJ/` (`harmonic-dj.sqlite`, `mixes.json`, `mixes/`, `mix-history/`) | yes |
+  | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.global.settings` | yes |
+  | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.settings` | **new**: window position, `audioSetup`, encoded `filterState` |
+  | `~/Library/Preferences/com.APUSoftware.APUHarmonicDJ.plist` | yes (do not back up) |
+  | `~/Library/Containers/com.APUSoftware.APUHarmonicDJ.APUHarmonicDJAUv3/` | yes (do not back up) |
+  | `~/Library/Application Scripts/com.APUSoftware.APUHarmonicDJ.APUHarmonicDJAUv3/` | **new** (AUv3, system-managed; do not back up) |
+  | `~/Library/Caches/com.juce.locks/juceAppLock_APU Harmonic DJ` | yes (do not back up) |
+  | `/private/var/folders/…/C/com.APUSoftware.APUHarmonicDJ` | yes (cache; do not back up) |
+
+  Paths match the concinnity run. A default empty Mix is created at first launch.
+- **Defaults** (UI toolbar, unchanged): key profile `ECMA-418 (Precise)`, level reference
+  `K-System (83 dB SPL)`, Active Mix target `-14.0 LUFS` (pre-limiter). The global
+  settings file does not store the profile; the encoded `filterState` in `.settings` is
+  the likely place (to be confirmed by changing it once).
+
+### Evaluation folder
+
+- **Path:** `/Users/jbl/Music/purchased/Beatport/2026/20260507` — 27 AIFF tracks, added
+  with **Add Folder** into a new library group `evaluation`.
+- **Beatport file names.** Newer Beatport downloads are named
+  `<date>_<Artist>_<Title>_(<Mix>)_<id>_<BPM>_<Key>_<Quality>_<nn>.aiff`. This covers the
+  evaluation folder (26 of 27 have a key; one has an empty key field), so Beatport is a
+  third reference for T4 here. Older parts of the library do not use this format.
+
+### Database after the first analysis (copy, read-only)
+
+- `pragma integrity_check` = `ok`, `journal_mode` = `delete`, 655 KB for 27 tracks.
+- `tracks`: 27 rows, all with BPM; `path` is the absolute file path.
+- `library_groups`: `evaluation` with 27 members.
+- `track_key_profiles`: 14 profiles × 27 tracks. `profile_id` values: `none`, `ecma418`,
+  `iso226-2003@{68,73,79,83,85,92}`, `iso226-2023@{68,73,79,83,85,92}` (the number is
+  the reference SPL). `key` / `keycode` hold `start->end` when in and out keys differ,
+  e.g. `Bbm aeolian->F ionian` / `03A->07B`. `key_root_value` counts from A = 0.
+
+### Key-code mapping (answered)
+
+Checked on all 490 key values (14 profiles, in and out keys) with a script on a DB copy;
+0 mismatches:
+
+- **Number** = Camelot number of the mode's **parent major scale** (root minus the mode
+  offset: ionian 0, dorian 2, phrygian 4, lydian 5, mixolydian 7, aeolian 9 semitones).
+- **Letter** = mode: `B` ionian, `D` dorian, `P` phrygian, `L` lydian, `M` mixolydian,
+  `A` aeolian.
+- Examples: `Gbm phrygian` → parent D major = 10 → `10P`; `E dorian` → parent D major →
+  `10D`; `A lydian` → parent E major → `12L`.
+- **Consequence:** `B` and `A` codes are plain Camelot. Equal numbers mean the same set of
+  notes, so `10P`, `10D`, `10B` and `10A` share a scale. For rekordbox comparisons, map
+  modes to major / minor first (rekordbox has only these two).
+
+### First look: HDJ (`ecma418`) vs Beatport file name
+
+Not T4 yet (rekordbox is missing); a pre-check on 26 tracks with a Beatport key:
+
+| | Count |
+|---|---|
+| Same root and major / minor quality (lydian, mixolydian count as major; dorian, phrygian, aeolian as minor) | 19 |
+| Same parent scale (relative / modal neighbour) | 2 |
+| Different | 5 |
+
+BPM: 22 equal (rounded), 4 different, none half / double (Beatport 125 → HDJ 101.9,
+142 → 105.0, 162 → 102.1, 80 → 107.1). Check these four in rekordbox and by ear in T4.
+
 ## Claims from the task brief
 
 | Claim | Result |
@@ -251,6 +325,8 @@ Do **not** back up these, because the system or the app creates them again:
 - `~/Library/Caches/com.juce.locks/…`
 - `~/Library/Containers/com.APUSoftware.APUHarmonicDJ.APUHarmonicDJAUv3/`
   (sandbox container of the AUv3)
+- `~/Library/Application Scripts/com.APUSoftware.APUHarmonicDJ.APUHarmonicDJAUv3/`
+  (AUv3, system-managed)
 - `/private/var/folders/…/com.APUSoftware.APUHarmonicDJ` (Metal shader cache)
 
 **Rules:**
