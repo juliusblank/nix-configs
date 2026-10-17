@@ -409,8 +409,8 @@ Camelot · parallel = same root, other major / minor · adjacent · other):
   modal / major tracks as minor, Camelot mixing on rekordbox keys points to the wrong
   neighbours for these tracks.
 
-**Listening (optional — not decisive for the planning-only use).** Not "hear the key": the root is agreed, so only major vs minor
-third is open. Method: play a major and a minor chord on the root next to the track
+**Listening (optional — not decisive for the planning-only use).** Not "hear the key":
+the root is agreed, so only major vs minor third is open. Method: play a major and a minor chord on the root next to the track
 (piano app; HDJ may have a chord preview — clickable keys, `chordGain` setting —
 unverified), or mix against a track all three agree on (e.g. *Temple Tears – Ludo*, Cm).
 Check 4–5 parallel cases, e.g. Gunce Aci (C), Nada – Colmena (C), Johannes Klingebiel (E),
