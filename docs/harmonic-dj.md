@@ -347,6 +347,31 @@ The log is written to `~/Documents/rekordbox/Import Log - <date>.txt` (UTF-16 LE
 not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a path with
 `#` into rekordbox 7.2.14; the plain form fails silently.
 
+### T2 — round trip (2026-10-18): passed, with limitations
+
+1. **rekordbox → M3U8:** playlist `eval T2` (5 tracks incl. `Reda` with `#`, `Überhaupt`,
+   `gázel`), **Playlist → Export a playlist to a file** → `~/Documents/eval T2.m3u8`.
+   Format: `#EXTM3U`, `#EXTINF:<s>,<Artist> - <Title>`, absolute paths, UTF-8, CRLF.
+   rekordbox writes **NFC** paths too; all 5 equal HDJ's `tracks.path` byte for byte.
+2. **M3U8 → HDJ:** Mix menu **… → Import Playlist** → new Mix `eval T2` with source
+   "Imported Playlist", all **5 tracks incl. `Reda`** (HDJ handles `#`), same order.
+   HDJ DB unchanged (27 tracks, 0 path aliases, 0 scan requests, group intact) → the
+   import reuses existing entries, no re-analysis. The Mix stores the list as
+   `sourcePlaylistPaths` (absolute paths), `useSourcePlaylist: true`, profile `ecma418`.
+   HDJ marks transitions that break its rules ("No compatible transition under current
+   rules") but keeps the order.
+3. **Edit in HDJ:** moved Gunce Aci to 1, removed Reda / Überhaupt / Deepstrict, added
+   BALADI and Antaares – Mak **twice** (HDJ allows the same track twice in a Mix). Export
+   `eval T2.m3u` (`#PLAYLIST:eval T2`, no `#` paths).
+4. **M3U → rekordbox** (File → Import → Import Playlist, old `eval T2` still present):
+   rekordbox **does not replace or merge** — it creates a **second playlist
+   `eval T2 (1)`**. Content and order exactly as in HDJ (5 tracks, duplicate kept),
+   waveforms present, collection count unchanged (7037).
+
+**Limitations:** (a) no import "over" an existing playlist — the round trip ends with a
+manual step (delete the old playlist and rename `<name> (1)`, or keep both as versions);
+(b) tracks with `#` are dropped on the way back into rekordbox (known issue below).
+
 ### Known issue: rekordbox M3U import drops tracks with `#` in the path (open)
 
 - **Symptom:** a track whose path contains `#` is missing after importing an M3U into
@@ -371,7 +396,10 @@ not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a pa
   names, mostly Beatport keys such as `F#_Minor` → `Gb_Minor`; 46 folders), then
   relocate the tracks in rekordbox so cue points and analysis stay attached. Plan it as
   its own step (dry-run list first, rekordbox library backup, then rename + relocate);
-  also adjust the Beatport download naming so new files avoid `#`.
+  also adjust the Beatport download naming so new files avoid `#`. HDJ also keys by
+  absolute path (library DB and `sourcePlaylistPaths` / `slots[].path` in Mixes), so
+  renamed files must be re-linked in HDJ too (`track_path_aliases` / "moved file"
+  handling, untested) or re-added.
 - **How other tools do it (Mixo, checked 2026-10-17):** two routes — a `DJ_PLAYLISTS`
   XML export (same as the ruled-out XML import), or "Rekordbox Direct", which **writes
   rekordbox's `master.db`** (Mixo support asks users to grant it read **and write**
