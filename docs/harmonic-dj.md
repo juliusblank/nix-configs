@@ -234,7 +234,7 @@ With the app closed:
 2. Moved the originals away (same effect as deleting, but reversible), then `ditto`
    the copies back. Restored files equal the manifest.
 3. Started the app: 27 tracks, group `evaluation`, keys and BPM shown, status **Ready**,
-   nothing queued. Quit with ⌘Q (closing the window leaves the process running).
+   nothing queued. Quit the app, and check with `pgrep` that it is gone before copying.
 4. Compared the DB after the run with the backup: `harmonic-dj.sqlite` and all Mix
    files are **byte-identical**; `tracks` (`scanned_time_ms`, `status`, `content_hash`,
    analysis columns), `track_key_profiles`, groups, membership and scan queues show
@@ -362,7 +362,7 @@ Do **not** back up these, because the system or the app creates them again:
    result must be `ok`.
 
 **Restore (tested on serenity 2026-10-17, see *Restore test*):**
-1. Quit the app with ⌘Q and check it is gone (`pgrep`, rule 1).
+1. Quit the app and check it is gone (`pgrep`, rule 1).
 2. Copy `hdj-data/` back to `~/Library/APU Harmonic DJ/` and `hdj-settings/` back to
    `~/Library/Application Support/APU Harmonic DJ/`.
 3. Start the app. The library must be complete, without a rescan.
