@@ -62,7 +62,7 @@ jobs:
     name: Build (${{ matrix.host }})
     needs: changes
     if: needs.changes.outputs.nix == 'true'
-    runs-on: macos-14
+    runs-on: macos-15
     # `fail-fast: false` — surface errors on both hosts even if one fails first;
     # avoids a re-run cycle to see what the other host would have reported.
     strategy:
@@ -171,7 +171,7 @@ jobs:
   push-cache:
     name: Push cache (${{ matrix.host }})
     needs: check-flake
-    runs-on: macos-14
+    runs-on: macos-15
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
