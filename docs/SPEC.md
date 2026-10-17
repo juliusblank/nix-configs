@@ -70,6 +70,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 29 | Remote-friendly SSH auth + commit signing on concinnity | **TODO: sync with IT, Matei and Robin.** The 1Password SSH agent locks with the screen, so git auth + signing fail during remote work (Claude Code Remote Control from the phone) with `failed to fill whole buffer`. Options (1Password kept unlocked, Secretive / Secure Enclave, YubiKey FIDO, split signing key + fine-grained PAT) and trade-offs are in `docs/remote-ssh-auth.md`. Decide after the sync; then implement in `hosts/concinnity/home.nix`. |
 | 30 | Proper git pane in Zellij layouts | Done — `zse-git` git pane: `tig status`, or in `ticket` sessions `tig origin/<default>..HEAD` inside `.claude/worktrees/<id>` (waits up to 30 s for the worktree). tig refreshes every 5 s via `~/.config/tig/config` (`refresh-mode periodic`; local `git status`, never a fetch, so no 1Password prompts). `review` layout gets a CI pane (`zse-ci`: `gh pr checks <n>` redrawn every 30 s, HTTPS). `zsek` maps `review-<repo>-pr<n>` to the `.claude/worktrees/pr-<n>` worktree. Panes that wait for Enter after resurrection, and wrong resurrected commands, move to row 31. See `docs/usage/zellij.md`. |
 | 31 | zse session registry; no Zellij resurrection | Done — Zellij resurrection saved the *leaf* process of each pane, so a restored session reran `claude … --session-id <id>` (fails: "already in use"), lost `ZSE_USE_CASE` (no plugin rules), used the old saved layout, and started every command pane suspended until Enter (hint hidden by `pane_frames false`). `post_command_discovery_hook` did not rewrite reliably in tests. Now: `session_serialization false`; a registry at `~/.local/state/zse/sessions/<name>` (use case, start dir, AWS profile, timestamps), written by `zse`, removed by `zse kill`; sessions are always (re)created from the current layout, and `zse-claude --own` resumes each session's own conversation. CLI (`home/modules/zse.zsh`): `zse [-l] [-a] NAME` (start/attach; a stopped registered session starts again with its use case and dir; inside Zellij: background start + switch), `zse ls` (running / stopped / orphan / untracked / old-exited), `zse stop [NAME]` (stop, keep entry/worktree/conversation), `zse kill [NAME]` (worktree prompt, cleanup, remove entry, `delete-session --force`), `zse restore [NAME…]` (background start of stopped sessions; `-a` sessions are listed with their command, since `assume` needs the YubiKey), `zse switch NAME` (restore if stopped, then switch); `zsek` / `zss` / `zsep` are deprecated aliases. |
+| 32 | Harmonic DJ evaluation (serenity) | Evaluation phase — APU Software Harmonic DJ as harmonic analyzer and setlist planner next to rekordbox. Custom nix derivation (app only) on serenity, Community edition, evaluation folder only. Decision gate: reliable round trip with rekordbox, then possibly the single analyzer. See *DJ Toolchain → Harmonic DJ* and [docs/harmonic-dj.md](harmonic-dj.md). Depends on #10 for the DB backup. |
 
 ## Hosts
 
@@ -431,6 +432,8 @@ Reliable, simple backup of serenity user data to AWS S3.
 
 **Open questions:** tool selection (restic, rclone, etc.), restore test strategy (automated schedule vs. on-demand structured process), S3 bucket layout and lifecycle policy.
 
+**Harmonic DJ data** (roadmap #32) must be included: `~/Library/APU Harmonic DJ/` (library DB + Mixes) and `~/Library/Application Support/APU Harmonic DJ/` (settings), copied only while the app is closed and to separate destinations. Details and restore steps: [docs/harmonic-dj.md](harmonic-dj.md#backup-handoff).
+
 ## Project Conventions & Structure
 
 > **Planned — ongoing improvement.**
@@ -472,8 +475,165 @@ Rekordbox and DJ workflow automation lives in this repo — it is part of the pe
 - Automation scripts for recurring tasks
 - Integration with existing system setup (e.g. file paths, backup)
 
+
 **Rekordbox MCP server:**
 > Exploratory. Project home and scope TBD pending broader decision on project organisation.
 
 - Experiment with an MCP server interface to rekordbox data/functionality
 - Relevant to AI-assisted DJ workflow tooling
+
+### Harmonic DJ (APU Software)
+
+> **Evaluation phase** (roadmap #32). Research, the first-run test and all sources:
+> [docs/harmonic-dj.md](harmonic-dj.md).
+
+**Purpose.** Use Harmonic DJ to get good track and setlist suggestions from rich
+harmonic data:
+- modes (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian);
+- separate in / out keys;
+- BPM and loudness;
+- transition routes for a whole set.
+
+If it works well, it can replace rekordbox as the **single** analyzer for key and BPM.
+
+**Guiding rules:**
+1. Exactly **one** system is the analysis source of truth for key and BPM at any time.
+   During the evaluation, that system is **rekordbox**.
+2. Harmonic DJ **must work reliably with rekordbox**, the library tool. A result that
+   rekordbox cannot use without manual fixes does not count.
+
+**Facts that drive the design** (verified 2026-10-17, v1.2.9):
+- No CLI or API.
+- No rekordbox XML import or export.
+- Exchange: M3U/M3U8 import and M3U export, with absolute paths.
+- Tags: it reads them (TagLib) and does not rewrite them.
+- Its library is a plain SQLite database that we can read.
+
+#### Packaging and host
+
+| Item | Decision |
+|---|---|
+| Host | **serenity** only (next to rekordbox and the music library) |
+| Edition | **Community** (free). Pro ($40, one-time) is decided at the decision gate |
+| Packaging | Custom derivation: `fetchurl` of the versioned dmg (`https://apu.software/release/APU-HarmonicDJ-Installer-<v>.dmg`, pinned hash), `undmg` → `xar -xf` of the Standalone component → gzip cpio payload → `APU Harmonic DJ.app` only. No VST3 / AU / AAX plug-ins, no writes to `/Library` |
+| Module | New `home/modules/harmonic-dj.nix` (`custom.harmonicDj.enable`), enabled in `hosts/serenity/home.nix` |
+| Updates | Manual: bump version + hash. Old versions stay downloadable. There is no public changelog, so read the in-app release info |
+
+The app bundle includes an AUv3 extension (`Contents/PlugIns/APU Harmonic DJ.appex`).
+macOS registers it at first launch. We accept this, because removing it would break the
+code signature. The vendor pkg is signed and notarized (Developer ID, team
+`RPGGCLW336`).
+
+#### License
+
+- **Community:** no license.
+- **Pro:** activate it by hand in **About**. Activation is local and offline (privacy
+  policy).
+- **The key:** store it in 1Password, never in the repo.
+- **Unknown:** where the app stores the license, and the machine limits. To find out,
+  see the TODO for serenity below.
+
+#### Storage and settings
+
+| Path | Content |
+|---|---|
+| `~/Library/APU Harmonic DJ/harmonic-dj.sqlite` | Library DB: tracks (absolute `path` is the key), analysis, key profiles, ratings, groups, Gems |
+| `~/Library/APU Harmonic DJ/mixes.json`, `mixes/*.hdjmix`, `mix-history/` | Mixes and their revision history |
+| `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.global.settings` | App settings (JUCE XML) |
+
+- **Location:** the default paths. We found no setting to move them, and the app
+  ignores `HOME`.
+- **Settings are not pinned declaratively.** The app rewrites its XML file, and there is
+  no safe way to merge settings into it. Record the preferred values in
+  `docs/harmonic-dj.md` after the evaluation: loudness profile, appearance, columns.
+- **Backup:** part of #10. See the *Backup* section and the
+  [handoff](harmonic-dj.md#backup-handoff).
+
+#### Workflow and data flow (evaluation)
+
+The current workflow, with the new Harmonic DJ steps in **bold**:
+
+1. Dig tracks on Spotify and group them into playlists.
+2. When a playlist is ready, purchase, download and extract the tracks into the library
+   folder.
+3. Import them into a rekordbox playlist per purchase date. **Add the same tracks to
+   Harmonic DJ** (folder scan or M3U import), only from the evaluation folder.
+4. Analyze in rekordbox and **in Harmonic DJ**.
+5. Set cue points in rekordbox.
+6. **Optional:** compare the analyses of the two tools, and possibly write Harmonic DJ
+   information into rekordbox tags. This step is experimental.
+7. Build setlists. **Plan them in Harmonic DJ, export M3U, and import into rekordbox.**
+
+Data flow:
+- **rekordbox → Harmonic DJ:** M3U playlist export, used as the base list.
+- **Harmonic DJ → rekordbox:** M3U export of a planned Mix. Key, BPM and tags flow only
+  through the experiments below.
+- **Extra fields** (modes, in / out keys, intensity / loudness): used only in Harmonic DJ
+  for now. Later, some of them can go into rekordbox, for example in a comment or tag
+  field.
+- **MCP (#16):** the future MCP server reads `harmonic-dj.sqlite` **read-only**, so both
+  analyses can be queried together. It never writes to the DB.
+- **Beatport-preview verification:** not involved, because that pipeline is not built
+  yet. When it is built, it uses the one analyzer that the decision gate chooses.
+
+#### Evaluation tests
+
+All tests are manual, on serenity, with the evaluation folder. Record the results in
+`docs/harmonic-dj.md`.
+
+| # | Test | Pass when |
+|---|---|---|
+| T1 | **Setlist into rekordbox (MVP).** Plan a Mix in HDJ → M3U export → import into rekordbox | Every track resolves to the **existing** rekordbox collection entry (cue points, analysis and comments are kept). No duplicates, no "missing file" entries, no manual fixes |
+| T2 | **Round trip.** Export a rekordbox playlist as M3U → import into HDJ as a base list → change the order and add / remove tracks in HDJ → M3U export → import into rekordbox **over the existing playlist** | The rekordbox playlist shows the new order and content. Tracks resolve as in T1. How rekordbox replaces or merges an existing playlist on import is documented |
+| T3 | **Tag writing (experiment).** Write HDJ data (e.g. key incl. mode, in / out key) into audio file tags with a script, on **copies** first | No lost updates: rekordbox cue points, beatgrid, comments and ratings are unchanged. Audio is bit-identical (compare a hash of the decoded audio). HDJ and rekordbox show the new tags after a rescan / reload. No conflict with rekordbox's own tag writes. Repeat the test after rekordbox writes tags too |
+| T4 | **Analysis comparison.** Compare key and BPM of HDJ and rekordbox for every track in the evaluation folder (script on both DBs, or by hand) | Rate of agreement (same key, or relative major / minor) is recorded. You checked the disagreements by ear and recorded which tool was right more often |
+| T5 | **Suggestion value.** Build 2–3 setlists with HDJ routes (5-track Mixes in Community) | You judge the transitions and mode / in-out information better than or equal to your own Camelot-based ordering |
+
+#### Decision gate
+
+At the end of the evaluation:
+
+- **Pass:** T1, T2 and T5 pass. Then:
+  - Move the scope from the evaluation folder to a **larger, cleaned-up subset** of the
+    library. The full library must be cleaned up first.
+  - Decide on Pro.
+- **HDJ becomes the single analyzer only when:**
+  - T3 (or another tested path) brings key and BPM into rekordbox reliably, and
+  - T4 shows that HDJ is at least as good as rekordbox.
+
+  Until both are true, rekordbox stays the source of truth, and HDJ is a planning tool
+  only.
+- **Fail:** remove the module, and leave a short record of the result in
+  `docs/harmonic-dj.md`.
+
+#### TODO for serenity
+
+These tasks need serenity, because the music library and rekordbox run there:
+
+1. Enable the module, deploy, and start the app. Confirm that the paths in *Storage* are
+   the same.
+2. Set the path of the evaluation folder (an existing, cleaned-up folder). Write it into
+   `docs/harmonic-dj.md`. Add it to HDJ.
+3. Run T1–T5.
+4. Restore test: back up both folders with the app closed, then delete them, restore
+   them, and start the app. The library must be complete, with no rescan.
+5. Only if you start the Pro trial: find where the license is stored (files changed
+   after activation) and record it.
+6. Hand the backup paths to the #10 backup work (local branch on serenity).
+
+#### Open questions
+
+- **Key codes.** The mapping of HDJ key codes to Camelot is not confirmed. They look like
+  a Camelot number plus a mode letter, for example `09A`, `12L`, `04D`. The numbers for
+  modes other than Ionian and Aeolian do not match the Camelot number of the root.
+- **Profiles.** The key changes with the loudness profile (`none`, `ecma418`,
+  `iso226-*`). Which profile do we use, and where is the choice stored?
+- **Confidence.** The key accuracy was low (50–57 %) on the 4 test tracks. Is this
+  typical?
+- **Tags and modes.**
+  - Does rekordbox take key and BPM from file tags at all for tracks that are already
+    analyzed? Which tags does it read?
+  - rekordbox stores only major or minor, so where does the mode go?
+- **M3U path matching.** Does rekordbox match M3U paths reliably? Think of Unicode
+  normalization and moved files.
+- **License.** Where is it stored, and is it bound to the machine?
