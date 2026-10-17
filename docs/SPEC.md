@@ -41,7 +41,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 |---|---|---|
 | 1 | Pre-commit hooks (`nixfmt-rfc-style`) | Done — nixfmt (staged .nix), tofu fmt (staged .tf), flake.lock consistency check |
 | 2 | Branch + PR workflow with squash merges | Done — squash-only, PRs required, admins enforced |
-| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-14) only runs when nix files change, builds serenity and concinnity in parallel matrix jobs; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on same-repo PRs and on merge to main |
+| 3 | GitHub Actions CI workflow (`nix flake check`) | Done — path-aware jobs via `dorny/paths-filter`; `check-flake` (macos-15) only runs when nix files change, builds serenity and concinnity in parallel matrix jobs; `validate-release` runs on `chore/release-*` branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on same-repo PRs and on merge to main |
 | 4 | `tf-apply` guardrails | Done — hard block if not on `main` and working tree is dirty; soft warn (warn + require Enter) if not on `main` but tree is clean; on `main`, runs without interruption. `tf-plan` prints a warning when not on `main`. CI bypasses naturally (always clean, always on main). |
 | 5 | `tf-plan` / `tf-apply` plan-to-file workflow | Done — `tf-plan` saves `tofu plan -out=tfplan`; `tf-apply` requires the plan file, runs `tofu apply tfplan`, then deletes it. Apply is deterministic (no re-evaluation). `tf-apply` exits with an error if no plan file exists. |
 | 6 | Automated CI/CD for infrastructure | Done — `.github/workflows/infra.yml` triggers on `terraform/**` changes. On PR: fresh `tofu plan`, output posted as a PR comment (collapsed, truncated at 60 KB). On merge to `main`: fresh plan + apply in one job. AWS via OIDC; GitHub provider token fetched live from 1Password via `1password/load-secrets-action` on every run (SA: `github-actions-nix-configs`, vault: `infrastructure`). OIDC role extended with scoped policies: tofu state access, state backend management, IAM resource management, and nix cache bucket management (`terraform/iam-ci.tf`), plus nix cache read/write (`terraform/oidc.tf`). `OP_SERVICE_ACCOUNT_TOKEN` secret managed by terraform; SA token stored at `op://infrastructure/github-actions-nix-configs/token`. |
@@ -101,7 +101,7 @@ Tools and config that EVERY host gets:
 
 - **OpenTofu** manages: GitHub repo settings, branch protection, PR scope labels, OIDC federation, S3 cache bucket, S3 state bucket, DynamoDB lock table, CI OIDC role + policies, `nix-configs-infra` IAM user + managed policy (switched from Terraform due to BSL 1.1 license)
 - **S3 backend** for OpenTofu state (versioned, locked via DynamoDB) — bucket and table are themselves managed by tofu; bootstrap with `just setup-terraform-backend` then `just tf-import-backend`
-- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-14, `nix flake check` + parallel matrix build of serenity and concinnity) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on same-repo PRs and on merge to main (see [docs/ci.md](ci.md))
+- **GitHub Actions** for CI: path-aware jobs (`dorny/paths-filter`) — `check-flake` (macos-15, `nix flake check` + parallel matrix build of serenity and concinnity) only runs when nix files change; `validate-release` runs on release branches; `ci-passed` fan-in is the single required status check; `push-cache` matrix pushes both host closures to S3 on same-repo PRs and on merge to main (see [docs/ci.md](ci.md))
 - **PR scope labels** (`infra`, `ci`, `host:serenity`, `host:concinnity`, `home`, `flake`, `deps`, `docs`) are applied by `.github/workflows/pr-labeler.yml` based on file paths in `.github/labeler.yml`. Labels themselves are declared in `terraform/github-labels.tf` so they stay in sync with the mapping file.
 - **S3 binary cache** for nix store paths (signed, used by all hosts + CI) — active; serenity configured with **`nix.settings`** substituters and trusted public key; CI pushes closures on every PR CI run (same-repo) and on every merge to main, so paths introduced by a PR are warm before the merge build
 
@@ -111,7 +111,7 @@ Tools and config that EVERY host gets:
 Complete. The S3 cache bucket is public-read. The signing key pair was generated via
 `just setup-nix-cache-keys`; the private key is in 1Password (`op://github_nix-configs/Nix Cache
 Signing Key/private_key`) and the public key is committed in `hosts/serenity/configuration.nix`.
-The `push-cache` CI job (`macos-14` runner) is a matrix over both hosts (serenity, concinnity)
+The `push-cache` CI job (`macos-15` runner) is a matrix over both hosts (serenity, concinnity)
 that pushes each closure to S3 in parallel, using the signing key read from 1Password at runtime
 via the `github-actions-nix-configs` service account. It runs on every same-repo PR CI run **and**
 on every merge to main, so a derivation introduced by a PR (e.g. a nixpkgs bump that invalidates

@@ -62,7 +62,7 @@ jobs:
     name: Build (${{ matrix.host }})
     needs: changes
     if: needs.changes.outputs.nix == 'true'
-    runs-on: macos-14
+    runs-on: macos-15
     # `fail-fast: false` — surface errors on both hosts even if one fails first;
     # avoids a re-run cycle to see what the other host would have reported.
     strategy:
@@ -72,7 +72,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v27
+      # v31+ installs a Nix whose installer puts the build users at UID 351+ on
+      # macOS 15; the v27 installer used 301-306, which macOS 15 already uses.
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -171,7 +173,7 @@ jobs:
   push-cache:
     name: Push cache (${{ matrix.host }})
     needs: check-flake
-    runs-on: macos-14
+    runs-on: macos-15
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
@@ -183,7 +185,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v27
+      # v31+ installs a Nix whose installer puts the build users at UID 351+ on
+      # macOS 15; the v27 installer used 301-306, which macOS 15 already uses.
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
