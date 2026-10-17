@@ -224,6 +224,7 @@ just changelog           # regenerate CHANGELOG.md locally
 │       ├── aerospace.nix  # AeroSpace tiling WM
 │       ├── aws.nix        # declarative ~/.aws/config (serenity)
 │       ├── granted.nix    # Granted AWS credential manager
+│       ├── harmonic-dj.nix  # Harmonic DJ app derivation (serenity, evaluation)
 │       ├── zellij.nix     # Zellij layouts + config
 │       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
@@ -239,6 +240,7 @@ just changelog           # regenerate CHANGELOG.md locally
     ├── SPEC.md            # living specification
     ├── ci.md              # CI job graph
     ├── remote-ssh-auth.md # remote SSH auth + signing options (open)
+    ├── harmonic-dj.md     # Harmonic DJ research, test run, backup handoff
     └── usage/
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow

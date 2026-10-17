@@ -38,6 +38,7 @@ in
     ../../home/darwin.nix
     ../../home/modules/granted.nix
     ../../home/modules/aws.nix
+    ../../home/modules/harmonic-dj.nix
   ];
 
   home = {
@@ -76,17 +77,22 @@ in
   # 1Password agent (Private vault). Matches the first entry in `personalAllowedSigners`.
   programs.git.signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
 
-  # Granted for AWS credential management
-  custom.granted.enable = true;
+  custom = {
+    # Granted for AWS credential management
+    granted.enable = true;
 
-  # AWS CLI profiles
-  custom.aws = {
-    enable = true;
-    profiles = [
-      {
-        name = opEntry;
-        credentialProcess = "${credProcess}";
-      }
-    ];
+    # Harmonic DJ, evaluation phase (roadmap #32; docs/harmonic-dj.md)
+    harmonicDj.enable = true;
+
+    # AWS CLI profiles
+    aws = {
+      enable = true;
+      profiles = [
+        {
+          name = opEntry;
+          credentialProcess = "${credProcess}";
+        }
+      ];
+    };
   };
 }
