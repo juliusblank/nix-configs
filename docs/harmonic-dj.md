@@ -347,28 +347,29 @@ The log is written to `~/Documents/rekordbox/Import Log - <date>.txt` (UTF-16 LE
 not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a path with
 `#` into rekordbox 7.2.14; the plain form fails silently.
 
-### Known issue: HDJ M3U drops tracks with `#` in the path (open)
+### Known issue: rekordbox M3U import drops tracks with `#` in the path (open)
 
-- **Symptom:** a track whose path contains `#` is missing after importing an HDJ M3U
-  into rekordbox 7.2.14. No error, no log entry. Affects ~2 % of the library (126 files).
-- **Contrast:** rekordbox's own playlist export (`20260507.m3u8`) contains the **same
-  path bytes** for `Reda`, and re-importing it keeps the track (user test, 2026-10-17).
-  The formats differ:
+- **Symptom:** a track whose path contains `#` is missing after importing an M3U into
+  rekordbox 7.2.14. No error, no log entry. Affects ~2 % of the library (126 files).
+- **Cause is rekordbox, not HDJ.** rekordbox's **own** playlist export
+  (`20260507.m3u8`, 27 tracks) re-imports with **26** tracks: `Reda` is dropped there
+  too. Its `Reda` path line is byte-identical to HDJ's (incl. CRLF), so HDJ's export is
+  not at fault. (An earlier note here said rekordbox's export keeps the track — that
+  was wrong: only the export contains it, the import drops it.)
+- **T1d — format variants (2026-10-17), all 0 tracks:**
 
-  | | rekordbox export (works) | HDJ export (drops `#` lines) |
-  |---|---|---|
-  | Extension | `.m3u8` | `.m3u` |
-  | Before each path | `#EXTINF:<seconds>,<Artist> - <Title>` | nothing |
-  | Header | `#EXTM3U` | `#EXTM3U`, `#EXTENC:UTF-8`, `#PLAYLIST:<name>` |
-  | Encoding / line ends | UTF-8, CRLF | UTF-8, CRLF |
+  | File | Variant |
+  |---|---|
+  | `t1d-1-extinf.m3u` | HDJ header + `#EXTINF:423,<Artist> - <Title>` before the path |
+  | `t1d-2-ext-m3u8.m3u8` | HDJ format, `.m3u8` extension |
+  | `t1d-3-control.m3u8` | rekordbox style (`#EXTM3U` + `#EXTINF`), byte-identical to rekordbox's block |
 
-- **Hypothesis (not tested):** rekordbox accepts a `#` path only right after an
-  `#EXTINF` line, or decides by the `.m3u8` extension. A single-track test with
-  `#EXTINF` and / or `.m3u8` would tell; same risk as T1c (playlist import only).
-- **Not pursued for now:** rekordbox XML import (risk of overwriting existing track
-  data) and renaming the 126 files.
+  Together with T1c (plain, `file://` URL, `%23`): **no M3U spelling works.**
+- **Remaining routes (not pursued for now):** rekordbox XML import (risk of overwriting
+  existing track data; needs a library backup first), or renaming the 126 files (no `#`).
 - **Until fixed:** after importing an HDJ M3U, compare the track count with the HDJ Mix
-  and add missing `#` tracks by hand.
+  and add missing `#` tracks by hand. Reporting it to AlphaTheta (rekordbox support) is
+  an option.
 
 ## Claims from the task brief
 

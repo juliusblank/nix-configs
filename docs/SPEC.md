@@ -648,9 +648,9 @@ These tasks need serenity, because the music library and rekordbox run there:
   - rekordbox stores only major or minor, so where does the mode go?
 - **M3U path matching.** Partly answered (T1, serenity): rekordbox matches HDJ's paths
   to existing entries, also NFC vs NFD names. **Known issue:** tracks with `#` in the
-  path are dropped silently (~2 % of the library); rekordbox's own `.m3u8` with
-  `#EXTINF` keeps them. See [docs/harmonic-dj.md](harmonic-dj.md). Moved files: not
-  tested.
+  path are dropped silently (~2 % of the library). This is a rekordbox 7.2.14 import
+  limitation: it also drops them from its own `.m3u8` export, and no M3U spelling
+  works. See [docs/harmonic-dj.md](harmonic-dj.md). Moved files: not tested.
 - **License.** Where is it stored, and is it bound to the machine?
 - **AUv3 registration.** The app is symlinked from the nix store into
   `~/Applications/Home Manager Apps/`, so macOS registers the embedded AUv3 from a store
