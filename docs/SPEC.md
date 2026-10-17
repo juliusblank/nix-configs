@@ -70,7 +70,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 29 | Remote-friendly SSH auth + commit signing on concinnity | **TODO: sync with IT, Matei and Robin.** The 1Password SSH agent locks with the screen, so git auth + signing fail during remote work (Claude Code Remote Control from the phone) with `failed to fill whole buffer`. Options (1Password kept unlocked, Secretive / Secure Enclave, YubiKey FIDO, split signing key + fine-grained PAT) and trade-offs are in `docs/remote-ssh-auth.md`. Decide after the sync; then implement in `hosts/concinnity/home.nix`. |
 | 30 | Proper git pane in Zellij layouts | Done — `zse-git` git pane: `tig status`, or in `ticket` sessions `tig origin/<default>..HEAD` inside `.claude/worktrees/<id>` (waits up to 30 s for the worktree). tig refreshes every 5 s via `~/.config/tig/config` (`refresh-mode periodic`; local `git status`, never a fetch, so no 1Password prompts). `review` layout gets a CI pane (`zse-ci`: `gh pr checks <n>` redrawn every 30 s, HTTPS). `zsek` maps `review-<repo>-pr<n>` to the `.claude/worktrees/pr-<n>` worktree. Panes that wait for Enter after resurrection, and wrong resurrected commands, move to row 31. See `docs/usage/zellij.md`. |
 | 31 | zse session registry; no Zellij resurrection | Done — Zellij resurrection saved the *leaf* process of each pane, so a restored session reran `claude … --session-id <id>` (fails: "already in use"), lost `ZSE_USE_CASE` (no plugin rules), used the old saved layout, and started every command pane suspended until Enter (hint hidden by `pane_frames false`). `post_command_discovery_hook` did not rewrite reliably in tests. Now: `session_serialization false`; a registry at `~/.local/state/zse/sessions/<name>` (use case, start dir, AWS profile, timestamps), written by `zse`, removed by `zse kill`; sessions are always (re)created from the current layout, and `zse-claude --own` resumes each session's own conversation. CLI (`home/modules/zse.zsh`): `zse [-l] [-a] NAME` (start/attach; a stopped registered session starts again with its use case and dir; inside Zellij: background start + switch), `zse ls` (running / stopped / orphan / untracked / old-exited), `zse stop [NAME]` (stop, keep entry/worktree/conversation), `zse kill [NAME]` (worktree prompt, cleanup, remove entry, `delete-session --force`), `zse restore [NAME…]` (background start of stopped sessions; `-a` sessions are listed with their command, since `assume` needs the YubiKey), `zse switch NAME` (restore if stopped, then switch); `zsek` / `zss` / `zsep` are deprecated aliases. |
-| 32 | Harmonic DJ evaluation (serenity) | Evaluation phase — APU Software Harmonic DJ as harmonic analyzer and setlist planner next to rekordbox. Custom nix derivation (app only) on serenity, Community edition, evaluation folder only. Decision gate: reliable round trip with rekordbox, then possibly the single analyzer. See *DJ Toolchain → Harmonic DJ* and [docs/harmonic-dj.md](harmonic-dj.md). Depends on #10 for the DB backup. |
+| 32 | Harmonic DJ evaluation (serenity) | Evaluation phase — APU Software Harmonic DJ as harmonic analyzer and setlist planner next to rekordbox. Custom nix derivation (app only) on serenity, Community edition, evaluation folder only. Intended use: set planning from a pre-selected base list; rekordbox stays the analyzer. Status: T1, T2 passed (known limitations), T5 open; Pro needed for real set sizes. See *DJ Toolchain → Harmonic DJ* and [docs/harmonic-dj.md](harmonic-dj.md). Depends on #10 for the DB backup. |
 
 ## Hosts
 
@@ -497,7 +497,11 @@ harmonic data:
 - BPM and loudness;
 - transition routes for a whole set.
 
-If it works well, it can replace rekordbox as the **single** analyzer for key and BPM.
+**Intended use (decided 2026-10-18): set planning only.** Harmonic DJ compiles and
+orders playlists from a pre-selected base list, using its extra data per track, to save
+the time spent compiling lists and listening through them. rekordbox stays the analysis
+source of truth and the library tool. Replacing rekordbox as the analyzer is **not
+planned** (it would need a reliable tag path, see T3).
 
 **Guiding rules:**
 1. Exactly **one** system is the analysis source of truth for key and BPM at any time.
@@ -567,21 +571,27 @@ The current workflow, with the new Harmonic DJ steps in **bold**:
    Harmonic DJ** (folder scan or M3U import), only from the evaluation folder.
 4. Analyze in rekordbox and **in Harmonic DJ**.
 5. Set cue points in rekordbox.
-6. **Optional:** compare the analyses of the two tools, and possibly write Harmonic DJ
-   information into rekordbox tags. This step is experimental.
-7. Build setlists. **Plan them in Harmonic DJ, export M3U, and import into rekordbox.**
+6. Build setlists with **Harmonic DJ** (the intended use):
+   1. Pre-select the tracks for one set in a rekordbox playlist (the base list).
+   2. Export it (**Playlist → Export a playlist to a file**, M3U8) and import it into a
+      **new Harmonic DJ Mix** (Mix menu **… → Import Playlist**).
+   3. Let Harmonic DJ compile the order — either **only from the base list**, or
+      **adding fitting tracks** from the analyzed pool.
+   4. Export the Mix as M3U and import it into rekordbox (**File → Import → Import
+      Playlist**). rekordbox creates `<name> (1)`; delete or rename the old playlist.
+      Check the track count: tracks with `#` in the path are dropped (known issue).
 
 Data flow:
 - **rekordbox → Harmonic DJ:** M3U playlist export, used as the base list.
 - **Harmonic DJ → rekordbox:** M3U export of a planned Mix. Key, BPM and tags flow only
-  through the experiments below.
+  through the deferred T3 experiment.
 - **Extra fields** (modes, in / out keys, intensity / loudness): used only in Harmonic DJ
   for now. Later, some of them can go into rekordbox, for example in a comment or tag
   field.
 - **MCP (#16):** the future MCP server reads `harmonic-dj.sqlite` **read-only**, so both
   analyses can be queried together. It never writes to the DB.
 - **Beatport-preview verification:** not involved, because that pipeline is not built
-  yet. When it is built, it uses the one analyzer that the decision gate chooses.
+  yet. When it is built, it uses rekordbox as the analyzer (see the decision gate).
 
 #### Evaluation tests
 
@@ -592,24 +602,25 @@ All tests are manual, on serenity, with the evaluation folder. Record the result
 |---|---|---|
 | T1 | **Setlist into rekordbox (MVP).** Plan a Mix in HDJ → M3U export → import into rekordbox | Every track resolves to the **existing** rekordbox collection entry (cue points, analysis and comments are kept). No duplicates, no "missing file" entries, no manual fixes |
 | T2 | **Round trip.** Export a rekordbox playlist as M3U → import into HDJ as a base list → change the order and add / remove tracks in HDJ → M3U export → import into rekordbox **over the existing playlist** | The rekordbox playlist shows the new order and content. Tracks resolve as in T1. How rekordbox replaces or merges an existing playlist on import is documented |
-| T3 | **Tag writing (experiment).** Write HDJ data (e.g. key incl. mode, in / out key) into audio file tags with a script, on **copies** first | No lost updates: rekordbox cue points, beatgrid, comments and ratings are unchanged. Audio is bit-identical (compare a hash of the decoded audio). HDJ and rekordbox show the new tags after a rescan / reload. No conflict with rekordbox's own tag writes. Repeat the test after rekordbox writes tags too |
-| T4 | **Analysis comparison.** Compare key and BPM of HDJ and rekordbox for every track in the evaluation folder (script on both DBs, or by hand) | Rate of agreement (same key, or relative major / minor) is recorded. You checked the disagreements by ear and recorded which tool was right more often |
-| T5 | **Suggestion value.** Build 2–3 setlists with HDJ routes (5-track Mixes in Community) | You judge the transitions and mode / in-out information better than or equal to your own Camelot-based ordering |
+| T3 | **Tag writing (experiment) — deferred.** Not needed for the intended use (planning only). Kept for a possible later "HDJ as analyzer" decision: write HDJ data into audio file tags with a script, on **copies** first | No lost updates: rekordbox cue points, beatgrid, comments and ratings are unchanged. Audio is bit-identical (compare a hash of the decoded audio). HDJ and rekordbox show the new tags after a rescan / reload (rekordbox: *Display key information on the database*). No conflict with rekordbox's own tag writes |
+| T4 | **Analysis comparison.** Compare key and BPM of HDJ and rekordbox for every track in the evaluation folder (`scripts/dj/hdj_compare_keys.py`) | Rate of agreement is recorded. **Listening on disagreements is optional** (informative, not decisive for the intended use) |
+| T5 | **Suggestion value (main test).** Run the set-planning workflow (step 6 above) with a **real pre-selected set**: (a) compile only from the base list; (b) let HDJ add fitting tracks from a larger analyzed pool. Tune the generator rules (BPM range, key strictness) as needed | The HDJ order saves time against your manual compiling and listening, and you judge its transitions better than or equal to your own ordering |
+| T6 | **Base list with unknown tracks.** Import a base list that contains a track HDJ has not analyzed yet | What HDJ does is documented (adds and analyzes it, skips it, or errors) |
 
 #### Decision gate
 
 At the end of the evaluation:
 
-- **Pass:** T1, T2 and T5 pass. Then:
+- **Pass:** T1, T2 and T5 pass (T1 / T2 passed with known limitations, see
+  [docs/harmonic-dj.md](harmonic-dj.md)). Then:
   - Move the scope from the evaluation folder to a **larger, cleaned-up subset** of the
-    library. The full library must be cleaned up first.
-  - Decide on Pro.
-- **HDJ becomes the single analyzer only when:**
-  - T3 (or another tested path) brings key and BPM into rekordbox reliably, and
-  - T4 shows that HDJ is at least as good as rekordbox.
-
-  Until both are true, rekordbox stays the source of truth, and HDJ is a planning tool
-  only.
+    library, so HDJ has a pool to suggest from (T5b). The full library must be cleaned
+    up first.
+  - Decide on **Pro**. Community saves at most **5 tracks per Mix**; a real set
+    (≈15–30 tracks) needs Pro ($40 one-time) for the intended use.
+- **HDJ as the single analyzer: not planned.** Revisit only if T3 brings key and BPM into
+  rekordbox reliably and T4 (incl. listening) shows HDJ at least as good as rekordbox.
+  Until then rekordbox stays the source of truth.
 - **Fail:** remove the module, and leave a short record of the result in
   `docs/harmonic-dj.md`.
 
@@ -626,7 +637,8 @@ These tasks need serenity, because the music library and rekordbox run there:
    the app. The library must be complete, with no rescan. Optionally repeat it after T5,
    when the DB holds Mixes, ratings and groups. **Passed 2026-10-17** (DB byte-identical
    after the app ran, no rescan).
-4. Run T1–T5.
+4. Run the tests. Status 2026-10-18: T1 and T2 passed with known limitations; T3
+   deferred; T4 data done (listening optional); **T5 and T6 open**.
 5. Only if you start the Pro trial: find where the license is stored (files changed
    after activation) and record it.
 6. Hand the backup paths and the inhibit process name to the #10 backup work (draft

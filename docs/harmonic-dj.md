@@ -372,7 +372,7 @@ not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a pa
 manual step (delete the old playlist and rename `<name> (1)`, or keep both as versions);
 (b) tracks with `#` are dropped on the way back into rekordbox (known issue below).
 
-### T4 — analysis comparison (2026-10-18): data done, listening pending
+### T4 — analysis comparison (2026-10-18): data done, listening optional
 
 **Method.** `scripts/dj/hdj_compare_keys.py` (read-only) on the 27 evaluation tracks:
 rekordbox from a collection XML **export** (File → Export Collection in xml format),
@@ -409,7 +409,7 @@ Camelot · parallel = same root, other major / minor · adjacent · other):
   modal / major tracks as minor, Camelot mixing on rekordbox keys points to the wrong
   neighbours for these tracks.
 
-**Listening (pending).** Not "hear the key": the root is agreed, so only major vs minor
+**Listening (optional — not decisive for the planning-only use).** Not "hear the key": the root is agreed, so only major vs minor
 third is open. Method: play a major and a minor chord on the root next to the track
 (piano app; HDJ may have a chord preview — clickable keys, `chordGain` setting —
 unverified), or mix against a track all three agree on (e.g. *Temple Tears – Ludo*, Cm).
