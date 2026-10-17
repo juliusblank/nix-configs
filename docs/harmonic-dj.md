@@ -332,8 +332,20 @@ HDJ can open them. rekordbox matches the NFC path to its collection entry (T1b).
     collection. Likely cause: rekordbox treats `#` as a URL fragment and truncates the path.
 - **Scope:** 126 of 6217 audio files under `~/Music` (~2 %) have `#` in the path (107 in
   the file name, mostly Beatport keys like `F#_Minor`; the rest via 46 folders).
-- **Workaround test (T1c):** single-track M3Us for `Reda` in `~/Documents/hdj-t1c/`:
-  plain path (repro), percent-encoded `file://` URL, plain path with `%23`.
+
+### T1c — M3U workarounds for `#` (2026-10-17): none works
+
+Single-track M3Us for `Reda` (`~/Documents/hdj-t1c/`), imported one by one:
+
+| Variant | Result | rekordbox import log |
+|---|---|---|
+| Plain path with `#` (as HDJ exports) | 0 tracks, no message | not listed — the line is skipped, as if it were a comment |
+| `file:///…F%23_Minor…` (percent-encoded URL) | 0 tracks, error dialog | listed as `…%28Original_Mix%29…F%23…` — `file://` stripped, escapes **not decoded** |
+| Plain path with `%23` | 0 tracks, error dialog | listed as `…F%23_Minor…` — not decoded |
+
+The log is written to `~/Documents/rekordbox/Import Log - <date>.txt` (UTF-16 LE, CRLF),
+not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a path with
+`#` into rekordbox 7.2.14; the plain form fails silently.
 
 ## Claims from the task brief
 
