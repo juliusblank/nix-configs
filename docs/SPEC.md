@@ -637,9 +637,9 @@ These tasks need serenity, because the music library and rekordbox run there:
   scale, so `B`/`A` codes equal Camelot. Details: [docs/harmonic-dj.md](harmonic-dj.md).
 - **Profiles.** The key changes with the loudness profile. Default in the UI:
   `ECMA-418 (Precise)` (`profile_id` `ecma418`) with level reference `K-System (83 dB SPL)`.
-  The DB stores all 14 profiles per track. Which profile do we use (decide in T4), and
-  where is the choice stored? Not in either settings file (`filterState` decodes to the
-  plugin editor state only).
+  The DB stores all 14 profiles per track. The choice is a **per-Mix** setting
+  (`settings.keyProfile` in `mixes/<id>.hdjmix`, answered on serenity). Still open:
+  which profile do we use (decide in T4), and which profile does a new Mix start with?
 - **Confidence.** The key accuracy was low (50–57 %) on the 4 test tracks. Is this
   typical?
 - **Tags and modes.**

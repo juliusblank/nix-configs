@@ -224,7 +224,16 @@ created.
   file stores the profile. `filterState` in `.settings` is a JUCE base64 block
   (`<size>.<data>`); decoded, it is the plugin editor state only:
   `<APUHarmonicDJ editorWidth="1152" editorHeight="648" chordGain="-18.0" preferDark="1"
-  hostBPM="0"/>`. Where (or whether) the profile choice persists is still open.
+  hostBPM="0"/>`.
+- **Where the profile is stored (answered).** The toolbar profile is a **per-Mix
+  setting**: `settings.keyProfile` in the active Mix's `mixes/<id>.hdjmix` (switching
+  to ISO 226-2003 @ 83 changed it from `ecma418` to `iso226-2003@83`, and added a
+  "Change Key Profile" revision to `mix-history/<id>/history.json`). It survives
+  restarts. Other per-Mix settings in the same object: `targetLufs` (-14.0), `keyModel`
+  (`benchmark-guided-modal`), `bpmStrategy` (`rounded-match`), `keyChangePolicy`,
+  `keyMatchingScope`, `allowedModes` / `allowedRoots` (bit masks, all set), pitch-shift
+  limits and the transition preset (`factory/general-purpose`). Not checked yet: which
+  profile a **new** Mix starts with.
 
 ### Restore test (2026-10-17): passed
 
