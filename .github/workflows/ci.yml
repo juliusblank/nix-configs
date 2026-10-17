@@ -79,7 +79,8 @@ jobs:
       PUSH_CACHE: >-
         ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository) }}
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.actor != 'dependabot[bot]') }}
     # `fail-fast: false` — surface errors on both hosts even if one fails first;
     # avoids a re-run cycle to see what the other host would have reported.
     strategy:
@@ -106,11 +107,13 @@ jobs:
       - name: Build ${{ matrix.host }}
         run: nix build .#darwinConfigurations.${{ matrix.host }}.system
 
-      # Cache push: merge to main and same-repo PRs only. Fork PRs have no OIDC or
-      # secrets access. A failed push does not fail the build (it never blocked a
-      # merge before either); check the step log when the cache looks cold.
+      # Cache push: merge to main and same-repo PRs only. Fork PRs and Dependabot PRs
+      # get no repository secrets or OIDC role, so they only build. A failure in any
+      # cache step does not fail the build (it never blocked a merge before either);
+      # check the step logs when the cache looks cold.
       - name: Configure AWS credentials (OIDC)
         if: env.PUSH_CACHE == 'true'
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -118,6 +121,7 @@ jobs:
 
       - name: Load signing key from 1Password
         if: env.PUSH_CACHE == 'true'
+        continue-on-error: true
         uses: 1password/load-secrets-action@v2
         with:
           export-env: true
