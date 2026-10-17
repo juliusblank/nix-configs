@@ -225,6 +225,7 @@ usage:
   zse stop [NAME]                            stop a session, keep it registered
   zse kill [NAME]                            end a session and clean up
   zse restore [NAME...]                      start stopped sessions in the background
+  zse restart --all | NAME...                stop running sessions, start them again
   zse switch NAME                            switch to NAME (start it if stopped)
 
   USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review, daily,
@@ -243,6 +244,10 @@ usage:
 
   restore skips sessions that use -a (assume needs the YubiKey) and prints
   the command to start them.
+
+  restart picks up a new layout after a deploy: stop, then restore. It
+  skips the current session (stopping it would end the command too);
+  --all also skips sessions that use -a, so they keep running.
 EOF
 }
 
@@ -454,6 +459,54 @@ _zse_restore() {
   return 0
 }
 
+# zse restart --all | NAME... — stop running sessions, then restore them
+# from the current layout (e.g. after a deploy). Skips the current session:
+# stopping it would end this command too. `--all` takes every running
+# registered session except those with an AWS profile (restore cannot start
+# them again); a named AWS session is stopped and restore prints its command.
+_zse_restart() {
+  emulate -L zsh
+  local -a names todo
+  local all=""
+  if [[ ${1:-} == --all ]]; then
+    all=1
+    names=($(_z_reg_names))
+  elif (($#)); then
+    names=("$@")
+  else
+    print -u2 -r "zse: usage: zse restart --all | NAME..."
+    return 1
+  fi
+  local n
+  for n in $names; do
+    if [[ -n ${ZELLIJ:-} && $n == "${ZELLIJ_SESSION_NAME:-}" ]]; then
+      print -u2 -r "zse: '$n' is the current session — skipped. Run 'zse restart $n' from another session or outside Zellij."
+      continue
+    fi
+    if ! _z_reg_get "$n" use_case >/dev/null; then
+      print -u2 -r "zse: '$n' is not registered — skipped."
+      continue
+    fi
+    [[ $(_z_session_state "$n") == live ]] || continue
+    if [[ -n $all && -n $(_z_reg_get "$n" aws_profile) ]]; then
+      print -r "zse: '$n' uses AWS — kept running. Restart it with 'zse restart $n'."
+      continue
+    fi
+    zellij kill-session "$n" || continue
+    # Wait until the server is gone, so restore does not attach to it.
+    for _ in {1..20}; do
+      [[ $(_z_session_state "$n") == none ]] && break
+      sleep 0.25
+    done
+    todo+=("$n")
+  done
+  if ((!${#todo})); then
+    print -r "zse: no running sessions to restart."
+    return 0
+  fi
+  _zse_restore $todo
+}
+
 _zse_switch() {
   emulate -L zsh
   local name=${1:-}
@@ -481,6 +534,7 @@ zse() {
     stop) shift; _zse_stop "$@" ;;
     kill) shift; _zse_kill "$@" ;;
     restore) shift; _zse_restore "$@" ;;
+    restart) shift; _zse_restart "$@" ;;
     switch) shift; _zse_switch "$@" ;;
     -h | --help | help) _zse_help ;;
     --) shift; _zse_start "$@" ;;
@@ -524,11 +578,17 @@ _zse() {
     'stop:stop a session, keep it registered'
     'kill:end a session and clean up'
     'restore:start stopped sessions in the background'
+    'restart:stop running sessions and start them again'
     'switch:switch to a session'
     'help:show usage'
   )
   case ${words[2]:-} in
     stop | kill | switch | restore)
+      ((CURRENT >= 3)) && _zse_names
+      return
+      ;;
+    restart)
+      ((CURRENT == 3)) && compadd -- --all
       ((CURRENT >= 3)) && _zse_names
       return
       ;;
