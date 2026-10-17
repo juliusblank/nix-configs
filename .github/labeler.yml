@@ -19,6 +19,7 @@ ci:
           - '.github/workflows/release.yml'
           - '.github/workflows/pr-labeler.yml'
           - '.github/labeler.yml'
+          - '.github/dependabot.yml'
           - '.github/CLAUDE.md'
           - 'docs/ci.md'
 
