@@ -372,8 +372,11 @@ not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a pa
   relocate the tracks in rekordbox so cue points and analysis stay attached. Plan it as
   its own step (dry-run list first, rekordbox library backup, then rename + relocate);
   also adjust the Beatport download naming so new files avoid `#`.
-- **Open question:** how do other library tools (e.g. Mixo, Lexicon) get playlists into
-  rekordbox — via XML, or by writing rekordbox's database directly? Not researched.
+- **How other tools do it (Mixo, checked 2026-10-17):** two routes — a `DJ_PLAYLISTS`
+  XML export (same as the ruled-out XML import), or "Rekordbox Direct", which **writes
+  rekordbox's `master.db`** (Mixo support asks users to grant it read **and write**
+  access to `master.db`; no backup warning in the guide; users report multi-hour hangs).
+  Both are riskier than M3U, so neither is an option here. Lexicon: not checked.
 - **Research (2026-10-17):** the release notes of the versions after 7.2.14 (7.2.16,
   7.2.17, 7.2.18, 7.2.19 of 2026-09-24) do not mention playlist import, M3U, file names
   or special characters; their FIXED entries are feature-specific or "Bug fixes and
