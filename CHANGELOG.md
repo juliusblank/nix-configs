@@ -1,6 +1,14 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## Unreleased — 2026-10-17
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.11 (#122)
+- **serenity:** exclude Music from initial backup run
+
+### Features
+- **serenity:** add restic S3 backup with launchd agents
 ## v2026.10.11 — 2026-10-16
 
 ### Bug Fixes

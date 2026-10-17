@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   # The 1Password entry name is the single source of truth — the AWS CLI
@@ -38,6 +38,7 @@ in
     ../../home/darwin.nix
     ../../home/modules/granted.nix
     ../../home/modules/aws.nix
+    ../../home/modules/backup.nix
   ];
 
   home = {
@@ -76,17 +77,42 @@ in
   # 1Password agent (Private vault). Matches the first entry in `personalAllowedSigners`.
   programs.git.signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
 
-  # Granted for AWS credential management
-  custom.granted.enable = true;
+  custom = {
+    # Granted for AWS credential management
+    granted.enable = true;
 
-  # AWS CLI profiles
-  custom.aws = {
-    enable = true;
-    profiles = [
-      {
-        name = opEntry;
-        credentialProcess = "${credProcess}";
-      }
-    ];
+    # Restic S3 backup — music, photos, personal projects
+    backup = {
+      enable = true;
+      bucket = "juliusblank-backups";
+      # ~/Music excluded during initial testing — add back once baseline is verified
+      paths = [
+        "${config.home.homeDirectory}/Pictures"
+        "${config.home.homeDirectory}/github/juliusblank"
+      ];
+      excludes = [
+        ".DS_Store"
+        "node_modules"
+        ".git"
+        "*.tmp"
+        "*.pyc"
+        "__pycache__"
+      ];
+      inhibitApps = [
+        "rekordbox"
+        "djay Pro AI"
+      ];
+    };
+
+    # AWS CLI profiles
+    aws = {
+      enable = true;
+      profiles = [
+        {
+          name = opEntry;
+          credentialProcess = "${credProcess}";
+        }
+      ];
+    };
   };
 }

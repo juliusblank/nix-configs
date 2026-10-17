@@ -145,6 +145,7 @@ Infrastructure secrets are split across two vaults:
 | 1Password SA token (CI) | `infrastructure` | `github-actions-nix-configs` | `token` |
 | GitHub PAT | `github_nix-configs` | `GitHub PAT nix-configs` | `token` |
 | Nix cache signing key | `github_nix-configs` | `Nix Cache Signing Key` | `private_key`, `public_key` |
+| Restic backup password | `github_nix-configs` | `Restic Backup Password` | `password` |
 
 Secret reference format: `op://<vault>/<item name>/<field name>`
 
@@ -417,19 +418,82 @@ Installed automatically when entering the devShell (`nix develop`):
 
 ## Backup
 
-> **Planned.**
+> **Implemented (pending first deploy and `restic init` on serenity).**
 
-Reliable, simple backup of serenity user data to AWS S3.
+Reliable, simple backup of serenity user data to AWS S3 using **restic**.
 
-**Data categories:** music collection, photos, projects (and any other user data identified over time)
+**Nix module:** `home/modules/backup.nix` — `custom.backup.*` options. Activated in `hosts/serenity/home.nix`.
 
-**Principles:**
-- Simple enough to run quickly — "just do it" with a single command
-- A backup is only as good as its restore — restore verification is a first-class requirement, not an afterthought
-- S3 as the storage backend (consistent with existing AWS setup)
-- Extensible to other hosts over time
+**Data backed up (serenity):**
 
-**Open questions:** tool selection (restic, rclone, etc.), restore test strategy (automated schedule vs. on-demand structured process), S3 bucket layout and lifecycle policy.
+| Path | Contents |
+|---|---|
+| `~/Music` | Music collection (~200–300 GB) |
+| `~/Pictures` | Photos |
+| `~/github/juliusblank` | Personal projects |
+
+**S3 repository:** `s3:s3.eu-central-1.amazonaws.com/juliusblank-backups/serenity`
+Bucket managed by OpenTofu (`terraform/s3-backup.tf`) — private, versioned, `prevent_destroy = true`.
+
+**1Password secret:** `op://github_nix-configs/Restic Backup Password/password` — injected at runtime by the backup script via `op read`. Create this item manually before running `just backup-init`.
+
+**Schedule:**
+- **Daily at 02:00** — launchd agent (`com.juliusblank.backup`), logs to `~/Library/Logs/backup.log`
+- **Sunday at 03:00** — launchd integrity check (`com.juliusblank.backup-check`), structural only (no data download), logs to `~/Library/Logs/backup-check.log`
+
+**Inhibit behaviour:** backup is skipped automatically if `rekordbox` or `djay Pro AI` is running. Use `just backup-pause` / `just backup-resume` for manual override (sentinel file: `~/.config/backup/paused`).
+
+**Retention:** `restic forget --keep-last 30 --keep-monthly 12 --prune` runs after every backup.
+
+### One-time setup (serenity)
+
+```bash
+# 1. Create the 1Password item manually in the github_nix-configs vault:
+#    Item: "Restic Backup Password" / Field: "password"
+
+# 2. Deploy the nix config (installs restic + launchd agents)
+just deploy serenity
+
+# 3. Initialise the restic repository in S3 (once only)
+just backup-init
+
+# 4. Seed the initial backup (200–300 GB — will take hours; start before sleeping)
+just backup
+```
+
+### Day-to-day backup commands
+
+```bash
+just backup             # run a backup now (interactive, live output)
+just backup-pause       # pause automatic backups (sentinel file)
+just backup-resume      # resume automatic backups
+just backup-check       # integrity check — samples 10 % of data
+just backup-snapshots   # list available snapshots
+```
+
+### Restore procedure
+
+> A backup is only as good as its restore. Run through these steps after the initial seed to verify.
+
+```bash
+# Set up environment
+RESTIC_PASSWORD=$(op read "op://github_nix-configs/Restic Backup Password/password")
+export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+REPO="s3:s3.eu-central-1.amazonaws.com/juliusblank-backups/serenity"
+
+# List snapshots
+restic --repo "$REPO" snapshots
+
+# Spot-check: restore a single album to a temp directory
+restic --repo "$REPO" restore latest \
+  --target /tmp/restore-test \
+  --include '/Users/jbl/Music/SomeAlbum'
+
+# Full restore (e.g. after hardware failure, to a new machine)
+restic --repo "$REPO" restore latest --target ~/
+```
+
+After the initial seed, periodically run `just backup-check` (10 % data sample) and occasionally a spot-check restore to confirm end-to-end integrity.
 
 ## Project Conventions & Structure
 

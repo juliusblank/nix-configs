@@ -3,10 +3,13 @@ default:
     @just --list
 
 # --- Variables ---
-aws_region := "eu-central-1"
-state_bucket := "juliusblank-terraform-state"
-lock_table := "juliusblank-terraform-locks"
-cache_bucket := "juliusblank-nix-cache"
+aws_region    := "eu-central-1"
+state_bucket  := "juliusblank-terraform-state"
+lock_table    := "juliusblank-terraform-locks"
+cache_bucket  := "juliusblank-nix-cache"
+backup_bucket := "juliusblank-backups"
+backup_repo   := "s3:s3." + aws_region + ".amazonaws.com/" + backup_bucket + "/serenity"
+backup_op_ref := "op://github_nix-configs/Restic Backup Password/password"
 # Keep in sync with `inputs.nix-darwin` in flake.nix (branch / tag).
 nix_darwin_flake := "github:nix-darwin/nix-darwin/nix-darwin-25.11"
 
@@ -332,6 +335,57 @@ diff host:
             echo "Diff not yet implemented for {{host}}"
             ;;
     esac
+
+# ==============================================================================
+# Backup
+# ==============================================================================
+
+# Initialise the restic repository in S3 (run once, before the first backup)
+backup-init:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
+    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    restic --repo {{backup_repo}} init
+
+# Run a backup immediately with live terminal output
+backup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
+    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    restic --repo {{backup_repo}} backup \
+        --exclude=.DS_Store --exclude=node_modules --exclude=.git \
+        --exclude='*.tmp' --exclude='*.pyc' --exclude='__pycache__' \
+        ~/Music ~/Pictures ~/github/juliusblank
+
+# Pause the automatic background backup (writes sentinel file)
+backup-pause:
+    @mkdir -p ~/.config/backup
+    @touch ~/.config/backup/paused
+    @echo "Backup paused. Run 'just backup-resume' to re-enable."
+
+# Resume the automatic background backup (removes sentinel file)
+backup-resume:
+    @rm -f ~/.config/backup/paused
+    @echo "Backup resumed."
+
+# Verify backup integrity — samples 10 % of data (low egress cost)
+# For a full data check: RESTIC_PASSWORD=$(op read "{{backup_op_ref}}") restic --repo {{backup_repo}} check --read-data
+backup-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
+    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    restic --repo {{backup_repo}} check --read-data-subset=10%
+
+# List available snapshots
+backup-snapshots:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
+    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    restic --repo {{backup_repo}} snapshots
 
 # ==============================================================================
 # OpenTofu
