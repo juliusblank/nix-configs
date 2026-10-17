@@ -166,6 +166,7 @@ zse ls                                      list registered and running sessions
 zse stop [NAME]                             stop a session, keep it registered
 zse kill [NAME]                             end a session and clean up
 zse restore [NAME...]                       start stopped sessions in the background
+zse restart --all | NAME...                 stop running sessions, start them again
 zse switch NAME                             switch to NAME (start it if stopped)
 zse help
 ```
@@ -229,6 +230,13 @@ reboot) loses nothing.
   It skips orphans, and sessions with an AWS profile (`assume` needs the
   YubiKey): for those it prints the command to start them. Use it after a
   crash or a reboot.
+- **`zse restart --all | NAME...`** — stop the running sessions, then
+  `zse restore` them, so they pick up a new layout after `just deploy`.
+  Conversations, worktrees and registry entries stay. It skips the current
+  session (stopping it would end the command too; run it from another
+  session or outside Zellij). `--all` takes every running registered
+  session except those with an AWS profile, which keep running; a named
+  AWS session is stopped and restore prints its start command.
 - **`zse switch NAME`** — switch to NAME; restore it first if it is
   stopped. Inside Zellij it switches in place (`zellij action
   switch-session`), outside it attaches.
