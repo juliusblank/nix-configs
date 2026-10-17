@@ -318,8 +318,22 @@ BPM: 22 equal (rounded), 4 different, none half / double (Beatport 125 → HDJ 1
 The files on disk have **NFD** names (decomposed, e.g. `a` + U+0301), but HDJ stores and
 exports paths in **NFC** (composed `á`). Seen on all 4 non-ASCII names in the evaluation
 folder (`gázel` ×2, `kośa`, `Überhaupt`). APFS resolves both forms to the same file, so
-HDJ can open them. Whether rekordbox matches an NFC path from an M3U to its NFD
-collection entry is tested in T1b.
+HDJ can open them. rekordbox matches the NFC path to its collection entry (T1b).
+
+### T1b — non-ASCII and `#` paths (2026-10-17): failed on `#`
+
+- **HDJ:** Mix `evaluation T1b`, 5 tracks, incl. `gázel – Binary Affection` (locked)
+  and `Temple Tears – Reda` (path contains `F#`). M3U as in T1a; `gázel` exported as NFC.
+- **rekordbox 7.2.14** (File → Import → Import Playlist): playlist with **4 of 5 tracks**,
+  collection count unchanged (7037).
+  - `gázel` (NFC in the M3U, NFD on disk): **imported**, existing entry → Unicode
+    normalization is **not** a problem.
+  - `Reda` (`…_110_F#_Minor_07.aiff`): **silently dropped**, although it is in the
+    collection. Likely cause: rekordbox treats `#` as a URL fragment and truncates the path.
+- **Scope:** 126 of 6217 audio files under `~/Music` (~2 %) have `#` in the path (107 in
+  the file name, mostly Beatport keys like `F#_Minor`; the rest via 46 folders).
+- **Workaround test (T1c):** single-track M3Us for `Reda` in `~/Documents/hdj-t1c/`:
+  plain path (repro), percent-encoded `file://` URL, plain path with `%23`.
 
 ## Claims from the task brief
 
