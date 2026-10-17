@@ -614,12 +614,15 @@ These tasks need serenity, because the music library and rekordbox run there:
    the same.
 2. Set the path of the evaluation folder (an existing, cleaned-up folder). Write it into
    `docs/harmonic-dj.md`. Add it to HDJ.
-3. Run T1–T5.
-4. Restore test: back up both folders with the app closed, then delete them, restore
-   them, and start the app. The library must be complete, with no rescan.
+3. Restore test, **before** T1–T5 so that a failed restore costs no evaluation data:
+   back up both folders with the app closed, then delete them, restore them, and start
+   the app. The library must be complete, with no rescan. Optionally repeat it after T5,
+   when the DB holds Mixes, ratings and groups.
+4. Run T1–T5.
 5. Only if you start the Pro trial: find where the license is stored (files changed
    after activation) and record it.
-6. Hand the backup paths to the #10 backup work (local branch on serenity).
+6. Hand the backup paths and the inhibit process name to the #10 backup work (draft
+   PR #126). See [docs/harmonic-dj.md](harmonic-dj.md#backup-handoff).
 
 #### Open questions
 
@@ -637,3 +640,7 @@ These tasks need serenity, because the music library and rekordbox run there:
 - **M3U path matching.** Does rekordbox match M3U paths reliably? Think of Unicode
   normalization and moved files.
 - **License.** Where is it stored, and is it bound to the machine?
+- **AUv3 registration.** The app is symlinked from the nix store into
+  `~/Applications/Home Manager Apps/`, so macOS registers the embedded AUv3 from a store
+  path. After a version bump and a GC, does a stale registration stay behind
+  (`pluginkit -m -v | grep -i harmonic`)?

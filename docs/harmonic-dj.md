@@ -223,8 +223,21 @@ created.
 
 ## Backup handoff
 
-> For the backup work (roadmap #10, local branch on serenity). This section has all the
-> facts. Status: copy tested on concinnity (v1.2.9); restore with the app not tested yet.
+> For the backup work (roadmap #10, draft PR #126: restic, `home/modules/backup.nix`).
+> This section has all the facts. Status: copy tested on concinnity (v1.2.9); restore
+> with the app not tested yet.
+
+**What to change in `custom.backup` (serenity):**
+- `paths`: add `~/Library/APU Harmonic DJ` and
+  `~/Library/Application Support/APU Harmonic DJ`.
+- `inhibitApps`: add `"APU Harmonic DJ"`. This is `CFBundleExecutable` of the 1.2.9 app
+  (15 characters, so `pgrep -x` matches it without truncation). Not yet observed as a
+  running process name.
+- Not covered by `inhibitApps`: the AUv3 running inside a DAW, which uses the same DB
+  from a different process. Accept this, or add the DAW to `inhibitApps` too.
+- restic stores absolute paths, so the two folders with the same name do not merge in a
+  restic snapshot or restore. The "separate destinations" rule below applies to manual
+  `cp` copies only.
 
 **What to back up.** Two folders, which have the same name:
 

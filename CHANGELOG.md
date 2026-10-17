@@ -1,6 +1,13 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## Unreleased — 2026-10-17
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.11 (#122)
+
+### Features
+- **serenity:** Harmonic DJ evaluation — app derivation, spec and research
 ## v2026.10.11 — 2026-10-16
 
 ### Bug Fixes
