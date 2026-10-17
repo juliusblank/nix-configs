@@ -47,8 +47,8 @@ jobs:
     outputs:
       nix: ${{ steps.filter.outputs.nix }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -88,7 +88,7 @@ jobs:
       matrix:
         host: [serenity, concinnity]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # v31+ installs a Nix whose installer puts the build users at UID 351+ on
       # macOS 15; the v27 installer used 301-306, which macOS 15 already uses.
@@ -114,7 +114,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         if: env.PUSH_CACHE == 'true'
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-central-1
@@ -122,7 +122,7 @@ jobs:
       - name: Load signing key from 1Password
         if: env.PUSH_CACHE == 'true'
         continue-on-error: true
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@v5
         with:
           export-env: true
         env:
@@ -147,7 +147,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.head_ref, 'chore/release-')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate tag and changelog
         run: |
