@@ -298,6 +298,29 @@ Not T4 yet (rekordbox is missing); a pre-check on 26 tracks with a Beatport key:
 BPM: 22 equal (rounded), 4 different, none half / double (Beatport 125 → HDJ 101.9,
 142 → 105.0, 162 → 102.1, 80 → 107.1). Check these four in rekordbox and by ear in T4.
 
+### T1a — Mix into rekordbox, ASCII paths (2026-10-17): passed
+
+- **HDJ:** new Mix `evaluation T1` (source group `evaluation`, target 5 tracks). A new
+  Mix starts with `keyProfile` `ecma418`; it does not inherit the profile of the other
+  Mix. "Generate Tracklist" filled only 3 tracks (segment 1–3), probably because of the
+  Mix defaults `maximumBpmDifference: 0` and `bpmStrategy: rounded-match`.
+- **M3U export** (`~/Documents/evaluation T1.m3u`): `#EXTM3U`, `#EXTENC:UTF-8`,
+  `#PLAYLIST:<name>`, then one absolute path per line; CRLF line endings; no `#EXTINF`.
+  All 3 paths exist and equal `tracks.path` in the HDJ DB byte for byte.
+- **rekordbox 7.2.14 import:** playlist `evaluation T1` with 3 tracks, no missing-file
+  marker, waveforms / analysis present. Collection count unchanged (7037 before and
+  after) → no duplicates. Track 1 shows `DJ Play Count` 5, so rekordbox reused the
+  existing collection entry (a new entry would start at 0).
+- **Not covered:** non-ASCII paths (see below) → T1b.
+
+### Unicode normalization (found during T1)
+
+The files on disk have **NFD** names (decomposed, e.g. `a` + U+0301), but HDJ stores and
+exports paths in **NFC** (composed `á`). Seen on all 4 non-ASCII names in the evaluation
+folder (`gázel` ×2, `kośa`, `Überhaupt`). APFS resolves both forms to the same file, so
+HDJ can open them. Whether rekordbox matches an NFC path from an M3U to its NFD
+collection entry is tested in T1b.
+
 ## Claims from the task brief
 
 | Claim | Result |
