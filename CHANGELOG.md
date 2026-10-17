@@ -1,6 +1,23 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.12 — 2026-10-17
+
+### Bug Fixes
+- **devshell:** install pre-commit hook in linked worktrees (#127)
+
+### CI/CD
+- move macOS jobs from the retiring macos-14 image to macos-15 (#128)
+- build each host once, cancel superseded PR runs, add Dependabot (#129)
+- bump the github-actions group with 7 updates (#130)
+- **labels:** expand PR labels: devshell, type:* by branch, status:* (#131)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.11 (#122)
+
+### Features
+- **home:** zse project layout shows agent status; agents tab scoped to repo (#123)
+- **home:** zse restart stops and restores sessions to pick up a new layout (#125)
 ## v2026.10.11 — 2026-10-16
 
 ### Bug Fixes
