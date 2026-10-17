@@ -365,8 +365,15 @@ not to `~/Documents` as the dialog says. **Result:** no M3U spelling brings a pa
   | `t1d-3-control.m3u8` | rekordbox style (`#EXTM3U` + `#EXTINF`), byte-identical to rekordbox's block |
 
   Together with T1c (plain, `file://` URL, `%23`): **no M3U spelling works.**
-- **Remaining routes (not pursued for now):** rekordbox XML import (risk of overwriting
-  existing track data; needs a library backup first), or renaming the 126 files (no `#`).
+- **rekordbox XML import: ruled out** (decision 2026-10-17) — risk of overwriting
+  existing track data in the collection.
+- **TODO (later): rename the files.** Remove `#` from the 126 affected paths (107 file
+  names, mostly Beatport keys such as `F#_Minor` → `Gb_Minor`; 46 folders), then
+  relocate the tracks in rekordbox so cue points and analysis stay attached. Plan it as
+  its own step (dry-run list first, rekordbox library backup, then rename + relocate);
+  also adjust the Beatport download naming so new files avoid `#`.
+- **Open question:** how do other library tools (e.g. Mixo, Lexicon) get playlists into
+  rekordbox — via XML, or by writing rekordbox's database directly? Not researched.
 - **Research (2026-10-17):** the release notes of the versions after 7.2.14 (7.2.16,
   7.2.17, 7.2.18, 7.2.19 of 2026-09-24) do not mention playlist import, M3U, file names
   or special characters; their FIXED entries are feature-specific or "Bug fixes and

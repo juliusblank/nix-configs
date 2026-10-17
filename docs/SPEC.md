@@ -628,6 +628,9 @@ These tasks need serenity, because the music library and rekordbox run there:
    after activation) and record it.
 6. Hand the backup paths and the inhibit process name to the #10 backup work (draft
    PR #126). See [docs/harmonic-dj.md](harmonic-dj.md#backup-handoff).
+7. **Later:** rename the ~126 library files / folders with `#` in the path, then relocate
+   them in rekordbox (rekordbox's M3U import drops such tracks; XML import is ruled out).
+   See the known issue in [docs/harmonic-dj.md](harmonic-dj.md).
 
 #### Open questions
 
