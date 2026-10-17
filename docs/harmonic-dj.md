@@ -211,7 +211,7 @@ created.
   |---|---|
   | `~/Library/APU Harmonic DJ/` (`harmonic-dj.sqlite`, `mixes.json`, `mixes/`, `mix-history/`) | yes |
   | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.global.settings` | yes |
-  | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.settings` | **new**: window position, `audioSetup`, encoded `filterState` |
+  | `~/Library/Application Support/APU Harmonic DJ/APU Harmonic DJ.settings` | **new**: window position, `audioSetup`, `filterState` (plugin editor state) |
   | `~/Library/Preferences/com.APUSoftware.APUHarmonicDJ.plist` | yes (do not back up) |
   | `~/Library/Containers/com.APUSoftware.APUHarmonicDJ.APUHarmonicDJAUv3/` | yes (do not back up) |
   | `~/Library/Application Scripts/com.APUSoftware.APUHarmonicDJ.APUHarmonicDJAUv3/` | **new** (AUv3, system-managed; do not back up) |
