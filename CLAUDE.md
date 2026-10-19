@@ -12,7 +12,7 @@ This repo manages nix-darwin and NixOS system configurations for personal machin
 - `hosts/pi-moodpi/` — Raspberry Pi NixOS host (commented out, config pending)
 - `home/common.nix` — shared home-manager config for all hosts
 - `home/darwin.nix` — macOS-specific home-manager additions
-- `flake.nix` — entry point; pinned to `nixpkgs-25.11-darwin` and `nix-darwin-25.11`
+- `flake.nix` — entry point; pinned to `nixpkgs-26.05-darwin` and `nix-darwin-26.05`
 - **Clone path (canonical, macOS):** `~/github/juliusblank/nix-configs` on serenity and
   concinnity — not under `~/github/taktile-org/` where work `includeIf` applies (see
   `docs/SPEC.md`)

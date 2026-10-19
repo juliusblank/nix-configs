@@ -7,7 +7,7 @@ pkgs.mkShell {
 
     # Nix tools
     nil # nix LSP
-    nixfmt-rfc-style # formatter
+    nixfmt # formatter (RFC style; nixfmt-rfc-style is now an alias)
     statix # linter
 
     # Changelog

@@ -28,7 +28,7 @@ nix-darwin* below (clone repo → devShell → **`just build`**, **`just deploy`
 
 ## First-time nix-darwin (new Mac)
 
-The **`nix-darwin-25.11`** flake has **no** **`darwin-installer`** attribute (upstream
+The **`nix-darwin-26.05`** flake has **no** **`darwin-installer`** attribute (upstream
 removed it from the flake outputs). Install nix-darwin by running **`darwin-rebuild switch`**
 once — [nix-darwin README — Installing nix-darwin](https://github.com/nix-darwin/nix-darwin?tab=readme-ov-file#step-2-installing-nix-darwin).
 
@@ -45,7 +45,7 @@ just deploy <host>   # first activation = same recipe as later deploys
 
 ```bash
 cd ~/github/juliusblank/nix-configs
-sudo nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild -- switch --flake ".#<host>"
+sudo nix run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake ".#<host>"
 ```
 
 Then open a **new** terminal if needed. See **`README.md`** for serenity vs concinnity paths.
@@ -216,6 +216,27 @@ deployments:` section), so you can see drift, for example after a manual
 `darwin-rebuild switch` that bypassed the recipe.
 
 ## Known issues: macOS and nix-darwin
+
+- **Firefox: "A copy of Firefox is already open" (macOS 27)** — macOS 27 lets only
+  Mozilla-signed apps write to **`~/Library/Application Support/Firefox`**. The nixpkgs build
+  cannot lock its profile there and shows this dialog without opening a window
+  (NixOS/nixpkgs#535123). Since the 26.05 upgrade, **`home/darwin.nix`** sets
+  **`programs.firefox.configPath`** to **`Library/Application Support/org.nixos.firefox`**, and
+  the wrapper passes it as **`MOZ_APP_DATA`**. After the first deploy with this change, move
+  the existing data **once**, with Firefox closed, from a terminal that has **Full Disk Access**
+  (System Settings → Privacy & Security), because the old folder is protected:
+
+  ```bash
+  old="$HOME/Library/Application Support/Firefox"
+  new="$HOME/Library/Application Support/org.nixos.firefox"
+  # home-manager already created $new (profiles.ini, managed profile files): copy the
+  # user data into it, keep the managed files, drop the stale lock.
+  rsync -a --ignore-existing "$old/Profiles/" "$new/Profiles/"
+  rm -f "$new/Profiles/"*/.parentlock
+  ```
+
+  Then start Firefox and check bookmarks, containers and logins. Keep **`$old`** until you are
+  sure, then delete it.
 
 - **`darwin-rebuild: command not found` in `just diff`** — Recipes run under non-interactive
   **`bash`**, so **`PATH`** often omits **`/run/current-system/sw/bin`** and direnv is not

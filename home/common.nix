@@ -184,12 +184,19 @@ in
         nvim-treesitter.withAllGrammars
         monokai-pro-nvim
       ];
-      extraLuaConfig = ''
+      # 26.05 changed both defaults to false; nothing here needs Ruby or Python providers.
+      withRuby = false;
+      withPython3 = false;
+      initLua = ''
         -- TODO: migrate full Neovim layout (plugins, LSP, keymaps) from dotfiles / work machine.
         vim.opt.number = true
         vim.opt.relativenumber = true
         vim.cmd.colorscheme("monokai-pro")
-        require('nvim-treesitter.configs').setup { highlight = { enable = true } }
+        -- nvim-treesitter's new API has no `configs.setup`; Neovim starts highlighting
+        -- itself. pcall: buffers without a parser keep regex highlighting.
+        vim.api.nvim_create_autocmd('FileType', {
+          callback = function(args) pcall(vim.treesitter.start, args.buf) end,
+        })
       '';
     };
 

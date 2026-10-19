@@ -8,7 +8,7 @@ state_bucket := "juliusblank-terraform-state"
 lock_table := "juliusblank-terraform-locks"
 cache_bucket := "juliusblank-nix-cache"
 # Keep in sync with `inputs.nix-darwin` in flake.nix (branch / tag).
-nix_darwin_flake := "github:nix-darwin/nix-darwin/nix-darwin-25.11"
+nix_darwin_flake := "github:nix-darwin/nix-darwin/nix-darwin-26.05"
 
 # ==============================================================================
 # Step 0: Infrastructure bootstrap
