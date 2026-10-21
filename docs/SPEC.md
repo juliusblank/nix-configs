@@ -70,6 +70,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 29 | Remote-friendly SSH auth + commit signing on concinnity | **TODO: sync with IT, Matei and Robin.** The 1Password SSH agent locks with the screen, so git auth + signing fail during remote work (Claude Code Remote Control from the phone) with `failed to fill whole buffer`. Options (1Password kept unlocked, Secretive / Secure Enclave, YubiKey FIDO, split signing key + fine-grained PAT) and trade-offs are in `docs/remote-ssh-auth.md`. Decide after the sync; then implement in `hosts/concinnity/home.nix`. |
 | 30 | Proper git pane in Zellij layouts | Done — `zse-git` git pane: `tig status`, or in `ticket` sessions `tig origin/<default>..HEAD` inside `.claude/worktrees/<id>` (waits up to 30 s for the worktree). tig refreshes every 5 s via `~/.config/tig/config` (`refresh-mode periodic`; local `git status`, never a fetch, so no 1Password prompts). `review` layout gets a CI pane (`zse-ci`: `gh pr checks <n>` redrawn every 30 s, HTTPS). `zsek` maps `review-<repo>-pr<n>` to the `.claude/worktrees/pr-<n>` worktree. Panes that wait for Enter after resurrection, and wrong resurrected commands, move to row 31. See `docs/usage/zellij.md`. |
 | 31 | zse session registry; no Zellij resurrection | Done — Zellij resurrection saved the *leaf* process of each pane, so a restored session reran `claude … --session-id <id>` (fails: "already in use"), lost `ZSE_USE_CASE` (no plugin rules), used the old saved layout, and started every command pane suspended until Enter (hint hidden by `pane_frames false`). `post_command_discovery_hook` did not rewrite reliably in tests. Now: `session_serialization false`; a registry at `~/.local/state/zse/sessions/<name>` (use case, start dir, AWS profile, timestamps), written by `zse`, removed by `zse kill`; sessions are always (re)created from the current layout, and `zse-claude --own` resumes each session's own conversation. CLI (`home/modules/zse.zsh`): `zse [-l] [-a] NAME` (start/attach; a stopped registered session starts again with its use case and dir; inside Zellij: background start + switch), `zse ls` (running / stopped / orphan / untracked / old-exited), `zse stop [NAME]` (stop, keep entry/worktree/conversation), `zse kill [NAME]` (worktree prompt, cleanup, remove entry, `delete-session --force`), `zse restore [NAME…]` (background start of stopped sessions; `-a` sessions are listed with their command, since `assume` needs the YubiKey), `zse restart --all | NAME…` (stop, then restore — picks up a new layout after a deploy; skips the current session, `--all` skips `-a` sessions), `zse switch NAME` (restore if stopped, then switch); `zsek` / `zss` / `zsep` are deprecated aliases. Zellij sockets live in `~/.cache/zj` (`ZELLIJ_SOCKET_DIR`): the default `$TMPDIR` path limits session names to 24 chars on macOS with Zellij 0.45, too short for `review-<repo>-pr<n>`. |
+| 34 | Explorations — lightweight tracking of private, exploration-heavy topics | Planned — skill `/explore` (new / iterate / status / close), files under `docs/explorations/`, zse use case `explore` with a per-slug worktree. Goal-first, short iterations with a budget and an end-of-budget review, consequences applied after each answered question. First exploration: `dj-prep-workflow` (absorbs the Harmonic DJ evaluation, #32). See *Explorations*. |
 
 ## Hosts
 
@@ -432,6 +433,96 @@ Reliable, simple backup of serenity user data to AWS S3.
 - Extensible to other hosts over time
 
 **Open questions:** tool selection (restic, rclone, etc.), restore test strategy (automated schedule vs. on-demand structured process), S3 bucket layout and lifecycle policy.
+
+## Explorations
+
+> **Planned** (roadmap #34). Lightweight tracking for longer-running **private** topics,
+> where exploring and deciding is most of the work and implementing is the smaller part.
+
+**Principle.** Define *what I want to achieve* and *how I know it is done* before doing
+anything; work in short iterations, each answering a question; when a question is
+answered, mark it done and **apply its consequences** to everything else still open.
+
+### Lifecycle
+
+1. **New** — `/explore new <idea>`: short interview → scrutiny → verdict.
+2. **Goal** — sharpen goal, non-goals and definition of done (avoid overshooting).
+3. **Iterate** — `/explore iterate <slug>`, repeated:
+   1. Pick the next **question** (not a task).
+   2. Brainstorm approaches (as many as possible), score them, select the top **2 (max 3)**.
+   3. Per selected approach: success criteria and a **budget** (time, money).
+   4. Execute; record results.
+   5. **Consequences**: apply each conclusion to the goal, the open questions, the
+      approach backlog, the spec / roadmap and other explorations — then mark it done.
+   6. **Goal check**: still valid? Update it, or close.
+4. **Close** — `/explore close <slug>` when the goal is reached or discarded: a concise,
+   precise summary (outcome, decisions, learnings, follow-ups).
+
+**Status values:** `triage` → `active` → `done` | `deferred` | `discarded`.
+
+### Interview (new)
+
+Purpose (why I care) · goal (observable) · **non-goals / scope** · context (current
+state) · **constraints and risk tolerance** (e.g. "no writes into rekordbox", local over
+cloud) · prior knowledge and prior research (own docs) · references · **budget /
+appetite** · success criteria / definition of done · open questions and assumptions.
+
+### Scrutiny and verdict
+
+- **Exists already?** In our own docs / explorations first, then on the web.
+- **Makes sense?** Value against effort and risk.
+- **Knowledge level:** how much do I know about topic and context (low / medium / high)?
+- **Greenfield or researched before?** Link what exists.
+
+Verdict: **pursue** · **reuse** (something existing covers it) · **defer** (with a
+reason and a trigger to revisit) · **discard** (with a reason). Small ideas may end at
+this **quick triage**; only *pursue* continues to the goal interview.
+
+### Weighing approaches
+
+Score each approach 1–3 per criterion; select the top two (max three):
+
+| Criterion | Question |
+|---|---|
+| **Learning per effort** | How much uncertainty does it remove per hour? (most important) |
+| Value toward the goal | If it works, how much closer are we? |
+| Time to first signal | Do we know in an hour or in a week? |
+| Risk / reversibility | Data safety, lock-in, privacy (cloud) |
+| Cost | Money, subscriptions |
+| Fit | Reuses existing tools, scripts, workflow |
+
+### Drift guards
+
+- Every iteration has **one question** and a **budget**. It ends when the question is
+  answered **or** the budget is used — both are valid results.
+- **End-of-budget review**: at the end of the budget, stop and decide — answered,
+  continue with a new budget, or drop the approach. `/explore status` shows the
+  remaining budget.
+
+### Files
+
+- `docs/explorations/<slug>.md` — one file per exploration, fixed sections: Header
+  (status, dates, budget) · Brief · Scrutiny and verdict · Goal, non-goals, definition
+  of done · Approach backlog (scored) · Iterations (question → approaches → criteria →
+  results → conclusions → consequences applied) · Decisions · Open questions ·
+  Summary (when closed). Detailed evidence can live in separate notes, linked.
+- `docs/explorations/README.md` — index: slug, status, one-line goal, last update.
+- Roadmap: one row per active exploration, pointing to its file.
+
+### Tooling
+
+- **Skill `/explore`** (`.claude/skills/explore/SKILL.md`, a repo skill — only active
+  inside this repo): modes `new`, `iterate`, `status`, `close`. It runs the interview,
+  the scrutiny (own docs, then web search), the scoring and the consequence checklist,
+  and keeps the exploration file and index up to date.
+- **zse use case `explore`** (`zse -l explore <slug>`): session named after the slug;
+  worktree `.claude/worktrees/<slug>` on branch `explore/<slug>` (no conflicts with
+  other sessions; the branch is the PR branch). Panes: claude (`--own`,
+  `ZSE_USE_CASE=explore`, `/explore status <slug>` sent on the first start) · the
+  exploration file, re-rendered periodically · shell (one-time `EXPLORE` banner).
+- **Separation work / private:** the skill and the explorations live only in this repo;
+  the work marketplaces (`jbl-personal`, `taktile-skills`) are not involved. The layout
+  is installed on both hosts but is useless without the repo skill.
 
 ## Project Conventions & Structure
 
