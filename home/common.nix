@@ -59,15 +59,20 @@ in
         fi
       '';
       initContent = ''
+        # just >= 1.4x: `just --completions zsh` only emits a loader that runs
+        # `just` at every shell start (fails where just is not on PATH, i.e.
+        # outside the devshell). Generate the full clap completer at build
+        # time instead; it calls just by its store path.
         source ${
           pkgs.runCommand "just-completions" { } ''
-            ${pkgs.just}/bin/just --completions zsh > $out
+            JUST_COMPLETE=zsh ${pkgs.just}/bin/just > $out
           ''
         }
 
-        # Argument completion for this repo's host recipes, which `_just` lacks
-        # (it completes recipe names only). Active only inside a nix-configs
-        # checkout (git root has hosts/ + flake.nix); elsewhere plain `_just`.
+        # Argument completion for this repo's host recipes, which just's own
+        # completer lacks (it completes recipe names only). Active only inside a
+        # nix-configs checkout (git root has hosts/ + flake.nix); elsewhere it
+        # falls back to just's completer.
         #   just deploy|build|diff|push-cache <TAB>  → host names from hosts/
         #   just deploy <host> <TAB>                → release, v* tags (newest
         #                                             first), origin branches
@@ -95,7 +100,7 @@ in
                 ;;
             esac
           fi
-          _just "$@"
+          _clap_dynamic_completer_just "$@"
         }
         compdef _just_nixcfg just
 
