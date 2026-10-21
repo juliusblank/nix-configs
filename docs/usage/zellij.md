@@ -202,6 +202,14 @@ starts from the **current** layout file, and `zse-claude --own` resumes
 the session's own conversation, so a stop / restore cycle (or a crash or
 reboot) loses nothing.
 
+Zellij's own sockets live in `~/.cache/zj` (`ZELLIJ_SOCKET_DIR`, set in
+`home/modules/zellij.nix`). The default `$TMPDIR` path is so long on macOS
+that Zellij 0.45 limits session names to 24 characters, too short for
+`review-<repo>-pr<n>`. A client with a different `ZELLIJ_SOCKET_DIR` (or
+an old shell that has not picked up the variable) does not see the
+sessions: stop them with `zse stop` before you change it, and run
+`zse restore` from a new terminal after.
+
 ### Commands
 
 - **`zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]`** — start or attach.

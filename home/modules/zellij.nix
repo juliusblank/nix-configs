@@ -431,6 +431,14 @@ in
   };
 
   home = {
+    # Zellij >= 0.45 puts sockets in `$TMPDIR/zellij-<uid>/contract_version_1/`
+    # (80 chars on macOS). The macOS socket path limit is 104, so session names
+    # were capped at 24 chars (`review-workspace-services-pr20650` failed with
+    # "must be less than 0 characters"). A short, private dir allows ~55.
+    # Changing it hides running sessions from the new client: `zse stop` them
+    # before the deploy, `zse restore` after.
+    sessionVariables.ZELLIJ_SOCKET_DIR = "$HOME/.cache/zj";
+
     packages = [
       pkgs.tig
       zseWelcome
