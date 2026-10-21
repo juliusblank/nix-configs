@@ -367,7 +367,7 @@ Where a dedicated formatter exists, it is the authority on style:
 
 | Language | Formatter | Linter | Indentation |
 |---|---|---|---|
-| Nix | `nixfmt-rfc-style` (`just fmt`) | `statix` (`just lint`) | 2 spaces |
+| Nix | `nixfmt` (RFC style, `just fmt`) | `statix` (`just lint`) | 2 spaces |
 | HCL | `tofu fmt` | — | 2 spaces |
 | YAML | — (manual) | — | 2 spaces |
 | Shell | — (manual) | — | 2 spaces |

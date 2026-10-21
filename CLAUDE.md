@@ -59,7 +59,7 @@ Common scopes: `flake`, `serenity`, `concinnity`, `home`, `darwin`, `infra`, `sp
 ## Formatting
 
 - Always run `just fmt` after editing any `.nix` file
-- `nixfmt-rfc-style` is the formatter — do not hand-format nix files
+- `nixfmt` (RFC style; formerly `nixfmt-rfc-style`) is the formatter — do not hand-format nix files
 - Pre-commit hook in the devShell runs `nixfmt` automatically before every commit
 
 ## Safety rules
