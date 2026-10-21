@@ -4,7 +4,8 @@ let
   # ----- Welcome banner script -----
 
   /**
-    Prints a one-time welcome in a `ticket` / `project` / `review` shell pane.
+    Prints a one-time welcome in a `ticket` / `project` / `review` / `explore`
+    shell pane.
     First invocation per Zellij session writes a sentinel at
     `~/.cache/zse/sessions/<name>.welcomed`; subsequent attaches skip the
     banner. `zse kill` deletes the sentinel along with the AWS side-car.
@@ -43,6 +44,9 @@ let
       project)
         zellij action rename-tab "[project] $name" 2>/dev/null || true
         ;;
+      explore)
+        zellij action rename-tab "[explore] $name" 2>/dev/null || true
+        ;;
     esac
 
     dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
@@ -75,6 +79,14 @@ let
     ┗━━━━━━━━━━━┛
     ART
         printf '→ /review:review %s is auto-sent in the claude pane (jbl-personal/review)\n' "$name"
+        ;;
+      explore)
+        cat <<'ART'
+    ┏━━━━━━━━━━━┓
+    ┃  EXPLORE  ┃
+    ┗━━━━━━━━━━━┛
+    ART
+        printf '→ /explore status %s is auto-sent in the claude pane (repo skill)\n' "$name"
         ;;
       *)
         exit 0
@@ -182,6 +194,41 @@ let
       clear
       printf 'PR #%s  %s\n%s · every %ss · q quits\n\n%s\n' \
         "$pr" "$title" "$(date '+%H:%M:%S')" "$interval" "$checks"
+      if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
+        exit 0
+      fi
+    done
+  '';
+
+  /**
+    `zse-explore` — the exploration pane of the `explore` layout. Shows
+    `docs/explorations/<name>.md` of the session's worktree
+    (`.claude/worktrees/<name>`, falling back to the repo root), rendered by
+    `bat` and cut to the pane height so the header, brief and goal stay in
+    view. Redraws every `$ZSE_EXPLORE_INTERVAL` seconds (default 10), so
+    Claude's edits show up. `q` quits; the command pane then waits for Enter.
+  */
+  zseExplore = pkgs.writeShellScriptBin "zse-explore" ''
+    set -uo pipefail
+    name=''${ZELLIJ_SESSION_NAME:-}
+    interval=''${ZSE_EXPLORE_INTERVAL:-10}
+    while :; do
+      file=""
+      for root in "$PWD/.claude/worktrees/$name" "$PWD"; do
+        if [[ -f $root/docs/explorations/$name.md ]]; then
+          file=$root/docs/explorations/$name.md
+          break
+        fi
+      done
+      clear
+      rows=$(( $(tput lines 2>/dev/null || echo 40) - 2 ))
+      if [[ -n $file ]]; then
+        printf '%s · every %ss · q quits\n' "$(date '+%H:%M:%S')" "$interval"
+        ${pkgs.bat}/bin/bat --style=plain --color=always --paging=never --language=markdown \
+          --terminal-width="$(tput cols 2>/dev/null || echo 80)" "$file" | head -n "$rows"
+      else
+        printf 'zse-explore: no docs/explorations/%s.md yet — run /explore new in the claude pane.\n' "$name"
+      fi
       if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
         exit 0
       fi
@@ -373,6 +420,9 @@ let
   # `--first-prompt`: the review runs on the first start only; a restored
   # session resumes its conversation.
   reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/review:review $ZELLIJ_SESSION_NAME\"'';
+  # Explore: own conversation in the slug's worktree; `/explore status` on the
+  # first start only, so every new session opens with goal, iteration and budget.
+  exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\"'';
 
   /**
     Task-list pane for the `daily` layout. Runs the repo's own
@@ -411,6 +461,10 @@ in
   #              session resumes. The shell shows a one-time banner.
   #   daily    — claude (own conversation) · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
+  #   explore  — private explorations (docs/SPEC.md → Explorations). Session
+  #              name is the slug; worktree `.claude/worktrees/<slug>` on
+  #              branch `explore/<slug>`. claude (`/explore status <slug>` on
+  #              the first start) · shell · exploration pane (`zse-explore`).
   #
   # Welcome banners are a one-shot per session — a sentinel at
   # `~/.cache/zse/sessions/<name>.welcomed` suppresses the banner on resume.
@@ -445,6 +499,7 @@ in
       zseClaude
       zseGit
       zseCi
+      zseExplore
       zseAgents
       zseEnv
     ];
@@ -505,6 +560,20 @@ in
                 pane name="ci" {
                     command "${zseEnv}/bin/zse-env"
                     args "${zseCi}/bin/zse-ci"
+                }
+            }
+        }
+      '';
+
+      # Explore: claude + (shell over the exploration file). No tig — the
+      # exploration file is what matters next to the conversation.
+      ".config/zellij/layouts/explore.kdl".text = mkSingleTreeLayout ''
+        pane split_direction="vertical" {
+            ${exploreClaudePane}
+            pane split_direction="horizontal" {
+                ${mkShellPane "explore"}
+                pane name="exploration" size="65%" {
+                    command "${zseExplore}/bin/zse-explore"
                 }
             }
         }

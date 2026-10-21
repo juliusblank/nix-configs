@@ -239,10 +239,11 @@ just changelog           # regenerate CHANGELOG.md locally
     ├── SPEC.md            # living specification
     ├── ci.md              # CI job graph
     ├── remote-ssh-auth.md # remote SSH auth + signing options (open)
+    ├── explorations/      # goal-first private explorations (/explore skill)
     └── usage/
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow
-        ├── zellij.md      # Claude Code session layouts (zse)
+        ├── zellij.md      # Claude Code session layouts (zse, incl. explore)
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 

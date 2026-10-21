@@ -148,7 +148,8 @@ _z_cleanup_worktree() {
     git worktree unlock "$worktree" 2>/dev/null
     git worktree remove "$worktree" || exit 1
     git worktree prune 2>/dev/null
-    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>` branch stays.
+    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>` or
+    # `explore/<name>` branch stays (it holds the work, usually a PR).
     git branch -D "worktree-$wt_name" >/dev/null 2>&1 || true
   ) || return 1
   print -r "zse: removed worktree $worktree"
@@ -303,16 +304,22 @@ _zse_start() {
     return 1
   fi
 
-  # Ticket mode: pre-create the worktree on branch `$ZSE_BRANCH_USER/<ticket>`
-  # instead of Claude Code's default `worktree-<ticket>`; `claude --worktree`
-  # reuses an existing worktree as-is. Skipped outside a git repo, when the
-  # worktree exists, or when ZSE_BRANCH_USER is empty.
-  if [[ $use_case == ticket && -n ${ZSE_BRANCH_USER:-} ]]; then
+  # Ticket / explore mode: pre-create the worktree on branch
+  # `$ZSE_BRANCH_USER/<ticket>` (ticket) or `explore/<slug>` (explore) instead
+  # of Claude Code's default `worktree-<name>`; `claude --worktree` reuses an
+  # existing worktree as-is. Skipped outside a git repo, when the worktree
+  # exists, or for ticket when ZSE_BRANCH_USER is empty.
+  local wt_prefix=""
+  case $use_case in
+    ticket) [[ -n ${ZSE_BRANCH_USER:-} ]] && wt_prefix="$ZSE_BRANCH_USER" ;;
+    explore) wt_prefix="explore" ;;
+  esac
+  if [[ -n $wt_prefix ]]; then
     local repo_root
     if repo_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
       local worktree_dir="$repo_root/.claude/worktrees/$name"
       if [[ ! -d $worktree_dir ]]; then
-        local branch="$ZSE_BRANCH_USER/$name"
+        local branch="$wt_prefix/$name"
         mkdir -p "$repo_root/.claude/worktrees"
         if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
           git -C "$repo_root" worktree add "$worktree_dir" "$branch" >/dev/null || return 1
@@ -596,7 +603,7 @@ _zse() {
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
-    '-l[layout / use case]:use case:(code project ticket review daily code-resume)' \
+    '-l[layout / use case]:use case:(code project ticket review daily explore code-resume)' \
     '-a[AWS profile]:profile:' \
     '*:session name:_zse_names'
 }
