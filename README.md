@@ -224,6 +224,7 @@ just changelog           # regenerate CHANGELOG.md locally
 │       ├── aerospace.nix  # AeroSpace tiling WM
 │       ├── aws.nix        # declarative ~/.aws/config (serenity)
 │       ├── granted.nix    # Granted AWS credential manager
+│       ├── harmonic-dj.nix  # Harmonic DJ app derivation (serenity, evaluation)
 │       ├── zellij.nix     # Zellij layouts + config
 │       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
@@ -233,12 +234,14 @@ just changelog           # regenerate CHANGELOG.md locally
 │   └── pi-moodpi/         # NixOS + home-manager (planned)
 ├── lib/                   # helper derivations (e.g. gh-stack-bin.nix)
 ├── overlays/              # placeholder (not imported by flake.nix yet)
+├── scripts/dj/            # DJ toolchain helpers (Python, read-only analysis)
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
 ├── .github/workflows/     # CI
 └── docs/
     ├── SPEC.md            # living specification
     ├── ci.md              # CI job graph
     ├── remote-ssh-auth.md # remote SSH auth + signing options (open)
+    ├── harmonic-dj.md     # Harmonic DJ research, test run, backup handoff
     ├── explorations/      # goal-first private explorations (/explore skill)
     └── usage/
         ├── nix-system.md
