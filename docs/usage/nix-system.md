@@ -217,13 +217,16 @@ deployments:` section), so you can see drift, for example after a manual
 
 ## Known issues: macOS and nix-darwin
 
-- **Zellij sessions "stopped" after a deploy** — Zellij keeps its sessions per version
-  (`$TMPDIR/zellij-<uid>/<version>/`); a new client cannot see servers of an older version,
-  so `zse ls` shows them as `stopped` while they still run. **`just deploy`** checks for
+- **Zellij sessions "stopped" after a deploy** — Zellij keeps its sessions per socket
+  dir and protocol version (`~/.cache/zj/contract_version_<n>/` via `ZELLIJ_SOCKET_DIR`;
+  0.43 used `$TMPDIR/zellij-<uid>/<version>/`); a new client cannot see servers in another
+  dir, so `zse ls` shows them as `stopped` while they still run. **`just deploy`** checks for
   this: when the deploy changes the Zellij version and sessions are running, it asks to stop
   them before the switch and runs `zse restore` after it. Run such deploys **outside Zellij**
-  (stopping the session you deploy from would end the deploy). If you missed it, stop the
-  old servers with the old binary, then restore:
+  (stopping the session you deploy from would end the deploy). The check compares versions
+  only: for other changes (e.g. `ZELLIJ_SOCKET_DIR`), run `zse stop --all` before the deploy
+  and `zse restore` in a new terminal after it. If you missed it, stop the old servers with
+  the old binary (and the old `ZELLIJ_SOCKET_DIR`, if it changed), then restore:
 
   ```bash
   old=$(ls -d /nix/store/*-zellij-<old-version>/bin/zellij | head -1)
