@@ -19,3 +19,6 @@ terraform/tfplan
 .DS_Store
 *.swp
 adr-explainer-video.skill
+
+# Linked worktrees (zse ticket / explore sessions, Claude Code --worktree)
+.claude/worktrees/
