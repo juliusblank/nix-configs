@@ -262,7 +262,9 @@ in
         	local url_escaped=''${url//&/%26}
         	# Use the exact bundle path so LaunchServices does not resolve `Firefox`
         	# to a stale nix-store bundle retained by an older system generation.
-        	open -a "${pkgs.firefox}/Applications/Firefox.app" "ext+container:name=''${profile}&url=''${url_escaped}"
+        	# finalPackage, not pkgs.firefox: only home-manager's wrapper carries the
+        	# profile location (MOZ_APP_DATA, see home/darwin.nix firefox.configPath).
+        	open -a "${config.programs.firefox.finalPackage}/Applications/Firefox.app" "ext+container:name=''${profile}&url=''${url_escaped}"
         }
 
         # grassume: granted via assumego — for profiles using op-credential-process.

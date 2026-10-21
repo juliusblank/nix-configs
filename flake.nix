@@ -2,15 +2,15 @@
   description = "juliusblank's multi-system nix configuration";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
 
     nix-darwin = {
-      url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
+      url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager/release-25.11";
+      url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -74,16 +74,6 @@
           system = "aarch64-darwin";
           specialArgs = { inherit inputs self; };
           modules = [
-            {
-              # direnv 2.37.x fish-test is SIGKILL'd in the macOS sandbox; skip checks
-              nixpkgs.overlays = [
-                (final: prev: {
-                  direnv = prev.direnv.overrideAttrs (_: {
-                    doCheck = false;
-                  });
-                })
-              ];
-            }
             ./hosts/serenity/configuration.nix
             home-manager.darwinModules.home-manager
             {
@@ -115,16 +105,6 @@
           system = "aarch64-darwin";
           specialArgs = { inherit inputs self; };
           modules = [
-            {
-              # direnv 2.37.x fish-test is SIGKILL'd in the macOS sandbox; skip checks
-              nixpkgs.overlays = [
-                (final: prev: {
-                  direnv = prev.direnv.overrideAttrs (_: {
-                    doCheck = false;
-                  });
-                })
-              ];
-            }
             ./hosts/concinnity/configuration.nix
             home-manager.darwinModules.home-manager
             {

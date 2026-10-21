@@ -56,7 +56,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 15 | DJ toolchain — rekordbox automation | Process improvements, scripts |
 | 16 | Rekordbox MCP server | Scope and project home TBD |
 | 17 | `pi-moodpi` host config | Lower urgency |
-| 18 | nixpkgs upgrade to 25.11 | Done — bumped `nixpkgs` to `nixpkgs-25.11-darwin`, `nix-darwin` to `nix-darwin-25.11`, `home-manager` to `release-25.11`. Enables declarative Firefox extensions on macOS (home-manager PR #6913). nix-homebrew updated to 5.1.10 (pin removed); homebrew-cask unpinned. Next upgrade: 26.05 (end of May 2026); retry `git-hooks.nix` / `pre-commit-hooks.nix`. |
+| 18 | nixpkgs upgrade to 26.05 | In progress — `nixpkgs-26.05-darwin`, `nix-darwin-26.05`, `home-manager` `release-26.05` (branch `chore/nixpkgs-26.05`). Changes needed: `neofetch` (removed) → `fastfetch` on serenity; neovim `withRuby`/`withPython3` = false, `extraLuaConfig` → `initLua`, and nvim-treesitter's new API (no `configs.setup`; highlighting via `vim.treesitter.start` on `FileType`); `programs.ssh.matchBlocks` → `settings`; devshell `nixfmt-rfc-style` → `nixfmt`; `op-completions` builds with a private `$TMPDIR` (flaky with `/tmp`). Removed: the `aws-vault` overlay (26.05 ships ByteNess 7.10.7) and the `direnv` `doCheck = false` overlay (checks pass). Firefox: `programs.firefox.configPath = "Library/Application Support/org.nixos.firefox"` (`home/darwin.nix`) — macOS 27 lets only Mozilla-signed apps write to `…/Firefox`, which broke the nixpkgs build (NixOS/nixpkgs#535123); the wrapper's `appDataDir` sets `MOZ_APP_DATA`; one-time data move in `docs/usage/nix-system.md`. Test plan: branch deploy on concinnity (`just deploy concinnity chore/nixpkgs-26.05`), checklist, merge, then serenity; rollback = `just deploy <host> release`. Still open: retry `git-hooks.nix` / `pre-commit-hooks.nix`. Previous: 25.11 (Firefox extensions on macOS via HM #6913; nix-homebrew 5.1.10). |
 | 19 | Terraform state bucket + DynamoDB under tofu management | Done — `terraform/state-backend.tf` defines both resources; `just tf-import-backend` imports them after initial bootstrap; `setup-terraform-backend` now prompts to run the import step |
 | 20 | Separate infra repo | Move IAM Identity Center, DNSimple, Ionos, and other account-level infrastructure out of this repo into a dedicated `infra` repo. Keep in `nix-configs/terraform/`: nix cache bucket, state backend, GitHub repo settings, OIDC role for this repo's CI, and `personal-nix-configs-infra` IAM user. The infra repo becomes the prerequisite for completing #12 (IAM IC migration). |
 | 21 | ghostty setup from work laptop | Done — `home/ghostty.nix` declares full Ghostty config (font, theme, opacity, keybinds, shell integration) applied to both hosts via `home/darwin.nix`. Package set to `null` on macOS (app installed via Homebrew cask on serenity; IRU/dmg on concinnity). |
@@ -367,7 +367,7 @@ Where a dedicated formatter exists, it is the authority on style:
 
 | Language | Formatter | Linter | Indentation |
 |---|---|---|---|
-| Nix | `nixfmt-rfc-style` (`just fmt`) | `statix` (`just lint`) | 2 spaces |
+| Nix | `nixfmt` (RFC style, `just fmt`) | `statix` (`just lint`) | 2 spaces |
 | HCL | `tofu fmt` | — | 2 spaces |
 | YAML | — (manual) | — | 2 spaces |
 | Shell | — (manual) | — | 2 spaces |
