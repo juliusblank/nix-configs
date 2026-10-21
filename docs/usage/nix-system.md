@@ -217,6 +217,20 @@ deployments:` section), so you can see drift, for example after a manual
 
 ## Known issues: macOS and nix-darwin
 
+- **Zellij sessions "stopped" after a deploy** — Zellij keeps its sessions per version
+  (`$TMPDIR/zellij-<uid>/<version>/`); a new client cannot see servers of an older version,
+  so `zse ls` shows them as `stopped` while they still run. **`just deploy`** checks for
+  this: when the deploy changes the Zellij version and sessions are running, it asks to stop
+  them before the switch and runs `zse restore` after it. Run such deploys **outside Zellij**
+  (stopping the session you deploy from would end the deploy). If you missed it, stop the
+  old servers with the old binary, then restore:
+
+  ```bash
+  old=$(ls -d /nix/store/*-zellij-<old-version>/bin/zellij | head -1)
+  "$old" kill-all-sessions --yes
+  zse restore
+  ```
+
 - **Firefox: "A copy of Firefox is already open" (macOS 27)** — macOS 27 lets only
   Mozilla-signed apps write to **`~/Library/Application Support/Firefox`**. The nixpkgs build
   cannot lock its profile there and shows this dialog without opening a window

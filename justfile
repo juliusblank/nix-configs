@@ -262,8 +262,40 @@ deploy host ref="":
             # Non-interactive bash: no `darwin-rebuild` on PATH. New nix-darwin requires root
             # for `switch`. Resolve the store path, then `sudo` that binary (not `sudo
             # darwin-rebuild` — macOS secure_path would not find it).
+            # Zellij keeps sessions per version: after a version change the new client
+            # no longer sees sessions of the old server (zse lists them as stopped). So
+            # when this deploy changes the Zellij version, offer to stop the running
+            # sessions first (old zellij still works now) and restore them after.
+            # Plain strings, not arrays: must also run under macOS /bin/bash 3.2 with set -u.
+            restore_sessions=""
+            cur_zj=$(zellij --version 2>/dev/null | awk '{print $2}' || true)
+            new_zj=$(nix eval --raw ".#darwinConfigurations.{{host}}.config.home-manager.users.\"$(id -un)\".programs.zellij.package.version" 2>/dev/null || true)
+            if [ -n "$cur_zj" ] && [ -n "$new_zj" ] && [ "$cur_zj" != "$new_zj" ]; then
+                running=$(zellij list-sessions --short --no-formatting 2>/dev/null | tr '\n' ' ' || true)
+                if [ -n "${running// /}" ]; then
+                    echo "Zellij $cur_zj → $new_zj: running sessions: $running"
+                    if [ -n "${ZELLIJ:-}" ]; then
+                        echo "  You are inside Zellij; stopping would end this deploy. Run it from a"
+                        echo "  terminal outside Zellij, or answer N and handle sessions by hand"
+                        echo "  (docs/usage/nix-system.md, Known issues)."
+                    fi
+                    ans=""
+                    read -r -p "Stop them now and restore them after the deploy? [y/N] " ans < /dev/tty || true
+                    if [ "$ans" = y ] && [ -z "${ZELLIJ:-}" ]; then
+                        for s in $running; do
+                            [ -f "$HOME/.local/state/zse/sessions/$s" ] \
+                              || echo "  $s is not registered in zse; it will not be restored."
+                            zellij kill-session "$s" && restore_sessions="$restore_sessions $s"
+                        done
+                    fi
+                fi
+            fi
             drb=$(nix build --no-link --print-out-paths "{{nix_darwin_flake}}#darwin-rebuild")
             sudo "$drb/bin/darwin-rebuild" switch --flake ".#{{host}}"
+            if [ -n "$restore_sessions" ]; then
+                # zse is a zsh function; an interactive zsh loads the new one.
+                zsh -ic "zse restore$restore_sessions" || echo "WARNING: zse restore failed; run: zse restore"
+            fi
             gen=$(readlink /nix/var/nix/profiles/system | grep -o '[0-9]*')
             # %q: `status` sources this file, and the label contains spaces.
             printf 'host=%q\ncommit=%q\nbranch=%q\ngeneration=%q\ndeployed_at=%q\n' \
