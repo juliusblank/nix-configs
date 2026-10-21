@@ -84,7 +84,7 @@
   # System-level packages (available before user login)
   environment.systemPackages = with pkgs; [
     vim
-    neofetch
+    fastfetch
     vscode
     claude-code
   ];

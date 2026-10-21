@@ -4,7 +4,8 @@ let
   # ----- Welcome banner script -----
 
   /**
-    Prints a one-time welcome in a `ticket` / `project` / `review` shell pane.
+    Prints a one-time welcome in a `ticket` / `project` / `review` / `explore`
+    shell pane.
     First invocation per Zellij session writes a sentinel at
     `~/.cache/zse/sessions/<name>.welcomed`; subsequent attaches skip the
     banner. `zse kill` deletes the sentinel along with the AWS side-car.
@@ -43,6 +44,9 @@ let
       project)
         zellij action rename-tab "[project] $name" 2>/dev/null || true
         ;;
+      explore)
+        zellij action rename-tab "[explore] $name" 2>/dev/null || true
+        ;;
     esac
 
     dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
@@ -75,6 +79,14 @@ let
     ┗━━━━━━━━━━━┛
     ART
         printf '→ /review:review %s is auto-sent in the claude pane (jbl-personal/review)\n' "$name"
+        ;;
+      explore)
+        cat <<'ART'
+    ┏━━━━━━━━━━━┓
+    ┃  EXPLORE  ┃
+    ┗━━━━━━━━━━━┛
+    ART
+        printf '→ /explore status %s is auto-sent in the claude pane (repo skill)\n' "$name"
         ;;
       *)
         exit 0
@@ -189,18 +201,120 @@ let
   '';
 
   /**
-    Right-hand column shared by `code`, `project.master` and `ticket`:
-    shell on top, the `zse-git` pane below.
+    `zse-explore` — the exploration pane of the `explore` layout. Shows
+    `docs/explorations/<name>.md` of the session's worktree
+    (`.claude/worktrees/<name>`, falling back to the repo root), rendered by
+    `bat` and cut to the pane height so the header, brief and goal stay in
+    view. Redraws every `$ZSE_EXPLORE_INTERVAL` seconds (default 10), so
+    Claude's edits show up. `q` quits; the command pane then waits for Enter.
   */
-  shellTigColumn = useCase: ''
-    pane split_direction="horizontal" {
-        ${mkShellPane useCase}
+  zseExplore = pkgs.writeShellScriptBin "zse-explore" ''
+    set -uo pipefail
+    name=''${ZELLIJ_SESSION_NAME:-}
+    interval=''${ZSE_EXPLORE_INTERVAL:-10}
+    while :; do
+      file=""
+      for root in "$PWD/.claude/worktrees/$name" "$PWD"; do
+        if [[ -f $root/docs/explorations/$name.md ]]; then
+          file=$root/docs/explorations/$name.md
+          break
+        fi
+      done
+      clear
+      rows=$(( $(tput lines 2>/dev/null || echo 40) - 2 ))
+      if [[ -n $file ]]; then
+        printf '%s · every %ss · q quits\n' "$(date '+%H:%M:%S')" "$interval"
+        ${pkgs.bat}/bin/bat --style=plain --color=always --paging=never --language=markdown \
+          --terminal-width="$(tput cols 2>/dev/null || echo 80)" "$file" | head -n "$rows"
+      else
+        printf 'zse-explore: no docs/explorations/%s.md yet — run /explore new in the claude pane.\n' "$name"
+      fi
+      if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
+        exit 0
+      fi
+    done
+  '';
+
+  /**
+    `zse-agents` — the agents pane of the `project` master tab. Redraws the
+    Claude sessions started under the pane's directory (the repo root, so
+    ticket worktrees at `.claude/worktrees/<id>` are included) every
+    `$ZSE_AGENTS_INTERVAL` seconds (default 5): state, name, kind, age,
+    worktree. Source is `claude agents --json --cwd`, the only stable
+    interface for agent status; `state` / `waitingFor` are shown when the
+    JSON has them, else `status`. The master's own session is left out.
+    `q` quits; the command pane then waits for Enter to restart it.
+  */
+  zseAgents = pkgs.writeShellScriptBin "zse-agents" ''
+    set -uo pipefail
+    self=''${ZELLIJ_SESSION_NAME:-}
+    dir=$PWD
+    interval=''${ZSE_AGENTS_INTERVAL:-5}
+    while :; do
+      if json=$(claude agents --json --cwd "$dir" 2>&1); then
+        body=$(printf '%s' "$json" | ${pkgs.jq}/bin/jq -r \
+          --arg self "$self" --arg dir "$dir" --argjson now "$(date +%s)" '
+            map(select(.name != $self or .cwd != $dir))
+            | sort_by(.startedAt)
+            | .[]
+            | [ (.state // .status // "-"),
+                .name,
+                (if .kind == "background" then "bg" else "int" end),
+                (($now - (.startedAt / 1000 | floor)) as $s
+                  | if $s < 3600 then "\($s / 60 | floor)m"
+                    elif $s < 86400 then "\($s / 3600 | floor)h"
+                    else "\($s / 86400 | floor)d" end),
+                ((.cwd | capture("/\\.claude/worktrees/(?<w>[^/]+)").w) // "-"),
+                (.waitingFor // "")
+              ]
+            | @tsv' | column -t -s $'\t')
+        [[ -n $body ]] || body="no other sessions under $dir"
+      else
+        body="zse-agents: claude agents --json failed: $json"
+      fi
+      clear
+      printf 'agents · %s · every %ss · q quits\n\n%s\n' \
+        "$(date '+%H:%M:%S')" "$interval" "$body"
+      if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
+        exit 0
+      fi
+    done
+  '';
+
+  /**
+    Right-hand column shared by `code`, `project.master` and `ticket`:
+    shell on top, the `zse-git` pane below. In `project` the bottom row
+    splits into git (left) and `zse-agents` (right).
+  */
+  shellTigColumn =
+    useCase:
+    let
+      gitPane = ''
         pane name="git" {
             command "${zseEnv}/bin/zse-env"
             args "${zseGit}/bin/zse-git" "${if useCase == null then "code" else useCase}"
         }
-    }
-  '';
+      '';
+      bottom =
+        if useCase == "project" then
+          ''
+            pane split_direction="vertical" {
+                ${gitPane}
+                pane name="agents" {
+                    command "${zseEnv}/bin/zse-env"
+                    args "${zseAgents}/bin/zse-agents"
+                }
+            }
+          ''
+        else
+          gitPane;
+    in
+    ''
+      pane split_direction="horizontal" {
+          ${mkShellPane useCase}
+          ${bottom}
+      }
+    '';
 
   /**
     Three-pane body — claude on the left, shellTigColumn on the right —
@@ -306,6 +420,9 @@ let
   # `--first-prompt`: the review runs on the first start only; a restored
   # session resumes its conversation.
   reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/review:review $ZELLIJ_SESSION_NAME\"'';
+  # Explore: own conversation in the slug's worktree; `/explore status` on the
+  # first start only, so every new session opens with goal, iteration and budget.
+  exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\"'';
 
   /**
     Task-list pane for the `daily` layout. Runs the repo's own
@@ -328,9 +445,11 @@ in
   # Use-case layouts (see docs/usage/zellij.md for the long form):
   #
   #   code     — default. claude (own conversation) · shell · tig status · compact bar.
-  #   project  — tabs: master (code shape, --continue) + full-screen
-  #              `claude agents`. Status via `default_tab_template`. Master
-  #              shell shows a one-time `/project:start` welcome banner.
+  #   project  — tabs: master (code shape, own conversation; git row split
+  #              with the `zse-agents` status pane) + full-screen
+  #              `claude agents --cwd <repo>`. Status via
+  #              `default_tab_template`. Master shell shows a one-time
+  #              `/project:start` welcome banner.
   #   ticket   — `claude --worktree $ZELLIJ_SESSION_NAME` · shell · tig.
   #              Session name is the ticket ID; worktree is created / reused
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
@@ -342,6 +461,10 @@ in
   #              session resumes. The shell shows a one-time banner.
   #   daily    — claude (own conversation) · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
+  #   explore  — private explorations (docs/SPEC.md → Explorations). Session
+  #              name is the slug; worktree `.claude/worktrees/<slug>` on
+  #              branch `explore/<slug>`. claude (`/explore status <slug>` on
+  #              the first start) · shell · exploration pane (`zse-explore`).
   #
   # Welcome banners are a one-shot per session — a sentinel at
   # `~/.cache/zse/sessions/<name>.welcomed` suppresses the banner on resume.
@@ -362,12 +485,22 @@ in
   };
 
   home = {
+    # Zellij >= 0.45 puts sockets in `$TMPDIR/zellij-<uid>/contract_version_1/`
+    # (80 chars on macOS). The macOS socket path limit is 104, so session names
+    # were capped at 24 chars (`review-workspace-services-pr20650` failed with
+    # "must be less than 0 characters"). A short, private dir allows ~55.
+    # Changing it hides running sessions from the new client: `zse stop` them
+    # before the deploy, `zse restore` after.
+    sessionVariables.ZELLIJ_SOCKET_DIR = "$HOME/.cache/zj";
+
     packages = [
       pkgs.tig
       zseWelcome
       zseClaude
       zseGit
       zseCi
+      zseExplore
+      zseAgents
       zseEnv
     ];
 
@@ -432,6 +565,20 @@ in
         }
       '';
 
+      # Explore: claude + (shell over the exploration file). No tig — the
+      # exploration file is what matters next to the conversation.
+      ".config/zellij/layouts/explore.kdl".text = mkSingleTreeLayout ''
+        pane split_direction="vertical" {
+            ${exploreClaudePane}
+            pane split_direction="horizontal" {
+                ${mkShellPane "explore"}
+                pane name="exploration" size="65%" {
+                    command "${zseExplore}/bin/zse-explore"
+                }
+            }
+        }
+      '';
+
       # Daily: claude + the daily-tasks task picker. No shell / tig — the
       # vault is committed by `/eod`, and ticks happen in the tasks pane.
       ".config/zellij/layouts/daily.kdl".text = mkSingleTreeLayout ''
@@ -454,8 +601,8 @@ in
             }
             tab name="agents" {
                 pane {
-                    command "${zseEnv}/bin/zse-env"
-                    args "claude" "agents"
+                    command "sh"
+                    args "-c" "exec ${zseEnv}/bin/zse-env claude agents --cwd \"$PWD\""
                 }
             }
         }

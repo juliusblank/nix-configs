@@ -148,7 +148,8 @@ _z_cleanup_worktree() {
     git worktree unlock "$worktree" 2>/dev/null
     git worktree remove "$worktree" || exit 1
     git worktree prune 2>/dev/null
-    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>` branch stays.
+    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>` or
+    # `explore/<name>` branch stays (it holds the work, usually a PR).
     git branch -D "worktree-$wt_name" >/dev/null 2>&1 || true
   ) || return 1
   print -r "zse: removed worktree $worktree"
@@ -225,6 +226,7 @@ usage:
   zse stop [NAME]                            stop a session, keep it registered
   zse kill [NAME]                            end a session and clean up
   zse restore [NAME...]                      start stopped sessions in the background
+  zse restart --all | NAME...                stop running sessions, start them again
   zse switch NAME                            switch to NAME (start it if stopped)
 
   USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review, daily,
@@ -243,6 +245,10 @@ usage:
 
   restore skips sessions that use -a (assume needs the YubiKey) and prints
   the command to start them.
+
+  restart picks up a new layout after a deploy: stop, then restore. It
+  skips the current session (stopping it would end the command too);
+  --all also skips sessions that use -a, so they keep running.
 EOF
 }
 
@@ -298,16 +304,22 @@ _zse_start() {
     return 1
   fi
 
-  # Ticket mode: pre-create the worktree on branch `$ZSE_BRANCH_USER/<ticket>`
-  # instead of Claude Code's default `worktree-<ticket>`; `claude --worktree`
-  # reuses an existing worktree as-is. Skipped outside a git repo, when the
-  # worktree exists, or when ZSE_BRANCH_USER is empty.
-  if [[ $use_case == ticket && -n ${ZSE_BRANCH_USER:-} ]]; then
+  # Ticket / explore mode: pre-create the worktree on branch
+  # `$ZSE_BRANCH_USER/<ticket>` (ticket) or `explore/<slug>` (explore) instead
+  # of Claude Code's default `worktree-<name>`; `claude --worktree` reuses an
+  # existing worktree as-is. Skipped outside a git repo, when the worktree
+  # exists, or for ticket when ZSE_BRANCH_USER is empty.
+  local wt_prefix=""
+  case $use_case in
+    ticket) [[ -n ${ZSE_BRANCH_USER:-} ]] && wt_prefix="$ZSE_BRANCH_USER" ;;
+    explore) wt_prefix="explore" ;;
+  esac
+  if [[ -n $wt_prefix ]]; then
     local repo_root
     if repo_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
       local worktree_dir="$repo_root/.claude/worktrees/$name"
       if [[ ! -d $worktree_dir ]]; then
-        local branch="$ZSE_BRANCH_USER/$name"
+        local branch="$wt_prefix/$name"
         mkdir -p "$repo_root/.claude/worktrees"
         if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
           git -C "$repo_root" worktree add "$worktree_dir" "$branch" >/dev/null || return 1
@@ -454,6 +466,54 @@ _zse_restore() {
   return 0
 }
 
+# zse restart --all | NAME... — stop running sessions, then restore them
+# from the current layout (e.g. after a deploy). Skips the current session:
+# stopping it would end this command too. `--all` takes every running
+# registered session except those with an AWS profile (restore cannot start
+# them again); a named AWS session is stopped and restore prints its command.
+_zse_restart() {
+  emulate -L zsh
+  local -a names todo
+  local all=""
+  if [[ ${1:-} == --all ]]; then
+    all=1
+    names=($(_z_reg_names))
+  elif (($#)); then
+    names=("$@")
+  else
+    print -u2 -r "zse: usage: zse restart --all | NAME..."
+    return 1
+  fi
+  local n
+  for n in $names; do
+    if [[ -n ${ZELLIJ:-} && $n == "${ZELLIJ_SESSION_NAME:-}" ]]; then
+      print -u2 -r "zse: '$n' is the current session — skipped. Run 'zse restart $n' from another session or outside Zellij."
+      continue
+    fi
+    if ! _z_reg_get "$n" use_case >/dev/null; then
+      print -u2 -r "zse: '$n' is not registered — skipped."
+      continue
+    fi
+    [[ $(_z_session_state "$n") == live ]] || continue
+    if [[ -n $all && -n $(_z_reg_get "$n" aws_profile) ]]; then
+      print -r "zse: '$n' uses AWS — kept running. Restart it with 'zse restart $n'."
+      continue
+    fi
+    zellij kill-session "$n" || continue
+    # Wait until the server is gone, so restore does not attach to it.
+    for _ in {1..20}; do
+      [[ $(_z_session_state "$n") == none ]] && break
+      sleep 0.25
+    done
+    todo+=("$n")
+  done
+  if ((!${#todo})); then
+    print -r "zse: no running sessions to restart."
+    return 0
+  fi
+  _zse_restore $todo
+}
+
 _zse_switch() {
   emulate -L zsh
   local name=${1:-}
@@ -481,6 +541,7 @@ zse() {
     stop) shift; _zse_stop "$@" ;;
     kill) shift; _zse_kill "$@" ;;
     restore) shift; _zse_restore "$@" ;;
+    restart) shift; _zse_restart "$@" ;;
     switch) shift; _zse_switch "$@" ;;
     -h | --help | help) _zse_help ;;
     --) shift; _zse_start "$@" ;;
@@ -524,6 +585,7 @@ _zse() {
     'stop:stop a session, keep it registered'
     'kill:end a session and clean up'
     'restore:start stopped sessions in the background'
+    'restart:stop running sessions and start them again'
     'switch:switch to a session'
     'help:show usage'
   )
@@ -532,11 +594,16 @@ _zse() {
       ((CURRENT >= 3)) && _zse_names
       return
       ;;
+    restart)
+      ((CURRENT == 3)) && compadd -- --all
+      ((CURRENT >= 3)) && _zse_names
+      return
+      ;;
     ls | help) return ;;
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
-    '-l[layout / use case]:use case:(code project ticket review daily code-resume)' \
+    '-l[layout / use case]:use case:(code project ticket review daily explore code-resume)' \
     '-a[AWS profile]:profile:' \
     '*:session name:_zse_names'
 }

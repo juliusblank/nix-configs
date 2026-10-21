@@ -37,16 +37,16 @@ jobs:
       TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-central-1
 
       - name: Load secrets from 1Password
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@v5
         with:
           export-env: true
         env:
@@ -54,7 +54,7 @@ jobs:
           TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
 
       - name: Install OpenTofu
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: "1.9.1"
 
@@ -69,7 +69,7 @@ jobs:
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Post plan as PR comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         if: always()
         with:
           script: |
@@ -118,16 +118,16 @@ jobs:
       TF_VAR_op_service_account_token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-central-1
 
       - name: Load secrets from 1Password
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@v5
         with:
           export-env: true
         env:
@@ -135,7 +135,7 @@ jobs:
           TF_VAR_github_token: op://github_nix-configs/GitHub PAT nix-configs/token
 
       - name: Install OpenTofu
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: "1.9.1"
 

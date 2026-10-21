@@ -67,12 +67,12 @@ unless you intentionally use the same 1Password items from that machine (see
 
 ### First-time nix-darwin on macOS
 
-The **`nix-darwin-25.11`** flake does **not** expose **`darwin-installer`** (only
+The **`nix-darwin-26.05`** flake does **not** expose **`darwin-installer`** (only
 **`darwin-rebuild`**, **`darwin-uninstaller`**, etc.). Upstream bootstraps with **`darwin-rebuild
 switch`** — see [nix-darwin — Installing nix-darwin](https://github.com/nix-darwin/nix-darwin?tab=readme-ov-file#step-2-installing-nix-darwin).
 
 On a Mac with Nix + flakes and **no** nix-darwin generation yet, from this repo (same
-**`nix-darwin-25.11`** pin as **`flake.nix`** / **`justfile`**):
+**`nix-darwin-26.05`** pin as **`flake.nix`** / **`justfile`**):
 
 ```bash
 cd ~/github/juliusblank/nix-configs
@@ -84,7 +84,7 @@ just deploy <host>
 **Without `just`:** from the repo directory:
 
 ```bash
-sudo nix run github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild -- switch --flake ".#<host>"
+sudo nix run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake ".#<host>"
 ```
 
 Replace **`<host>`** with **`serenity`** or **`concinnity`** (must match **`darwinConfigurations`**
@@ -242,10 +242,11 @@ just changelog           # regenerate CHANGELOG.md locally
     ├── ci.md              # CI job graph
     ├── remote-ssh-auth.md # remote SSH auth + signing options (open)
     ├── harmonic-dj.md     # Harmonic DJ research, test run, backup handoff
+    ├── explorations/      # goal-first private explorations (/explore skill)
     └── usage/
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow
-        ├── zellij.md      # Claude Code session layouts (zse)
+        ├── zellij.md      # Claude Code session layouts (zse, incl. explore)
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 

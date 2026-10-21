@@ -21,7 +21,7 @@ jobs:
       # continue-on-error: true so the first run (before tofu apply has
       # created the labels) does not fail; subsequent PR runs after labels
       # exist succeed normally.
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@v7
         continue-on-error: true
         with:
           configuration-path: .github/labeler.yml

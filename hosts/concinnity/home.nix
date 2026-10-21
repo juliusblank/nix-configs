@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   # Work SSH signing — public key from 1Password → "github ssh key" (Employee vault).
@@ -257,7 +262,9 @@ in
         	local url_escaped=''${url//&/%26}
         	# Use the exact bundle path so LaunchServices does not resolve `Firefox`
         	# to a stale nix-store bundle retained by an older system generation.
-        	open -a "${pkgs.firefox}/Applications/Firefox.app" "ext+container:name=''${profile}&url=''${url_escaped}"
+        	# finalPackage, not pkgs.firefox: only home-manager's wrapper carries the
+        	# profile location (MOZ_APP_DATA, see home/darwin.nix firefox.configPath).
+        	open -a "${config.programs.firefox.finalPackage}/Applications/Firefox.app" "ext+container:name=''${profile}&url=''${url_escaped}"
         }
 
         # grassume: granted via assumego — for profiles using op-credential-process.
@@ -313,14 +320,23 @@ in
     julius.blank@taktile.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAwfAJRp8a2KepH2l6HNikRiebYfO6/EYs7OX1eewUfm
   '';
 
-  # Claude Code: Taktile skill marketplace + plugins + sandbox allowlist.
+  # Claude Code: skill marketplaces + plugins + sandbox allowlist.
   # Equivalent to:
   #   claude plugin marketplace add taktile-org/taktile-skills
+  #   claude plugin marketplace add ~/github/jbl-taktile/claude-skills   (jbl-personal)
   #   claude plugin install tktl-eng-data tktl-eng-frontend
+  #   claude plugin install ticket@jbl-personal review@jbl-personal project@jbl-personal
+  #   claude plugin install aws-serverless@claude-plugins-official
   #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
   # (read-only symlink) won't work. Deep-merge only these keys each activation; all other
   # settings are preserved. Claude Code installs enabled plugins on next startup.
+  # The merge re-enables a declared plugin on every activation: disable one here, not
+  # in Claude Code.
+  #
+  # `jbl-personal` is a local directory marketplace: the claude-skills repo (work
+  # GitHub account) must be cloned at ~/github/jbl-taktile/claude-skills, otherwise
+  # Claude Code reports the marketplace as unavailable.
   #
   # `sandbox.excludedCommands`: run these tools outside the Claude Code sandbox.
   # - `gh`: TLS verification needs the macOS trust service (trustd), which the
@@ -335,13 +351,23 @@ in
     let
       pluginSettings = pkgs.writeText "claude-plugin-settings.json" (
         builtins.toJSON {
-          extraKnownMarketplaces.taktile-skills.source = {
-            source = "github";
-            repo = "taktile-org/taktile-skills";
+          extraKnownMarketplaces = {
+            taktile-skills.source = {
+              source = "github";
+              repo = "taktile-org/taktile-skills";
+            };
+            jbl-personal.source = {
+              source = "directory";
+              path = "${config.home.homeDirectory}/github/jbl-taktile/claude-skills";
+            };
           };
           enabledPlugins = {
             "tktl-eng-data@taktile-skills" = true;
             "tktl-eng-frontend@taktile-skills" = true;
+            "ticket@jbl-personal" = true;
+            "review@jbl-personal" = true;
+            "project@jbl-personal" = true;
+            "aws-serverless@claude-plugins-official" = true;
           };
           sandbox.excludedCommands = [
             "gh"

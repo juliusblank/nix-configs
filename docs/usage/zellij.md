@@ -7,16 +7,18 @@ picked by use case.
 ## Use cases and layouts
 
 Zellij session name = Claude workflow name = worktree name (project slug,
-ticket ID, or `review-<repo>-pr<n>` from a PR URL). Ticket branches are
-`$ZSE_BRANCH_USER/<id>`, not the bare session name.
+ticket ID, exploration slug, or `review-<repo>-pr<n>` from a PR URL). Ticket
+branches are `$ZSE_BRANCH_USER/<id>`, explore branches `explore/<slug>`, not the
+bare session name.
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
-| **project** | `project.kdl` | tabs: master (code shape) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents` |
+| **project** | `project.kdl` | tabs: master (claude · (shell · (git \| agents status))) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents --cwd <repo>` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
 | **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
+| **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status $ZELLIJ_SESSION_NAME" --worktree $ZELLIJ_SESSION_NAME` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
 module), which adds `--remote-control "$ZELLIJ_SESSION_NAME"` (the session
@@ -33,10 +35,10 @@ the most recent conversation **in the directory** — so a new `project`
 master in a repo where a `code` session ran before picked up that
 session's conversation. Old conversations stay reachable via `/resume`.
 
-The `agents` tab in `project` stays bare `claude
-agents` — it's a management view, not an interactive REPL.
+The `agents` tab in `project` runs `claude agents --cwd <repo>` — a
+management view, not an interactive REPL.
 
-Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily>`
+Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily|explore>`
 (`code-resume` exports `code`). Plugins use it to tailor a session to its
 layout: the `jbl-personal` `project` plugin has a `SessionStart` hook that
 injects the master-session ground rules (`project/rules.md`: role,
@@ -64,7 +66,7 @@ own name without the layout files needing to be rendered per session.
 
 ## Welcome banners
 
-The `ticket`, `project`, and `review` layouts show a one-time banner in
+The `ticket`, `project`, `review` and `explore` layouts show a one-time banner in
 the shell pane on fresh session creation, printed by the `zse-welcome`
 helper (installed via home-manager):
 
@@ -81,7 +83,8 @@ re-welcomes. `code` and `code-resume` have no banner — those shell panes
 are plain zsh.
 
 For `review`, the claude pane auto-sends `/review:review $NAME` on
-the first start (not on restore); the banner just reports what's running. For `ticket` and
+the first start (not on restore); the banner just reports what's running. The
+same holds for `explore` with `/explore status $NAME`. For `ticket` and
 `project`, the user invokes the kickoff command manually from the
 banner's hint.
 
@@ -108,8 +111,16 @@ A long-running "master" plan that dispatches ticket sub-sessions via
 - **master** (default focus): `zse-claude --own` from the repo root — the
   project's own conversation, independent of other sessions in the same
   repo and of agent sub-sessions.
-- **agents**: full-screen `claude agents` for inspecting and dispatching
-  background sessions.
+  The git row on the right splits into git (left) and the **agents
+  status pane (`zse-agents`)** (right): one line per Claude session under
+  the repo root (state, name, `int` / `bg`, age, worktree), redrawn every
+  5 s (`ZSE_AGENTS_INTERVAL`), master itself left out. Source is
+  `claude agents --json --cwd <repo>` — Claude Code has no compact or
+  embeddable agent view of its own. `q` quits; Enter restarts it.
+- **agents**: full-screen `claude agents --cwd <repo>` for inspecting,
+  attaching to, and dispatching sessions. `--cwd` keeps the list to
+  sessions started under the repo root (including `.claude/worktrees/*`);
+  other sessions in the same repo (e.g. a `code` session) also show.
 
 The compact bar renders in both tabs via `default_tab_template` and shows
 `master | agents` with the active tab highlighted. Switch tabs with
@@ -158,6 +169,25 @@ The layout only places the pane — all vault logic lives in daily-tasks.
 In a repo without `scripts/tasks-pane`, the pane prints a hint and
 drops to zsh.
 
+### explore
+
+For private explorations in `nix-configs` (`docs/SPEC.md` → *Explorations*):
+goal-first topics worked in short iterations with the `/explore` repo skill
+(`new · iterate · status · close`). Start one with `zse -l explore <slug>`
+from the `nix-configs` checkout. `zse` pre-creates the worktree
+`.claude/worktrees/<slug>` on branch `explore/<slug>` (reused if it exists);
+that branch is the exploration's PR branch. The claude pane works in the
+worktree with its own conversation and sends `/explore status <slug>` on the
+first start, so a new session opens with the goal, the current iteration, the
+remaining budget and the next step. The right column holds the shell and the
+**exploration pane** (`zse-explore`): `docs/explorations/<slug>.md` of the
+worktree, rendered by `bat`, cut to the pane height (header, brief and goal
+stay in view), redrawn every `$ZSE_EXPLORE_INTERVAL` seconds (default 10);
+`q` quits. For a new idea without a file yet, the pane shows a hint — run
+`/explore new <idea>` in the claude pane. `zse kill <slug>` removes the
+worktree but keeps the `explore/<slug>` branch. The skill lives only in this
+repo, so the layout does nothing elsewhere (work repos are not affected).
+
 ## CLI — `zse`
 
 ```
@@ -166,6 +196,7 @@ zse ls                                      list registered and running sessions
 zse stop [NAME]                             stop a session, keep it registered
 zse kill [NAME]                             end a session and clean up
 zse restore [NAME...]                       start stopped sessions in the background
+zse restart --all | NAME...                 stop running sessions, start them again
 zse switch NAME                             switch to NAME (start it if stopped)
 zse help
 ```
@@ -192,6 +223,14 @@ SPEC row 31). Instead, `zse` keeps a registry, one file per session:
 starts from the **current** layout file, and `zse-claude --own` resumes
 the session's own conversation, so a stop / restore cycle (or a crash or
 reboot) loses nothing.
+
+Zellij's own sockets live in `~/.cache/zj` (`ZELLIJ_SOCKET_DIR`, set in
+`home/modules/zellij.nix`). The default `$TMPDIR` path is so long on macOS
+that Zellij 0.45 limits session names to 24 characters, too short for
+`review-<repo>-pr<n>`. A client with a different `ZELLIJ_SOCKET_DIR` (or
+an old shell that has not picked up the variable) does not see the
+sessions: stop them with `zse stop` before you change it, and run
+`zse restore` from a new terminal after.
 
 ### Commands
 
@@ -229,6 +268,13 @@ reboot) loses nothing.
   It skips orphans, and sessions with an AWS profile (`assume` needs the
   YubiKey): for those it prints the command to start them. Use it after a
   crash or a reboot.
+- **`zse restart --all | NAME...`** — stop the running sessions, then
+  `zse restore` them, so they pick up a new layout after `just deploy`.
+  Conversations, worktrees and registry entries stay. It skips the current
+  session (stopping it would end the command too; run it from another
+  session or outside Zellij). `--all` takes every running registered
+  session except those with an AWS profile, which keep running; a named
+  AWS session is stopped and restore prints its start command.
 - **`zse switch NAME`** — switch to NAME; restore it first if it is
   stopped. Inside Zellij it switches in place (`zellij action
   switch-session`), outside it attaches.
@@ -236,7 +282,7 @@ reboot) loses nothing.
 Options and names:
 
 - `-l USE_CASE` — `code`, `project`, `ticket`, `review`, `daily`,
-  `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
+  `explore`, `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
   (devshells can bind a per-repo default), else `code`.
 - `-a AWS_PROFILE` — start Zellij through the host's `assume` fn
   (`aws-vault exec <profile> -d 8h`, 2h for on-call write, with YubiKey
@@ -245,7 +291,8 @@ Options and names:
   side-car at `~/.cache/zse/sessions/<name>.env` and warns when
   `AWS_SESSION_EXPIRATION` is within 15 min or past.
 - `NAME` — default: `basename $PWD` (`zellij-<pid>` in a devshell that
-  exports `name=nix-shell-env`). For `ticket`, the ticket ID; for
+  exports `name=nix-shell-env`). For `ticket`, the ticket ID; for `explore`,
+  the exploration slug; for
   `review`, a GitHub PR URL (`https://github.com/<owner>/<repo>/pull/<n>`):
   `zse` names the session `review-<repo>-pr<n>` and starts it in the
   local checkout at `~/github/<owner>/<repo>`, so the worktree lands in

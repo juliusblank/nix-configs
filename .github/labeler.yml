@@ -1,25 +1,27 @@
-# Path → label mapping consumed by .github/workflows/pr-labeler.yml.
+# Path / branch → label mapping consumed by .github/workflows/pr-labeler.yml.
 #
 # Labels are applied additively: a PR touching hosts/serenity/configuration.nix
-# and flake.lock gets both `host:serenity` and `deps`.
+# and flake.lock gets both `host:serenity` and `deps`. `sync-labels` removes a
+# label from this file when it no longer matches; labels not listed here (the
+# hand-set `status:*` labels) are left alone.
+#
+# A label config is a list of match objects that are AND-ed; use `- any:` to OR
+# a path rule with a branch rule (labeler v5 semantics).
 #
 # Labels referenced here must exist in the repo — they're declared in
 # terraform/github-labels.tf.
+
+# ----- Scope (by path) -----
 
 infra:
   - changed-files:
       - any-glob-to-any-file:
           - 'terraform/**'
-          - '.github/workflows/infra.yml'
 
 ci:
   - changed-files:
       - any-glob-to-any-file:
-          - '.github/workflows/ci.yml'
-          - '.github/workflows/release.yml'
-          - '.github/workflows/pr-labeler.yml'
-          - '.github/labeler.yml'
-          - '.github/CLAUDE.md'
+          - '.github/**'
           - 'docs/ci.md'
 
 host:serenity:
@@ -41,11 +43,17 @@ flake:
   - changed-files:
       - any-glob-to-any-file:
           - 'flake.nix'
+          - 'lib/**'
+          - 'overlays/**'
 
+# Dependabot sets `deps` itself, but `sync-labels` would remove it again unless a
+# rule here matches its branch.
 deps:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'flake.lock'
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'flake.lock'
+      - head-branch: ['^dependabot/']
 
 docs:
   - changed-files:
@@ -54,3 +62,30 @@ docs:
           - 'README.md'
           - '**/CLAUDE.md'
           - 'CHANGELOG.md'
+
+devshell:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'shell.nix'
+          - '.envrc'
+          - 'justfile'
+          - 'cliff.toml'
+          - '.op-env'
+          - '.cursor/**'
+
+# ----- Type (by branch prefix, see CLAUDE.md "Branch & PR Workflow") -----
+
+type:feat:
+  - head-branch: ['^feat/']
+
+type:fix:
+  - head-branch: ['^fix/']
+
+type:docs:
+  - head-branch: ['^docs/']
+
+type:chore:
+  - head-branch: ['^chore/']
+
+type:ci:
+  - head-branch: ['^ci/']

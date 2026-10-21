@@ -41,12 +41,23 @@ in
       ''
         export SSH_AUTH_SOCK="${onePasswordAgentSockShell}"
         source ${
-          pkgs.runCommand "op-completions" { HOME = "/tmp"; } ''
+          # op writes its config dir under $HOME; a private $TMPDIR avoids clashes
+          # with other builds (a shared /tmp made this fail now and then).
+          pkgs.runCommand "op-completions" { } ''
+            export HOME=$TMPDIR
             ${pkgs._1password-cli}/bin/op completion zsh > $out
           ''
         }
       ''
     ];
+
+    # Firefox data outside ~/Library/Application Support/Firefox. macOS 27 lets only
+    # Mozilla-signed apps write there, so the nixpkgs build failed to lock its profile
+    # ("A copy of Firefox is already open"; NixOS/nixpkgs#535123). With a non-default
+    # configPath, home-manager passes `appDataDir` to the wrapper (MOZ_APP_DATA).
+    # Only takes effect on hosts that enable programs.firefox. One-time data move:
+    # docs/usage/nix-system.md.
+    firefox.configPath = "Library/Application Support/org.nixos.firefox";
 
     # Git SSH signing via 1Password's op-ssh-sign. `user.signingKey` uses the
     # `key::` prefix (set in home/common.nix) so git looks the key up in the
@@ -60,7 +71,7 @@ in
       enableDefaultConfig = false;
       includes = [ "~/.orbstack/ssh/config" ];
       # Path contains a space ("Group Containers") — wrap in literal quotes so ssh_config parses it correctly
-      matchBlocks."*".identityAgent = ''"${onePasswordAgentSockSsh}"'';
+      settings."*".IdentityAgent = ''"${onePasswordAgentSockSsh}"'';
     };
   };
 

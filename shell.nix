@@ -7,7 +7,7 @@ pkgs.mkShell {
 
     # Nix tools
     nil # nix LSP
-    nixfmt-rfc-style # formatter
+    nixfmt # formatter (RFC style; nixfmt-rfc-style is now an alias)
     statix # linter
 
     # Changelog
@@ -20,9 +20,12 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
-    # Install pre-commit hook
-    mkdir -p .git/hooks
-    cat > .git/hooks/pre-commit << 'HOOKEOF'
+    # Install pre-commit hook. `--git-path hooks` resolves to the shared hooks dir, also in
+    # linked worktrees (e.g. `.claude/worktrees/*`), where `.git` is a file, not a directory.
+    hooks_dir=$(git rev-parse --path-format=absolute --git-path hooks 2>/dev/null) \
+      || hooks_dir=.git/hooks
+    mkdir -p "$hooks_dir"
+    cat > "$hooks_dir/pre-commit" << 'HOOKEOF'
     #!/usr/bin/env bash
     set -e
 
@@ -63,7 +66,8 @@ pkgs.mkShell {
     # messages, so the record of what changed is already in the git log. For a manual
     # preview, run `just changelog` inside the devShell.
     HOOKEOF
-    chmod +x .git/hooks/pre-commit
+    chmod +x "$hooks_dir/pre-commit"
+    unset hooks_dir
 
     # Inject secrets from 1Password — only on serenity where the relevant vaults exist.
     # On other machines (concinnity, CI) the secrets are either not needed or provided
