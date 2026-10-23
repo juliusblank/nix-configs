@@ -194,6 +194,14 @@ _z_launch() {
     # `name=nix-shell-env` over our local `name`. The panes load the devshell
     # themselves (`zse-env`, home/modules/zellij.nix).
     cd -q "$dir" || exit 1
+    # Run from a Claude Code tool shell, the new Zellij server (and every pane
+    # in it) would inherit that session's markers: claude then turns
+    # transcript saving off (CLAUDE_CODE_CHILD_SESSION) and carries the
+    # parent's session ID and messaging socket.
+    unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_EXECPATH \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION \
+      CLAUDE_CODE_SESSION_ATTENDED CLAUDE_CODE_BRIDGE_SESSION_ID \
+      CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN
     if [[ -n $bg ]]; then
       zellij attach --create-background "$name" options --default-layout "$use_case"
     elif [[ -n $aws ]]; then
