@@ -224,6 +224,13 @@ starts from the **current** layout file, and `zse-claude --own` resumes
 the session's own conversation, so a stop / restore cycle (or a crash or
 reboot) loses nothing.
 
+`zse` removes Claude Code's session markers (`CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`,
+`CLAUDE_CODE_SESSION_ID`, the messaging socket and token, …) before it starts a
+Zellij server. So a Claude session may run `zse restart` / `zse restore` for you:
+without this, every pane of the new session would inherit the markers, and its
+claude would not save its conversation ("Transcript saving is off — inherited
+CLAUDE_CODE_CHILD_SESSION marker").
+
 Zellij's own sockets live in `~/.cache/zj` (`ZELLIJ_SOCKET_DIR`, set in
 `home/modules/zellij.nix`). The default `$TMPDIR` path is so long on macOS
 that Zellij 0.45 limits session names to 24 characters, too short for
