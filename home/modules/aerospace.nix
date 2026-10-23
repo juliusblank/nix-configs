@@ -51,7 +51,7 @@
 
     # Workspace 2: web
     [[on-window-detected]]
-    if.app-id = 'org.mozilla.firefox'
+    if.app-id = 'org.nixos.firefox'  # home-manager programs.firefox build
     run = ['move-node-to-workspace 2']
 
     [[on-window-detected]]
