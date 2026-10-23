@@ -55,6 +55,10 @@
     run = ['move-node-to-workspace 2']
 
     [[on-window-detected]]
+    if.app-id = 'org.mozilla.firefox'  # Mozilla build, e.g. installed via Iru Self Service
+    run = ['move-node-to-workspace 2']
+
+    [[on-window-detected]]
     if.app-id = 'company.thebrowser.Browser'  # Arc
     run = ['move-node-to-workspace 2']
 
