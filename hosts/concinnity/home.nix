@@ -65,6 +65,7 @@ in
       yubikey-manager # `ykman` — MFA prompt for aws-vault and granted
       aws-vault # AWS credential exec/login with 1Password Desktop backend
       granted # AWS credential manager (SSO, credential-process) — used via grassume
+      uv # `uvx` — starts the MCP servers of the AWS Claude Code plugins
       # credential_process wrapper for granted — fetches IAM keys from 1Password,
       # calls GetSessionToken with YubiKey MFA, caches session in 1Password.
       # Usage:  credential_process = op-credential-process op://vault/item arn:aws:iam::…:mfa/user
@@ -326,7 +327,7 @@ in
   #   claude plugin marketplace add ~/github/jbl-taktile/claude-skills   (jbl-personal)
   #   claude plugin install tktl-eng-data tktl-eng-frontend
   #   claude plugin install ticket@jbl-personal review@jbl-personal project@jbl-personal
-  #   claude plugin install aws-serverless@claude-plugins-official
+  #   claude plugin install aws-serverless@claude-plugins-official deploy-on-aws@claude-plugins-official
   #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
   # (read-only symlink) won't work. Deep-merge only these keys each activation; all other
@@ -368,6 +369,7 @@ in
             "review@jbl-personal" = true;
             "project@jbl-personal" = true;
             "aws-serverless@claude-plugins-official" = true;
+            "deploy-on-aws@claude-plugins-official" = true;
           };
           sandbox.excludedCommands = [
             "gh"
