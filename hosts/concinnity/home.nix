@@ -65,6 +65,7 @@ in
       yubikey-manager # `ykman` — MFA prompt for aws-vault and granted
       aws-vault # AWS credential exec/login with 1Password Desktop backend
       granted # AWS credential manager (SSO, credential-process) — used via grassume
+      uv # `uvx` — starts the MCP servers of the AWS Claude Code plugins
       # credential_process wrapper for granted — fetches IAM keys from 1Password,
       # calls GetSessionToken with YubiKey MFA, caches session in 1Password.
       # Usage:  credential_process = op-credential-process op://vault/item arn:aws:iam::…:mfa/user
