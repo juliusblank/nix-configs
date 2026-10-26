@@ -18,8 +18,33 @@ let
     commit.gpgSign = true;
   };
 
-  # Nix `yubikey-manager` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
-  ykmanBinPath = lib.makeBinPath [ pkgs.yubikey-manager ];
+  # `yubikey-manager` whose `ykman` rings when it waits for a touch: it passes every call
+  # to the real ykman and, when ykman prints "Touch your YubiKey…", plays the macOS
+  # padlock sound and posts a notification. Helps when an agent runs `assume` / `login`
+  # in a pane you are not looking at. Based on a script by Osama Akhtar in #claude-code
+  # (Slack, C0A9JRTHHFZ). macOS may ask once to allow notifications from Script Editor.
+  ykman = pkgs.symlinkJoin {
+    name = "yubikey-manager-touch-notify";
+    paths = [ pkgs.yubikey-manager ];
+    postBuild = ''
+      rm "$out/bin/ykman"
+      cp ${pkgs.writeShellScript "ykman" ''
+        sound=/System/Library/Frameworks/SecurityInterface.framework/Versions/A/Resources/unlock.aif
+        ring() {
+          /usr/bin/afplay "$sound" &>/dev/null &
+          /usr/bin/osascript -e 'display notification "Touch your YubiKey" with title "YubiKey"' &>/dev/null &
+        }
+        # stderr passes through tee unchanged and unbuffered, so prompts without a
+        # newline still show; a copy goes to the watcher.
+        "${pkgs.yubikey-manager}/bin/ykman" "$@" 2> >(tee /dev/stderr | while IFS= read -r line; do
+          [[ $line == "Touch your YubiKey"* ]] && ring
+        done)
+      ''} "$out/bin/ykman"
+    '';
+  };
+
+  # Nix `ykman` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
+  ykmanBinPath = lib.makeBinPath [ ykman ];
 in
 {
   imports = [
@@ -62,7 +87,7 @@ in
     '';
 
     packages = with pkgs; [
-      yubikey-manager # `ykman` — MFA prompt for aws-vault and granted
+      ykman # yubikey-manager with touch notification (see let) — MFA prompt for aws-vault and granted
       aws-vault # AWS credential exec/login with 1Password Desktop backend
       granted # AWS credential manager (SSO, credential-process) — used via grassume
       uv # `uvx` — starts the MCP servers of the AWS Claude Code plugins
@@ -72,7 +97,7 @@ in
       (writeShellScriptBin "op-credential-process" ''
         set -euo pipefail
         OP="${_1password-cli}/bin/op"
-        YKMAN="${yubikey-manager}/bin/ykman"
+        YKMAN="${ykman}/bin/ykman"
         AWS="${awscli2}/bin/aws"
         JQ="${jq}/bin/jq"
 
