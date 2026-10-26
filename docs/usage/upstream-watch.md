@@ -24,6 +24,8 @@ and nikitabobko/AeroSpace#2316).
   *Run workflow*). For each open watch issue, `scripts/upstream-watch.sh check`:
   - comments when the upstream issue / PR (GitHub URLs only) changes state — `open`,
     `closed` or `merged` — and records it as `upstream_state`;
+    the workflow token can read only public repos, so items in private repos (for example
+    taktile-org) get the date check only;
   - comments once when `next_check` is today or earlier, and records `reminded_on`.
 - **After you checked an item**, comment **`/checked`** on the issue (repo owner only). The
   workflow sets `last_checked` to today and `next_check` to today + `interval_days`.

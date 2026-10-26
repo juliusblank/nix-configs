@@ -41,14 +41,23 @@ replace_yaml() {
   '
 }
 
-# Upstream state of a GitHub issue or PR URL: open, closed or merged. Empty otherwise.
+# Upstream state of a GitHub issue or PR URL: open, closed or merged. Empty for other
+# URLs and when the API call fails (for example a private repo that the workflow token
+# cannot read): the item then gets the date check only.
 upstream_state() {
-  local url=$1 repo num
+  local url=$1 repo num state
   if [[ $url =~ ^https://github\.com/([^/]+/[^/]+)/(issues|pull)/([0-9]+) ]]; then
     repo=${BASH_REMATCH[1]}
     num=${BASH_REMATCH[3]}
-    gh api "repos/$repo/issues/$num" \
-      --jq 'if .pull_request.merged_at then "merged" else .state end'
+    if ! state=$(gh api "repos/$repo/issues/$num" \
+      --jq 'if .pull_request.merged_at then "merged" else .state end' 2>/dev/null); then
+      echo "warning: cannot read $url (private repo or API error), date check only" >&2
+      return 0
+    fi
+    case $state in
+      open | closed | merged) echo "$state" ;;
+      *) echo "warning: unexpected state for $url, date check only" >&2 ;;
+    esac
   fi
 }
 
@@ -86,7 +95,7 @@ check() {
     fi
     changed=
 
-    state=$(upstream_state "$url" || true)
+    state=$(upstream_state "$url")
     old_state=$(yq '.upstream_state // ""' "$yaml")
     if [[ -n $state && $state != "$old_state" ]]; then
       if [[ -n $old_state ]]; then
