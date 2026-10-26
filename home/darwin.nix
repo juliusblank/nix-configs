@@ -59,6 +59,38 @@ in
     # docs/usage/nix-system.md.
     firefox.configPath = "Library/Application Support/org.nixos.firefox";
 
+    # WORKAROUND (roadmap #35) — remove when NixOS/nixpkgs#571894 is fixed.
+    # On macOS 27, LaunchServices loses the pid (-1) of an app whose bundle executable
+    # is a shell wrapper that `exec`s the real binary. AeroSpace then never sees Firefox
+    # and Cmd-Tab skips it. Make the real binary the bundle executable again and pass
+    # the wrapper's MOZ_* variables through Info.plist `LSEnvironment` (applies to
+    # Dock / Spotlight / `open` launches). The shell wrapper moves to bin/firefox for
+    # direct exec (Granted's CustomBrowserPath).
+    firefox.package = pkgs.firefox.overrideAttrs (old: {
+      buildCommand = old.buildCommand + ''
+        contents="$out/Applications/Firefox.app/Contents"
+        mkdir -p "$out/bin"
+        sed "s@$contents/MacOS/.firefox-old@$contents/MacOS/firefox@" \
+          "$contents/MacOS/firefox" > "$out/bin/firefox"
+        chmod +x "$out/bin/firefox"
+        mv -f "$contents/MacOS/.firefox-old" "$contents/MacOS/firefox"
+
+        env=""
+        while IFS= read -r line; do
+          name=''${line%%=*}
+          value=''${line#*=}
+          value=''${value#\'}
+          value=''${value%\'}
+          env+="<key>$name</key><string>$value</string>"
+        done < <(sed -n "s/^export \(MOZ_[A-Z_]*='.*'\)$/\1/p" "$out/bin/firefox")
+
+        plist="$contents/Info.plist"
+        cp --remove-destination "$(readlink -f "$plist")" "$plist"
+        chmod u+w "$plist"
+        sed -i "s@^</dict>\$@<key>LSEnvironment</key><dict>$env</dict>\n</dict>@" "$plist"
+      '';
+    });
+
     # Git SSH signing via 1Password's op-ssh-sign. `user.signingKey` uses the
     # `key::` prefix (set in home/common.nix) so git looks the key up in the
     # agent; op-ssh-sign performs the actual signing operation with Touch ID.

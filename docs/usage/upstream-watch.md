@@ -30,6 +30,7 @@ and nikitabobko/AeroSpace#2316).
 - **After you checked an item**, comment **`/checked`** on the issue (repo owner only). The
   workflow sets `last_checked` to today and `next_check` to today + `interval_days`.
 - **Stop watching:** close the issue (for example after you removed the workaround).
+- **Current list:** `gh issue list --label upstream-watch` (or the label filter on GitHub).
 
 GitHub notifies you about the comments like about any issue activity.
 

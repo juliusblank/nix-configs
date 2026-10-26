@@ -255,6 +255,19 @@ deployments:` section), so you can see drift, for example after a manual
   Then start Firefox and check bookmarks, containers and logins. Keep **`$old`** until you are
   sure, then delete it.
 
+- **Firefox not managed by AeroSpace, missing from Cmd-Tab (macOS 27)** — LaunchServices
+  loses the pid (`-1`) of every app whose bundle executable is a shell wrapper that `exec`s
+  the real binary (NixOS/nixpkgs#571894, probably an Apple bug). `aerospace list-apps` does
+  not show the app, so no `on-window-detected` rule applies. **Workaround** (roadmap #35):
+  **`home/darwin.nix`** overrides **`programs.firefox.package`** so that the real binary is the
+  bundle executable again; the wrapper's `MOZ_*` variables go into `Info.plist`
+  `LSEnvironment`, and the shell wrapper moves to **`bin/firefox`** (used by Granted).
+  `LSEnvironment` applies only to Dock / Spotlight / `open` launches. **Watched** by the
+  upstream watch: #146 (NixOS/nixpkgs#571894) and #147 (nikitabobko/AeroSpace#2316, AeroSpace
+  fix for pid `-1` apps); when either is fixed, remove the override and the
+  `bin/firefox` path in **`home/modules/granted.nix`**. Other wrapped Nix apps (kitty, Emacs)
+  have the same problem.
+
 - **`darwin-rebuild: command not found` in `just diff`** — Recipes run under non-interactive
   **`bash`**, so **`PATH`** often omits **`/run/current-system/sw/bin`** and direnv is not
   applied. **`just diff`** uses **`nix run …#darwin-rebuild build`** with the ref in

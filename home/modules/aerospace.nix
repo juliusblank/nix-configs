@@ -111,7 +111,7 @@
     run = ['layout floating']
 
     # Short-lived apps float, so a ghost window (AeroSpace misses the close event,
-    # nikitabobko/AeroSpace#1615) takes no tile. Script Editor opens for
+    # nikitabobko/AeroSpace#1615, watched in #148) takes no tile. Script Editor opens for
     # `osascript display notification` permission prompts.
     [[on-window-detected]]
     if.app-id = 'com.apple.TextEdit'
