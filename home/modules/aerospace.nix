@@ -110,6 +110,25 @@
     if.app-id = 'com.apple.finder'
     run = ['layout floating']
 
+    # Short-lived apps float, so a ghost window (AeroSpace misses the close event,
+    # nikitabobko/AeroSpace#1615, watched in #148) takes no tile. Script Editor opens for
+    # `osascript display notification` permission prompts.
+    [[on-window-detected]]
+    if.app-id = 'com.apple.TextEdit'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.ScriptEditor2'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.Preview'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.ActivityMonitor'
+    run = ['layout floating']
+
     # --- Keybindings (mod = alt) ---
     [mode.main.binding]
 

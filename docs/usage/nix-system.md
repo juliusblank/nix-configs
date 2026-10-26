@@ -262,9 +262,9 @@ deployments:` section), so you can see drift, for example after a manual
   **`home/darwin.nix`** overrides **`programs.firefox.package`** so that the real binary is the
   bundle executable again; the wrapper's `MOZ_*` variables go into `Info.plist`
   `LSEnvironment`, and the shell wrapper moves to **`bin/firefox`** (used by Granted).
-  `LSEnvironment` applies only to Dock / Spotlight / `open` launches. **Check
-  NixOS/nixpkgs#571894 and nikitabobko/AeroSpace#2316 (AeroSpace fix for pid `-1` apps)
-  about once a month**; when it is fixed, remove the override and the
+  `LSEnvironment` applies only to Dock / Spotlight / `open` launches. **Watched** by the
+  upstream watch: #146 (NixOS/nixpkgs#571894) and #147 (nikitabobko/AeroSpace#2316, AeroSpace
+  fix for pid `-1` apps); when either is fixed, remove the override and the
   `bin/firefox` path in **`home/modules/granted.nix`**. Other wrapped Nix apps (kitty, Emacs)
   have the same problem.
 
