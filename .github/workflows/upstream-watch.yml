@@ -1,0 +1,57 @@
+# Upstream watch — daily reminders for upstream issues and PRs this repo waits on
+# (for example the end of a workaround). Each watched item is an open issue with the label
+# `upstream-watch`; its body holds the data (url, interval_days, last_checked, next_check).
+# Runs daily and on demand: comments when an upstream issue / PR changes state or when
+# next_check is due. A `/checked` comment by the repo owner moves next_check forward.
+# Logic: scripts/upstream-watch.sh. Docs: docs/usage/upstream-watch.md.
+name: Upstream watch
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily, 06:00 UTC
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write # comment on and edit the watch issues; nothing else
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check watched items
+    if: github.event_name != 'issue_comment'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # yq (mikefarah) and gh are preinstalled on ubuntu-latest.
+      - name: Check upstream state and due dates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: scripts/upstream-watch.sh check
+
+  checked:
+    name: Record a check
+    # Only `/checked` comments by the repo owner on watch issues (not on PRs).
+    if: >-
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      contains(github.event.issue.labels.*.name, 'upstream-watch') &&
+      startsWith(github.event.comment.body, '/checked') &&
+      github.event.comment.author_association == 'OWNER'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Move next_check forward
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: scripts/upstream-watch.sh checked "$ISSUE"
