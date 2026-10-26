@@ -6,6 +6,8 @@
 #     (`feat/`, `fix/`, …), i.e. the conventional-commit type of the PR.
 #   - status (`status:*`): set by hand. They are not in `.github/labeler.yml`, so
 #     the labeler's `sync-labels` never removes them.
+#   - issue labels (`upstream-watch`): on issues only, never on PRs. Read by
+#     `.github/workflows/upstream-watch.yml`.
 #
 # Keep the set tight. A scope or type label only takes effect once it is also
 # referenced from `.github/labeler.yml` with a matching rule.
@@ -76,6 +78,11 @@ locals {
     "status:blocked" = {
       color       = "b60205"
       description = "Blocked by an external dependency (set by hand)"
+    }
+
+    upstream-watch = {
+      color       = "f9d0c4"
+      description = "Watched upstream issue / PR with check dates (issues only)"
     }
   }
 }

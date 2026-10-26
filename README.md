@@ -193,6 +193,13 @@ from `main` (standard path) or from a branch (for urgent fixes).
 
 See [docs/usage/infra.md](docs/usage/infra.md) for the full workflow and examples.
 
+## Upstream Watch
+
+Workarounds that wait on an upstream fix are tracked as issues with the label
+**`upstream-watch`**. A daily workflow comments when the upstream issue / PR changes state or
+when a check is due; comment **`/checked`** after you checked it. See
+[docs/usage/upstream-watch.md](docs/usage/upstream-watch.md).
+
 ## Day-to-Day
 
 ```bash
@@ -234,6 +241,7 @@ just changelog           # regenerate CHANGELOG.md locally
 ├── lib/                   # helper derivations (e.g. gh-stack-bin.nix)
 ├── overlays/              # placeholder (not imported by flake.nix yet)
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
+├── scripts/               # repo scripts (upstream-watch.sh)
 ├── .github/workflows/     # CI
 └── docs/
     ├── SPEC.md            # living specification
@@ -244,6 +252,7 @@ just changelog           # regenerate CHANGELOG.md locally
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow
         ├── zellij.md      # Claude Code session layouts (zse, incl. explore)
+        ├── upstream-watch.md  # reminders for upstream fixes (issues + daily workflow)
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 
