@@ -166,7 +166,8 @@ just deploy concinnity
 2h for on-call write; 1Password desktop backend). **`yubikey-manager`** (**`ykman`**) on
 **`home.packages`** is the MFA prompt. **`login <profile>`** opens the console in a Firefox
 container. Profiles that use **`op-credential-process`** go through **`grassume`**
-(`assumego`). Use a **physical YubiKey** when running `assume`.
+(`assumego`). Use a **physical YubiKey** when running `assume`. When **`ykman`** waits for a touch, it plays
+the macOS padlock sound and posts a notification (also when an agent runs `assume`).
 
 Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
 manage that infrastructure from the work machine with the same 1Password access as
