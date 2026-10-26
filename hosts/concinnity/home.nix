@@ -18,8 +18,33 @@ let
     commit.gpgSign = true;
   };
 
-  # Nix `yubikey-manager` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
-  ykmanBinPath = lib.makeBinPath [ pkgs.yubikey-manager ];
+  # `yubikey-manager` whose `ykman` rings when it waits for a touch: it passes every call
+  # to the real ykman and, when ykman prints "Touch your YubiKey…", plays the macOS
+  # padlock sound and posts a notification. Helps when an agent runs `assume` / `login`
+  # in a pane you are not looking at. Based on a script by Osama Akhtar in #claude-code
+  # (Slack, C0A9JRTHHFZ). macOS may ask once to allow notifications from Script Editor.
+  ykman = pkgs.symlinkJoin {
+    name = "yubikey-manager-touch-notify";
+    paths = [ pkgs.yubikey-manager ];
+    postBuild = ''
+      rm "$out/bin/ykman"
+      cp ${pkgs.writeShellScript "ykman" ''
+        sound=/System/Library/Frameworks/SecurityInterface.framework/Versions/A/Resources/unlock.aif
+        ring() {
+          /usr/bin/afplay "$sound" &>/dev/null &
+          /usr/bin/osascript -e 'display notification "Touch your YubiKey" with title "YubiKey"' &>/dev/null &
+        }
+        # stderr passes through tee unchanged and unbuffered, so prompts without a
+        # newline still show; a copy goes to the watcher.
+        "${pkgs.yubikey-manager}/bin/ykman" "$@" 2> >(tee /dev/stderr | while IFS= read -r line; do
+          [[ $line == "Touch your YubiKey"* ]] && ring
+        done)
+      ''} "$out/bin/ykman"
+    '';
+  };
+
+  # Nix `ykman` must win over any Homebrew `ykman` (concinnity prepends brew to system PATH).
+  ykmanBinPath = lib.makeBinPath [ ykman ];
 in
 {
   imports = [
@@ -62,16 +87,17 @@ in
     '';
 
     packages = with pkgs; [
-      yubikey-manager # `ykman` — MFA prompt for aws-vault and granted
+      ykman # yubikey-manager with touch notification (see let) — MFA prompt for aws-vault and granted
       aws-vault # AWS credential exec/login with 1Password Desktop backend
       granted # AWS credential manager (SSO, credential-process) — used via grassume
+      uv # `uvx` — starts the MCP servers of the AWS Claude Code plugins
       # credential_process wrapper for granted — fetches IAM keys from 1Password,
       # calls GetSessionToken with YubiKey MFA, caches session in 1Password.
       # Usage:  credential_process = op-credential-process op://vault/item arn:aws:iam::…:mfa/user
       (writeShellScriptBin "op-credential-process" ''
         set -euo pipefail
         OP="${_1password-cli}/bin/op"
-        YKMAN="${yubikey-manager}/bin/ykman"
+        YKMAN="${ykman}/bin/ykman"
         AWS="${awscli2}/bin/aws"
         JQ="${jq}/bin/jq"
 
@@ -326,7 +352,7 @@ in
   #   claude plugin marketplace add ~/github/jbl-taktile/claude-skills   (jbl-personal)
   #   claude plugin install tktl-eng-data tktl-eng-frontend
   #   claude plugin install ticket@jbl-personal review@jbl-personal project@jbl-personal
-  #   claude plugin install aws-serverless@claude-plugins-official
+  #   claude plugin install aws-serverless@claude-plugins-official deploy-on-aws@claude-plugins-official
   #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
   # (read-only symlink) won't work. Deep-merge only these keys each activation; all other
@@ -368,6 +394,7 @@ in
             "review@jbl-personal" = true;
             "project@jbl-personal" = true;
             "aws-serverless@claude-plugins-official" = true;
+            "deploy-on-aws@claude-plugins-official" = true;
           };
           sandbox.excludedCommands = [
             "gh"

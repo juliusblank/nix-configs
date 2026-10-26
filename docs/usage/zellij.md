@@ -193,7 +193,7 @@ repo, so the layout does nothing elsewhere (work repos are not affected).
 ```
 zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]   start NAME, or attach if it runs
 zse ls                                      list registered and running sessions
-zse stop [NAME]                             stop a session, keep it registered
+zse stop [--all | NAME]                     stop a session, keep it registered
 zse kill [NAME]                             end a session and clean up
 zse restore [NAME...]                       start stopped sessions in the background
 zse restart --all | NAME...                 stop running sessions, start them again
@@ -224,12 +224,19 @@ starts from the **current** layout file, and `zse-claude --own` resumes
 the session's own conversation, so a stop / restore cycle (or a crash or
 reboot) loses nothing.
 
+`zse` removes Claude Code's session markers (`CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`,
+`CLAUDE_CODE_SESSION_ID`, the messaging socket and token, …) before it starts a
+Zellij server. So a Claude session may run `zse restart` / `zse restore` for you:
+without this, every pane of the new session would inherit the markers, and its
+claude would not save its conversation ("Transcript saving is off — inherited
+CLAUDE_CODE_CHILD_SESSION marker").
+
 Zellij's own sockets live in `~/.cache/zj` (`ZELLIJ_SOCKET_DIR`, set in
 `home/modules/zellij.nix`). The default `$TMPDIR` path is so long on macOS
 that Zellij 0.45 limits session names to 24 characters, too short for
 `review-<repo>-pr<n>`. A client with a different `ZELLIJ_SOCKET_DIR` (or
 an old shell that has not picked up the variable) does not see the
-sessions: stop them with `zse stop` before you change it, and run
+sessions: stop them with `zse stop --all` before you change it, and run
 `zse restore` from a new terminal after.
 
 ### Commands
@@ -253,7 +260,9 @@ sessions: stop them with `zse stop` before you change it, and run
   from before the registry).
 - **`zse stop [NAME]`** — stop the session (`zellij kill-session`).
   Registry entry, worktree and Claude conversation stay. Default NAME: the
-  current session.
+  current session. `--all` stops every running session except the current
+  one (use it before a deploy that changes the Zellij version or socket
+  dir; `zse restore` brings them back).
 - **`zse kill [NAME]`** — end the session. If the repo of its start
   directory has a `.claude/worktrees/<name>` worktree (review sessions:
   `pr-<n>`), it asks to remove it; it refuses when the worktree has

@@ -217,13 +217,16 @@ deployments:` section), so you can see drift, for example after a manual
 
 ## Known issues: macOS and nix-darwin
 
-- **Zellij sessions "stopped" after a deploy** — Zellij keeps its sessions per version
-  (`$TMPDIR/zellij-<uid>/<version>/`); a new client cannot see servers of an older version,
-  so `zse ls` shows them as `stopped` while they still run. **`just deploy`** checks for
+- **Zellij sessions "stopped" after a deploy** — Zellij keeps its sessions per socket
+  dir and protocol version (`~/.cache/zj/contract_version_<n>/` via `ZELLIJ_SOCKET_DIR`;
+  0.43 used `$TMPDIR/zellij-<uid>/<version>/`); a new client cannot see servers in another
+  dir, so `zse ls` shows them as `stopped` while they still run. **`just deploy`** checks for
   this: when the deploy changes the Zellij version and sessions are running, it asks to stop
   them before the switch and runs `zse restore` after it. Run such deploys **outside Zellij**
-  (stopping the session you deploy from would end the deploy). If you missed it, stop the
-  old servers with the old binary, then restore:
+  (stopping the session you deploy from would end the deploy). The check compares versions
+  only: for other changes (e.g. `ZELLIJ_SOCKET_DIR`), run `zse stop --all` before the deploy
+  and `zse restore` in a new terminal after it. If you missed it, stop the old servers with
+  the old binary (and the old `ZELLIJ_SOCKET_DIR`, if it changed), then restore:
 
   ```bash
   old=$(ls -d /nix/store/*-zellij-<old-version>/bin/zellij | head -1)
@@ -251,6 +254,19 @@ deployments:` section), so you can see drift, for example after a manual
 
   Then start Firefox and check bookmarks, containers and logins. Keep **`$old`** until you are
   sure, then delete it.
+
+- **Firefox not managed by AeroSpace, missing from Cmd-Tab (macOS 27)** — LaunchServices
+  loses the pid (`-1`) of every app whose bundle executable is a shell wrapper that `exec`s
+  the real binary (NixOS/nixpkgs#571894, probably an Apple bug). `aerospace list-apps` does
+  not show the app, so no `on-window-detected` rule applies. **Workaround** (roadmap #35):
+  **`home/darwin.nix`** overrides **`programs.firefox.package`** so that the real binary is the
+  bundle executable again; the wrapper's `MOZ_*` variables go into `Info.plist`
+  `LSEnvironment`, and the shell wrapper moves to **`bin/firefox`** (used by Granted).
+  `LSEnvironment` applies only to Dock / Spotlight / `open` launches. **Watched** by the
+  upstream watch: #146 (NixOS/nixpkgs#571894) and #147 (nikitabobko/AeroSpace#2316, AeroSpace
+  fix for pid `-1` apps); when either is fixed, remove the override and the
+  `bin/firefox` path in **`home/modules/granted.nix`**. Other wrapped Nix apps (kitty, Emacs)
+  have the same problem.
 
 - **`darwin-rebuild: command not found` in `just diff`** — Recipes run under non-interactive
   **`bash`**, so **`PATH`** often omits **`/run/current-system/sw/bin`** and direnv is not
