@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   # $HOME for shell (zsh expands it); ~ for SSH config (ssh_config doesn't expand $HOME)
@@ -127,5 +132,27 @@ in
         $DRY_RUN_CMD rm -f "$gitconfig"
       fi
     '';
+
+    # LaunchServices keeps every Firefox.app it has seen, including those of old Nix
+    # generations (same bundle id org.nixos.firefox). A link click, the Dock or Spotlight
+    # may then start an old build: with the macOS 27 wrapper bug (roadmap #35) AeroSpace
+    # does not see it, and `login` opens a second instance with an empty window.
+    # Unregister every other nix-store Firefox.app and register the current one. Only
+    # the LaunchServices database changes; a rollback re-registers its own build.
+    activation.registerCurrentFirefox = lib.mkIf (config.programs.firefox.finalPackage != null) (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+        current="${config.programs.firefox.finalPackage}/Applications/Firefox.app"
+        if [ -x "$lsregister" ] && [ -d "$current" ]; then
+          "$lsregister" -dump 2>/dev/null \
+            | ${pkgs.gnused}/bin/sed -n 's/^path: *\(\/nix\/store\/[^ ]*\/Applications\/Firefox\.app\) .*/\1/p' \
+            | sort -u \
+            | while IFS= read -r app; do
+                [ "$app" = "$current" ] || $DRY_RUN_CMD "$lsregister" -u "$app"
+              done
+          $DRY_RUN_CMD "$lsregister" -f "$current"
+        fi
+      ''
+    );
   };
 }
