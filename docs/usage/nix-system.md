@@ -180,6 +180,11 @@ just update              # update flake.lock
 just gc                  # delete all old generations and collect garbage
 ```
 
+Both hosts also collect garbage automatically (**`nix.gc`** in each host's
+`configuration.nix`): every Sunday at 03:00 (or at the next wake), system generations older
+than **60 days** are deleted, then unreferenced store paths. `just gc` deletes **all** old
+generations of your user profile right away.
+
 ## Deploying a release or another ref
 
 `just deploy <host>` deploys the current checkout. An optional second

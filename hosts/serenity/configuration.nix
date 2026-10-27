@@ -19,6 +19,20 @@
     ];
   };
 
+  # Weekly garbage collection (Sunday 03:00; launchd runs it at the next wake if the Mac
+  # sleeps). Deletes system generations older than 60 days, then unreferenced store
+  # paths: keeps two months of rollbacks and drops old app bundles (e.g. Firefox.app)
+  # that LaunchServices would otherwise still find.
+  nix.gc = {
+    automatic = true;
+    interval = {
+      Weekday = 0;
+      Hour = 3;
+      Minute = 0;
+    };
+    options = "--delete-older-than 60d";
+  };
+
   system = {
     configurationRevision = self.rev or self.dirtyRev or null;
     # Must match the value set when nix-darwin was first installed on this machine
