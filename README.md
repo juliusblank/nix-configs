@@ -215,7 +215,7 @@ just status              # active generation, HEAD drift, what each host runs
 just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files
 just update              # update flake inputs
-just gc                  # delete old generations and collect garbage
+just gc                  # delete generations older than 60 days, collect garbage (warns after 30 days)
 just changelog           # regenerate CHANGELOG.md locally
 ```
 

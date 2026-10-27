@@ -125,7 +125,7 @@ setup-nix-cache-keys:
 # ==============================================================================
 
 # Show the active generation, HEAD drift, and what each host runs (GitHub Deployments)
-status:
+status: _gc-check
     #!/usr/bin/env bash
     set -euo pipefail
     profile=/nix/var/nix/profiles/system
@@ -173,7 +173,7 @@ check:
     nix flake check
 
 # Build a specific host config without activating
-build host:
+build host: _gc-check
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
@@ -194,7 +194,7 @@ build host:
 # switches back afterwards, also on failure. Everything after the checkout runs
 # inline (no nested `just` calls), because an older tag may carry an older justfile.
 # Build and activate a host config (REF: empty = checkout, `release`, tag, branch or SHA)
-deploy host ref="":
+deploy host ref="": _gc-check
     #!/usr/bin/env bash
     set -euo pipefail
     ref="{{ref}}"
@@ -327,9 +327,29 @@ push-cache host:
     nix store sign --key-file "$KEY_DIR/cache-priv-key.pem" --recursive "$store_path"
     nix copy --to "s3://{{cache_bucket}}?region={{aws_region}}" "$store_path"
 
-# Delete unreachable store paths and all old generations
+# Delete user and system generations older than 60 days, then unreachable store paths
 gc:
-    nix-collect-garbage -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # User profiles first, then the system profiles (root) and the store-wide collection.
+    # sudo gets the store path: sudo's secure_path does not include the nix profile.
+    nix-collect-garbage --delete-older-than 60d
+    sudo "$(command -v nix-collect-garbage)" --delete-older-than 60d
+    state="${XDG_STATE_HOME:-$HOME/.local/state}/nix-configs"
+    mkdir -p "$state"
+    date -u +%F > "$state/last-gc"
+    echo "GC done; recorded in $state/last-gc"
+
+# Warn when `just gc` has not run on this machine for 30 days. Only a file test, so
+# it adds no noticeable time to the host recipes that depend on it.
+_gc-check:
+    #!/usr/bin/env bash
+    marker="${XDG_STATE_HOME:-$HOME/.local/state}/nix-configs/last-gc"
+    if [[ ! -f $marker ]]; then
+        echo "WARNING: no record of 'just gc' on this machine — run 'just gc'." >&2
+    elif [[ -n $(find "$marker" -mtime +30) ]]; then
+        echo "WARNING: last 'just gc' on $(cat "$marker"), more than 30 days ago — run 'just gc'." >&2
+    fi
 
 # Format all nix files
 fmt:
@@ -352,7 +372,7 @@ update:
     nix flake update
 
 # Show diff of what would change on deploy
-diff host:
+diff host: _gc-check
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{host}}" in
