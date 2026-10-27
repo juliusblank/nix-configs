@@ -177,8 +177,14 @@ just deploy concinnity   # same for concinnity
 just deploy concinnity release  # deploy the newest release tag
 just status              # active generation, HEAD drift, GitHub deployments per host
 just update              # update flake.lock
-just gc                  # delete all old generations and collect garbage
+just gc                  # delete generations older than 60 days (user + system), collect garbage
 ```
+
+**Garbage collection is manual.** `just gc` deletes user and system generations older than
+60 days (the system part asks for `sudo`), collects unreachable store paths and records the
+date in `~/.local/state/nix-configs/last-gc`. `just status`, `build`, `diff` and `deploy`
+warn when that date is more than 30 days old or missing. Old generations keep old app
+bundles (for example `Firefox.app`) that LaunchServices can still find.
 
 ## Deploying a release or another ref
 
