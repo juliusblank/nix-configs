@@ -4,7 +4,7 @@
   # AeroSpace tiling WM config — installed as Homebrew cask in each host's
   # configuration.nix; this module manages ~/.aerospace.toml only.
   #
-  # Layout: 6 workspaces (1=term+code, 2=web, 3=comms, 4=docs+tickets, 5=music, 6=flex).
+  # Layout: 6 workspaces (1=term+code, 2=web (accordion), 3=comms, 4=docs+tickets, 5=music, 6=flex).
   # Mod key: alt. Default layout: tiles. Cycling: macOS native (cmd+tab, cmd+`).
   #
   # Monitor pinning when docked (workspace-to-monitor-force-assignment):
@@ -20,6 +20,9 @@
     # Layout
     default-root-container-layout = 'tiles'
     default-root-container-orientation = 'auto'
+
+    # Hidden windows of an accordion do not peek out at the edges (default: 30 px).
+    accordion-padding = 0
 
     # Pin workspaces to monitors when both are connected. AeroSpace tests each
     # entry in the array in order; the first match wins. If none match (e.g.
@@ -49,18 +52,20 @@
     if.app-id = 'com.microsoft.VSCode'
     run = ['move-node-to-workspace 1']
 
-    # Workspace 2: web
+    # Workspace 2: web. Accordion: the focused browser fills the screen, the others
+    # hide behind it (alt-h / alt-l switch). AeroSpace has no per-workspace default
+    # layout, so each rule sets it on the workspace container of the new window.
     [[on-window-detected]]
     if.app-id = 'org.nixos.firefox'  # home-manager programs.firefox build
-    run = ['move-node-to-workspace 2']
+    run = ['move-node-to-workspace 2', 'layout h_accordion']
 
     [[on-window-detected]]
     if.app-id = 'org.mozilla.firefox'  # Mozilla build, e.g. installed via Iru Self Service
-    run = ['move-node-to-workspace 2']
+    run = ['move-node-to-workspace 2', 'layout h_accordion']
 
     [[on-window-detected]]
     if.app-id = 'company.thebrowser.Browser'  # Arc
-    run = ['move-node-to-workspace 2']
+    run = ['move-node-to-workspace 2', 'layout h_accordion']
 
     # Workspace 3: comms
     [[on-window-detected]]
