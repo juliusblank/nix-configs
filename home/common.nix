@@ -22,6 +22,7 @@ in
   imports = [
     ./modules/extra-allowed-signers.nix
     ./modules/zellij.nix
+    ./modules/prose.nix
   ];
 
   programs = {

@@ -234,6 +234,7 @@ just changelog           # regenerate CHANGELOG.md locally
 │       ├── granted.nix    # Granted AWS credential manager
 │       ├── zellij.nix     # Zellij layouts + config
 │       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch)
+│       ├── prose.nix      # Vale TaktileBlog style + Neovim Markdown prose mode
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
@@ -252,7 +253,7 @@ just changelog           # regenerate CHANGELOG.md locally
     └── usage/
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow
-        ├── zellij.md      # Claude Code session layouts (zse, incl. explore)
+        ├── zellij.md      # Claude Code session layouts (zse, incl. explore, blog)
         ├── upstream-watch.md  # reminders for upstream fixes (issues + daily workflow)
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```

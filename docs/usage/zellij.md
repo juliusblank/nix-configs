@@ -1,15 +1,16 @@
 # Zellij — Claude Code session terminal management
 
 This is how the `nix-configs` repo organises Claude Code work in a single
-Ghostty window. One Zellij session per Claude workflow, five use-case layouts
-picked by use case.
+Ghostty window. One Zellij session per Claude workflow, one layout per use
+case.
 
 ## Use cases and layouts
 
 Zellij session name = Claude workflow name = worktree name (project slug,
-ticket ID, exploration slug, or `review-<repo>-pr<n>` from a PR URL). Ticket
-branches are `$ZSE_BRANCH_USER/<id>`, explore branches `explore/<slug>`, not the
-bare session name.
+ticket ID, exploration slug, `review-<repo>-pr<n>` from a PR URL, or
+`blog-<ticket | slug>`). Ticket branches are `$ZSE_BRANCH_USER/<id>`, explore
+branches `explore/<slug>`, blog branches `blog/<ticket | slug>`, not the bare
+session name.
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
@@ -19,6 +20,7 @@ bare session name.
 | **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 | **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status $ZELLIJ_SESSION_NAME" --worktree $ZELLIJ_SESSION_NAME` |
+| **blog** | `blog.kdl` | tabs: write (claude · (draft view · shell)) + edit (Neovim on the draft); compact bar (no tig) | `zse-claude --own --first-prompt "$(zse-blog prompt)" --worktree $ZELLIJ_SESSION_NAME` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
 module), which adds `--remote-control "$ZELLIJ_SESSION_NAME"` (the session
@@ -38,7 +40,7 @@ session's conversation. Old conversations stay reachable via `/resume`.
 The `agents` tab in `project` runs `claude agents --cwd <repo>` — a
 management view, not an interactive REPL.
 
-Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily|explore>`
+Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily|explore|blog>`
 (`code-resume` exports `code`). Plugins use it to tailor a session to its
 layout: the `jbl-personal` `project` plugin has a `SessionStart` hook that
 injects the master-session ground rules (`project/rules.md`: role,
@@ -188,6 +190,50 @@ stay in view), redrawn every `$ZSE_EXPLORE_INTERVAL` seconds (default 10);
 worktree but keeps the `explore/<slug>` branch. The skill lives only in this
 repo, so the layout does nothing elsewhere (work repos are not affected).
 
+### blog
+
+For Taktile Engineering blog posts (roadmap #37). Start one with
+`zse -l blog <TICKET-ID | slug>` from anywhere: the session is
+`blog-<ticket | slug>` and starts in `~/github/taktile-org/engineering-blog`
+(`$ZSE_BLOG_REPO` overrides). `zse` pre-creates the worktree
+`.claude/worktrees/blog-<name>` on branch `blog/<name>`, from origin's default
+branch without tracking it (the local checkout can be on any branch). The
+draft lives at `drafts/<slug>.md`; Claude picks the slug. Review goes through a
+PR in engineering-blog; publishing stays manual (`scripts/md-to-sanity.py` →
+Sanity Studio, see the repo's `AGENTS.md`).
+
+**Tab "write":** the claude pane works in the worktree with its own
+conversation. On the first start it gets the brief from `zse-blog prompt`:
+read the Linear ticket if the name is a ticket ID (its description can hold a
+post brief), otherwise ask for the topic; read `AGENTS.md` and the converter's
+Markdown subset (paragraphs, `## ` headings, images, inline code,
+`<a href>` links); then `tktl-eng:tktl-eng-blog-voice` — register, archetype,
+outline (wait for OK), draft, checklist review; PR when you say the draft is
+ready, with a comment on the ticket. Right of it: the **draft view**
+(`zse-blog view`: `watchexec` re-renders on every save in `drafts/` with
+`glow`, then the Vale hits and a status line — words, reading time, Vale hit
+count, whether `md-to-sanity.py` converts the draft) over a **shell** in the
+worktree. Scroll the draft view with the mouse wheel; the status stays at the
+bottom.
+
+**Tab "edit":** Neovim on the draft (it waits until the draft exists), started
+with ZenMode. Prose mode for Markdown (`home/modules/prose.nix`): soft wrap at
+word boundaries, `j`/`k` by screen line, spell check `en_us`,
+`render-markdown.nvim`, `<leader>z` toggles ZenMode, and `nvim-lint` runs Vale
+on read, save and leaving insert mode (only for files under
+`engineering-blog`). Neovim reloads the file when Claude changes it, but only
+while the buffer has no unsaved edits: **save before you give Claude a task.**
+
+**Vale style `TaktileBlog`** (`~/.config/vale/taktile-blog/`): the banned
+words of the blog-voice skill are errors, the avoided words warnings with the
+replacement. The skill bans only the hype sense, so keep a technical term
+(`agent harness`, `elevated permissions`) when Vale flags it.
+
+Tools come from the Nix store, not the devShell; the `engineering-blog`
+devShell (devshell-configs) adds `nodejs` / `python3` for the Astro site and
+`md-to-sanity.py`. `zse kill blog-<name>` removes the worktree but keeps the
+`blog/<name>` branch.
+
 ## CLI — `zse`
 
 ```
@@ -291,7 +337,7 @@ sessions: stop them with `zse stop --all` before you change it, and run
 Options and names:
 
 - `-l USE_CASE` — `code`, `project`, `ticket`, `review`, `daily`,
-  `explore`, `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
+  `explore`, `blog`, `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
   (devshells can bind a per-repo default), else `code`.
 - `-a AWS_PROFILE` — start Zellij through the host's `assume` fn
   (`aws-vault exec <profile> -d 8h`, 2h for on-call write, with YubiKey
@@ -301,7 +347,8 @@ Options and names:
   `AWS_SESSION_EXPIRATION` is within 15 min or past.
 - `NAME` — default: `basename $PWD` (`zellij-<pid>` in a devshell that
   exports `name=nix-shell-env`). For `ticket`, the ticket ID; for `explore`,
-  the exploration slug; for
+  the exploration slug; for `blog` (required), a ticket ID or slug (session
+  `blog-<NAME>` in the engineering-blog checkout); for
   `review`, a GitHub PR URL (`https://github.com/<owner>/<repo>/pull/<n>`):
   `zse` names the session `review-<repo>-pr<n>` and starts it in the
   local checkout at `~/github/<owner>/<repo>`, so the worktree lands in

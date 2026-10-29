@@ -148,8 +148,9 @@ _z_cleanup_worktree() {
     git worktree unlock "$worktree" 2>/dev/null
     git worktree remove "$worktree" || exit 1
     git worktree prune 2>/dev/null
-    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>` or
-    # `explore/<name>` branch stays (it holds the work, usually a PR).
+    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>`,
+    # `explore/<name>` or `blog/<name>` branch stays (it holds the work,
+    # usually a PR).
     git branch -D "worktree-$wt_name" >/dev/null 2>&1 || true
   ) || return 1
   print -r "zse: removed worktree $worktree"
@@ -238,8 +239,10 @@ usage:
   zse switch NAME                            switch to NAME (start it if stopped)
 
   USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review, daily,
-             explore, code-resume. A registered session keeps its use case.
-  NAME       default: the current directory name; for `review`, a GitHub PR URL.
+             explore, blog, code-resume. A registered session keeps its use case.
+  NAME       default: the current directory name; for `review`, a GitHub PR URL;
+             for `blog` (required), a Linear ticket ID or a slug: the session
+             is blog-<NAME> in ~/github/taktile-org/engineering-blog.
              stop / kill default to the current session.
 
   stop vs kill
@@ -289,6 +292,22 @@ _zse_start() {
     fi
   fi
 
+  # Blog mode: the session is `blog-<ticket | slug>` and starts in the
+  # engineering-blog checkout ($ZSE_BLOG_REPO), wherever zse runs.
+  local blog_cwd=""
+  if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == blog ]]; then
+    if [[ -z ${1:-} ]]; then
+      print -u2 -r "zse: usage: zse -l blog <TICKET-ID | slug>"
+      return 1
+    fi
+    [[ $name == blog-* ]] || name="blog-$name"
+    blog_cwd=${ZSE_BLOG_REPO:-$HOME/github/taktile-org/engineering-blog}
+    if [[ ! -d $blog_cwd/.git ]]; then
+      print -u2 -r "zse: $blog_cwd is not a git checkout. Clone taktile-org/engineering-blog there or set ZSE_BLOG_REPO."
+      return 1
+    fi
+  fi
+
   if [[ $(_z_session_state "$name") == live ]]; then
     if [[ -n ${opts[-a]:-} ]]; then
       local existing
@@ -309,33 +328,42 @@ _zse_start() {
   fi
   local use_case=${use_case_opt:-${reg_uc:-${ZSE_LAYOUT:-code}}}
   local aws=${opts[-a]:-$reg_aws}
-  local dir=${review_cwd:-${reg_dir:-$PWD}}
+  local dir=${review_cwd:-${blog_cwd:-${reg_dir:-$PWD}}}
   if [[ ! -d $dir ]]; then
     print -u2 -r "zse: start directory $dir of '$name' no longer exists. Run 'zse kill $name', then start it again."
     return 1
   fi
 
-  # Ticket / explore mode: pre-create the worktree on branch
-  # `$ZSE_BRANCH_USER/<ticket>` (ticket) or `explore/<slug>` (explore) instead
-  # of Claude Code's default `worktree-<name>`; `claude --worktree` reuses an
-  # existing worktree as-is. Skipped outside a git repo, when the worktree
-  # exists, or for ticket when ZSE_BRANCH_USER is empty.
-  local wt_prefix=""
+  # Ticket / explore / blog mode: pre-create the worktree on branch
+  # `$ZSE_BRANCH_USER/<ticket>` (ticket), `explore/<slug>` (explore) or
+  # `blog/<ticket | slug>` (blog) instead of Claude Code's default
+  # `worktree-<name>`; `claude --worktree` reuses an existing worktree as-is.
+  # Skipped outside a git repo, when the worktree exists, or for ticket when
+  # ZSE_BRANCH_USER is empty. A new blog branch starts from origin's default
+  # branch without tracking it: the local checkout may be on any branch.
+  # Empty `wt_track` / `wt_start` drop out of the `git worktree add` line (zsh
+  # removes empty unquoted words).
+  local wt_prefix="" wt_branch_name=$name wt_track="" wt_start=""
   case $use_case in
     ticket) [[ -n ${ZSE_BRANCH_USER:-} ]] && wt_prefix="$ZSE_BRANCH_USER" ;;
     explore) wt_prefix="explore" ;;
+    blog)
+      wt_prefix="blog" wt_branch_name=${name#blog-}
+      wt_track=--no-track
+      wt_start=$(git -C "$dir" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || print origin/main)
+      ;;
   esac
   if [[ -n $wt_prefix ]]; then
     local repo_root
     if repo_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
       local worktree_dir="$repo_root/.claude/worktrees/$name"
       if [[ ! -d $worktree_dir ]]; then
-        local branch="$wt_prefix/$name"
+        local branch="$wt_prefix/$wt_branch_name"
         mkdir -p "$repo_root/.claude/worktrees"
         if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
           git -C "$repo_root" worktree add "$worktree_dir" "$branch" >/dev/null || return 1
         else
-          git -C "$repo_root" worktree add -b "$branch" "$worktree_dir" >/dev/null || return 1
+          git -C "$repo_root" worktree add $wt_track -b "$branch" "$worktree_dir" $wt_start >/dev/null || return 1
         fi
       fi
     fi
@@ -634,7 +662,7 @@ _zse() {
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
-    '-l[layout / use case]:use case:(code project ticket review daily explore code-resume)' \
+    '-l[layout / use case]:use case:(code project ticket review daily explore blog code-resume)' \
     '-a[AWS profile]:profile:' \
     '*:session name:_zse_names'
 }
