@@ -72,6 +72,11 @@ let
   '';
 
   backupScript = pkgs.writeShellScriptBin "backup-run" ''
+    # Keep the Mac from idle-sleeping for the whole run (lid close still sleeps).
+    if [[ -z ''${BACKUP_CAFFEINATED:-} ]]; then
+      BACKUP_CAFFEINATED=1 exec /usr/bin/caffeinate -i "$0" "$@"
+    fi
+
     ${preamble}
 
     if [[ ''${1:-} == --scheduled && -f ${home}/.config/backup/paused ]]; then

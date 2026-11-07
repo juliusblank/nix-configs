@@ -439,7 +439,7 @@ Reliable, simple backup of serenity user data to AWS S3 using **restic**.
 | Path | Contents |
 |---|---|
 | `~/Music` | Music collection (~200–300 GB) |
-| `~/Pictures` | Photos |
+| `~/Pictures` | Photo Booth library, other images — `Photos Library.photoslibrary` excluded (iCloud Photos holds the originals) |
 | `~/github/juliusblank` | Personal projects |
 
 **S3 repository:** `s3:s3.eu-central-1.amazonaws.com/juliusblank-backups/serenity`
@@ -447,7 +447,7 @@ Bucket managed by OpenTofu (`terraform/s3-backup.tf`) — private, versioned, `p
 
 **Secrets (read at runtime):** restic password from `op://github_nix-configs/Restic Backup Password/password` via `op read` — create this item manually before running `just backup-init`. AWS keys via `aws configure export-credentials --profile personal-nix-configs-infra` (restic's S3 client cannot resolve the profile's `credential_process`). Both need an unlocked 1Password.
 
-**Commands:** `backup-run` (backup of the configured paths, then retention) and `backup-check` (structural check), installed by `home/modules/backup.nix`; `just backup` calls `backup-run`. Output goes to stdout: live progress in a terminal, one progress line per minute under launchd.
+**Commands:** `backup-run` (backup of the configured paths, then retention; runs under `caffeinate -i`, so the Mac does not idle-sleep) and `backup-check` (structural check), installed by `home/modules/backup.nix`; `just backup` calls `backup-run`. Output goes to stdout: live progress in a terminal, one progress line per minute under launchd.
 
 **Schedule (`custom.backup.automatic`, off on serenity for now):**
 - **Daily at 02:00** — launchd agent (`com.juliusblank.backup`, runs `backup-run --scheduled`), logs to `~/Library/Logs/backup.log`

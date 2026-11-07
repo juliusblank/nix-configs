@@ -98,6 +98,9 @@ in
         "${config.home.homeDirectory}/github/juliusblank"
       ];
       excludes = [
+        # iCloud Photos holds the originals (Optimize Mac Storage); plain-file archive
+        # of the photos is explored in docs/explorations (photo-archive)
+        "${config.home.homeDirectory}/Pictures/Photos Library.photoslibrary"
         ".DS_Store"
         "node_modules"
         ".git"
