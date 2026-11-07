@@ -139,20 +139,22 @@ in
     # does not see it, and `login` opens a second instance with an empty window.
     # Unregister every other nix-store Firefox.app and register the current one. Only
     # the LaunchServices database changes; a rollback re-registers its own build.
-    activation.registerCurrentFirefox = lib.mkIf (config.programs.firefox.finalPackage != null) (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-        current="${config.programs.firefox.finalPackage}/Applications/Firefox.app"
-        if [ -x "$lsregister" ] && [ -d "$current" ]; then
-          "$lsregister" -dump 2>/dev/null \
-            | ${pkgs.gnused}/bin/sed -n 's/^path: *\(\/nix\/store\/[^ ]*\/Applications\/Firefox\.app\) .*/\1/p' \
-            | sort -u \
-            | while IFS= read -r app; do
-                [ "$app" = "$current" ] || $DRY_RUN_CMD "$lsregister" -u "$app"
-              done
-          $DRY_RUN_CMD "$lsregister" -f "$current"
-        fi
-      ''
-    );
+    activation.registerCurrentFirefox =
+      lib.mkIf (config.programs.firefox.enable && config.programs.firefox.finalPackage != null)
+        (
+          lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+            current="${config.programs.firefox.finalPackage}/Applications/Firefox.app"
+            if [ -x "$lsregister" ] && [ -d "$current" ]; then
+              "$lsregister" -dump 2>/dev/null \
+                | ${pkgs.gnused}/bin/sed -n 's/^path: *\(\/nix\/store\/[^ ]*\/Applications\/Firefox\.app\) .*/\1/p' \
+                | sort -u \
+                | while IFS= read -r app; do
+                    [ "$app" = "$current" ] || $DRY_RUN_CMD "$lsregister" -u "$app"
+                  done
+              $DRY_RUN_CMD "$lsregister" -f "$current"
+            fi
+          ''
+        );
   };
 }
