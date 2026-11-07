@@ -438,7 +438,10 @@ Reliable, simple backup of serenity user data to AWS S3 using **restic**.
 
 | Path | Contents |
 |---|---|
-| `~/Music` | Music collection (~200–300 GB) |
+| `~/Music/purchased` | Music collection (~206 GB); the rest of `~/Music` is not backed up yet |
+| `~/Library/Pioneer/rekordbox` | rekordbox library: `master.db` (+ its own rotating backups), analysis data, playlists (~3 GB) |
+| `~/Library/Application Support/Pioneer` | rekordbox and rekordboxAgent settings (~430 MB) |
+| `~/Library/Preferences/com.pioneerdj.{rekordboxdj,FwDownloader}.plist` | rekordbox preferences (listed one by one — no globs in `paths`) |
 | `~/Pictures` | Photo Booth library, other images — `Photos Library.photoslibrary` excluded (iCloud Photos holds the originals) |
 | `~/github/juliusblank` | Personal projects |
 

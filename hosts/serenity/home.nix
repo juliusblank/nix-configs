@@ -92,10 +92,17 @@ in
       # Mac is locked — op read / credential_process need an unlocked 1Password.
       automatic = false;
       bucket = "juliusblank-backups";
-      # ~/Music excluded during initial testing — add back once baseline is verified
+      # Rest of ~/Music still excluded — only the purchased collection for now
       paths = [
         "${config.home.homeDirectory}/Pictures"
         "${config.home.homeDirectory}/github/juliusblank"
+        # rekordbox: library (master.db, analysis), settings, preferences
+        "${config.home.homeDirectory}/Library/Pioneer/rekordbox"
+        "${config.home.homeDirectory}/Library/Application Support/Pioneer"
+        "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.rekordboxdj.plist"
+        "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.FwDownloader.plist"
+        # Music collection (~206 GB)
+        "${config.home.homeDirectory}/Music/purchased"
       ];
       excludes = [
         # iCloud Photos holds the originals (Optimize Mac Storage); plain-file archive
