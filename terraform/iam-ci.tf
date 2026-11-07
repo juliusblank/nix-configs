@@ -110,6 +110,8 @@ resource "aws_iam_role_policy" "github_actions_iam_management" {
           "iam:CreatePolicy",
           "iam:DeletePolicy",
           "iam:ListPolicyVersions",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
           "iam:AttachUserPolicy",
           "iam:DetachUserPolicy",
           "iam:ListAttachedUserPolicies",

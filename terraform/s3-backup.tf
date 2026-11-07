@@ -38,6 +38,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup" {
       noncurrent_days = 90
     }
   }
+
+  # Interrupted restic uploads (sleep, inhibitApps, network) leave multipart parts
+  # that are billed but never visible as objects — remove them after a week.
+  rule {
+    id     = "abort-incomplete-uploads"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
 }
 
 # Block all public access — backup data must never be publicly readable.
