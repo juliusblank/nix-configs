@@ -138,3 +138,67 @@ resource "aws_iam_user_policy_attachment" "nix_configs_infra" {
   user       = aws_iam_user.nix_configs_infra.name
   policy_arn = aws_iam_policy.nix_configs_infra.arn
 }
+
+# Lets tofu update the customer-managed policies of this user (new policy version as
+# default, delete the oldest of the 5 allowed versions). Kept separate from
+# nix-configs-infra-tofu-access: that policy cannot grant this to itself, because
+# updating it already needs iam:CreatePolicyVersion. A new policy only needs
+# iam:CreatePolicy and iam:AttachUserPolicy, which the user has.
+resource "aws_iam_policy" "nix_configs_infra_policy_versions" {
+  name        = "nix-configs-infra-policy-versions"
+  description = "Lets nix-configs-infra update its own customer-managed policies."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["iam:CreatePolicyVersion", "iam:DeletePolicyVersion"]
+        Resource = "arn:aws:iam::*:policy/nix-configs-infra-*"
+      }
+    ]
+  })
+}
+
+# Attach the policy-versions policy to the user.
+resource "aws_iam_user_policy_attachment" "nix_configs_infra_policy_versions" {
+  user       = aws_iam_user.nix_configs_infra.name
+  policy_arn = aws_iam_policy.nix_configs_infra_policy_versions.arn
+}
+
+# Backup bucket access for the local user: bucket-level management for tofu (mirrors
+# the CI backup-bucket-management policy) and object-level access for restic (backup,
+# restore, prune). Separate policy so adding it did not need a new version of
+# nix-configs-infra-tofu-access.
+resource "aws_iam_policy" "nix_configs_infra_backup" {
+  name        = "nix-configs-infra-backup-access"
+  description = "Backup bucket management (tofu) and object access (restic) for nix-configs-infra."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:CreateBucket",
+          "s3:DeleteBucket",
+          "s3:Get*",
+          "s3:Put*",
+          "s3:Delete*",
+        ]
+        Resource = "arn:aws:s3:::${var.backup_bucket_name}"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Resource = ["arn:aws:s3:::${var.backup_bucket_name}", "arn:aws:s3:::${var.backup_bucket_name}/*"]
+      }
+    ]
+  })
+}
+
+# Attach the backup policy to the user.
+resource "aws_iam_user_policy_attachment" "nix_configs_infra_backup" {
+  user       = aws_iam_user.nix_configs_infra.name
+  policy_arn = aws_iam_policy.nix_configs_infra_backup.arn
+}

@@ -177,6 +177,13 @@ When adding a new resource that the CI OIDC role must manage (e.g. a new IAM use
 Skipping step 2 causes CI to fail with 403 on the resource refresh — the role needs to be
 updated (via a local apply) before it can manage the new resource.
 
+A permission that the local user needs in order to apply a change cannot arrive in that
+same change: updating `nix-configs-infra-tofu-access` is itself the step that fails. If a
+new permission is needed first, put it in a **new** managed policy for the user
+(`iam:CreatePolicy` + `iam:AttachUserPolicy` are allowed), like
+`nix-configs-infra-backup-access`. Updating existing user policies works through
+`nix-configs-infra-policy-versions` (`iam:CreatePolicyVersion` / `iam:DeletePolicyVersion`).
+
 ### Use managed policies for IAM users, not inline policies
 
 IAM inline user policies cap at **2048 characters** — too small for any non-trivial permission
