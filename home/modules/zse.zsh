@@ -194,6 +194,14 @@ _z_launch() {
     # `name=nix-shell-env` over our local `name`. The panes load the devshell
     # themselves (`zse-env`, home/modules/zellij.nix).
     cd -q "$dir" || exit 1
+    # Run from a Claude Code tool shell, the new Zellij server (and every pane
+    # in it) would inherit that session's markers: claude then turns
+    # transcript saving off (CLAUDE_CODE_CHILD_SESSION) and carries the
+    # parent's session ID and messaging socket.
+    unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_EXECPATH \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION \
+      CLAUDE_CODE_SESSION_ATTENDED CLAUDE_CODE_BRIDGE_SESSION_ID \
+      CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN
     if [[ -n $bg ]]; then
       zellij attach --create-background "$name" options --default-layout "$use_case"
     elif [[ -n $aws ]]; then
@@ -223,14 +231,14 @@ _zse_help() {
 usage:
   zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]  start NAME, or attach if it runs
   zse ls                                     list registered and running sessions
-  zse stop [NAME]                            stop a session, keep it registered
+  zse stop [--all | NAME]                    stop a session, keep it registered
   zse kill [NAME]                            end a session and clean up
   zse restore [NAME...]                      start stopped sessions in the background
   zse restart --all | NAME...                stop running sessions, start them again
   zse switch NAME                            switch to NAME (start it if stopped)
 
   USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review, daily,
-             code-resume. A registered session keeps its use case.
+             explore, code-resume. A registered session keeps its use case.
   NAME       default: the current directory name; for `review`, a GitHub PR URL.
              stop / kill default to the current session.
 
@@ -242,6 +250,9 @@ usage:
     kill   Ends it: offers to remove its .claude/worktrees/<name> worktree,
            removes the AWS side-car, welcome sentinel and registry entry,
            then deletes the Zellij session.
+
+  stop --all stops every running session except the current one, e.g.
+  before a deploy that changes Zellij; `zse restore` brings them back.
 
   restore skips sessions that use -a (assume needs the YubiKey) and prints
   the command to start them.
@@ -384,8 +395,28 @@ _z_target() {
   print -r -- "$name"
 }
 
+# zse stop --all — stop every live session, registered or not (e.g. before
+# a deploy that changes the Zellij version or socket dir). Skips the current
+# session: stopping it would end this command too.
+_zse_stop_all() {
+  emulate -L zsh
+  local n
+  for n in $(zellij list-sessions --no-formatting --short 2>/dev/null); do
+    [[ $(_z_session_state "$n") == live ]] || continue
+    if [[ -n ${ZELLIJ:-} && $n == "${ZELLIJ_SESSION_NAME:-}" ]]; then
+      print -u2 -r "zse: '$n' is the current session — skipped. Run 'zse stop' in it, or 'zse stop --all' outside Zellij."
+      continue
+    fi
+    _zse_stop "$n"
+  done
+}
+
 _zse_stop() {
   emulate -L zsh
+  if [[ ${1:-} == --all ]]; then
+    _zse_stop_all
+    return
+  fi
   local name
   name=$(_z_target "${1:-}") || return 1
   if ! _z_reg_get "$name" use_case >/dev/null; then
@@ -590,11 +621,11 @@ _zse() {
     'help:show usage'
   )
   case ${words[2]:-} in
-    stop | kill | switch | restore)
+    kill | switch | restore)
       ((CURRENT >= 3)) && _zse_names
       return
       ;;
-    restart)
+    stop | restart)
       ((CURRENT == 3)) && compadd -- --all
       ((CURRENT >= 3)) && _zse_names
       return

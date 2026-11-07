@@ -52,10 +52,12 @@ in
 
           DefaultBrowser = "FIREFOX"
           ${lib.optionalString firefoxEnabled ''
-            # Nix store path to the actual binary — .app bundles can't be exec'd directly.
+            # Nix store path to the shell wrapper — .app bundles can't be exec'd directly.
             # finalPackage, not pkgs.firefox: only home-manager's wrapper carries the
             # profile location (MOZ_APP_DATA, see home/darwin.nix firefox.configPath).
-            CustomBrowserPath = "${config.programs.firefox.finalPackage}/Applications/Firefox.app/Contents/MacOS/firefox"
+            # bin/, not the bundle executable: on macOS that is the bare binary, which
+            # gets MOZ_APP_DATA only from LSEnvironment (home/darwin.nix, roadmap #35).
+            CustomBrowserPath = "${config.programs.firefox.finalPackage}/bin/firefox"
           ''}
         '';
       in

@@ -166,7 +166,8 @@ just deploy concinnity
 2h for on-call write; 1Password desktop backend). **`yubikey-manager`** (**`ykman`**) on
 **`home.packages`** is the MFA prompt. **`login <profile>`** opens the console in a Firefox
 container. Profiles that use **`op-credential-process`** go through **`grassume`**
-(`assumego`). Use a **physical YubiKey** when running `assume`.
+(`assumego`). Use a **physical YubiKey** when running `assume`. When **`ykman`** waits for a touch, it plays
+the macOS padlock sound and posts a notification (also when an agent runs `assume`).
 
 Do **not** run the serenity infra steps (0a–0d) on concinnity unless you mean to
 manage that infrastructure from the work machine with the same 1Password access as
@@ -193,6 +194,13 @@ from `main` (standard path) or from a branch (for urgent fixes).
 
 See [docs/usage/infra.md](docs/usage/infra.md) for the full workflow and examples.
 
+## Upstream Watch
+
+Workarounds that wait on an upstream fix are tracked as issues with the label
+**`upstream-watch`**. A daily workflow comments when the upstream issue / PR changes state or
+when a check is due; comment **`/checked`** after you checked it. See
+[docs/usage/upstream-watch.md](docs/usage/upstream-watch.md).
+
 ## Day-to-Day
 
 ```bash
@@ -207,7 +215,7 @@ just status              # active generation, HEAD drift, what each host runs
 just push-cache <host>   # push to S3 binary cache
 just fmt                 # format nix files
 just update              # update flake inputs
-just gc                  # delete old generations and collect garbage
+just gc                  # delete generations older than 60 days, collect garbage (warns after 30 days)
 just changelog           # regenerate CHANGELOG.md locally
 ```
 
@@ -236,6 +244,7 @@ just changelog           # regenerate CHANGELOG.md locally
 ├── overlays/              # placeholder (not imported by flake.nix yet)
 ├── scripts/dj/            # DJ toolchain helpers (Python, read-only analysis)
 ├── terraform/             # GitHub + AWS infrastructure (OpenTofu)
+├── scripts/               # repo scripts (upstream-watch.sh)
 ├── .github/workflows/     # CI
 └── docs/
     ├── SPEC.md            # living specification
@@ -247,6 +256,7 @@ just changelog           # regenerate CHANGELOG.md locally
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow
         ├── zellij.md      # Claude Code session layouts (zse, incl. explore)
+        ├── upstream-watch.md  # reminders for upstream fixes (issues + daily workflow)
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```
 

@@ -1,6 +1,30 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.10.13 — 2026-10-26
+
+### Bug Fixes
+- **home:** move Zellij sockets to ~/.cache/zj for longer session names (#136)
+- **home:** zse drops Claude Code session markers before starting Zellij (#139)
+- **home:** match home-manager Firefox bundle ID in AeroSpace (#141)
+- **ci:** upstream watch falls back to date check on API errors (#151)
+- **darwin:** work around lost LaunchServices pid for wrapped Firefox (#142)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.12 (#132)
+- **deps:** upgrade to nixpkgs, nix-darwin and home-manager 26.05 (#134)
+
+### Documentation
+- **spec:** roadmap #33 — fix git push, gh and prek in the Claude Code sandbox (#135)
+
+### Features
+- **concinnity:** declare jbl-personal marketplace and plugins in Nix (#133)
+- **home:** Explorations — /explore skill, docs/explorations and zse explore use case (#137)
+- **home:** add zse stop --all; mark nixpkgs 26.05 done in SPEC (#138)
+- **concinnity:** enable deploy-on-aws plugin and add uv (#140)
+- **home:** float short-lived apps in AeroSpace (#144)
+- **ci:** upstream watch with daily reminders (#145)
+- **concinnity:** notify when ykman waits for a YubiKey touch (#143)
 ## v2026.10.12 — 2026-10-17
 
 ### Bug Fixes

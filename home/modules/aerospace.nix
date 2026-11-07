@@ -51,7 +51,11 @@
 
     # Workspace 2: web
     [[on-window-detected]]
-    if.app-id = 'org.mozilla.firefox'
+    if.app-id = 'org.nixos.firefox'  # home-manager programs.firefox build
+    run = ['move-node-to-workspace 2']
+
+    [[on-window-detected]]
+    if.app-id = 'org.mozilla.firefox'  # Mozilla build, e.g. installed via Iru Self Service
     run = ['move-node-to-workspace 2']
 
     [[on-window-detected]]
@@ -104,6 +108,25 @@
 
     [[on-window-detected]]
     if.app-id = 'com.apple.finder'
+    run = ['layout floating']
+
+    # Short-lived apps float, so a ghost window (AeroSpace misses the close event,
+    # nikitabobko/AeroSpace#1615, watched in #148) takes no tile. Script Editor opens for
+    # `osascript display notification` permission prompts.
+    [[on-window-detected]]
+    if.app-id = 'com.apple.TextEdit'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.ScriptEditor2'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.Preview'
+    run = ['layout floating']
+
+    [[on-window-detected]]
+    if.app-id = 'com.apple.ActivityMonitor'
     run = ['layout floating']
 
     # --- Keybindings (mod = alt) ---
