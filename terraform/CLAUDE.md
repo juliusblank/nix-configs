@@ -184,6 +184,18 @@ new permission is needed first, put it in a **new** managed policy for the user
 `nix-configs-infra-backup-access`. Updating existing user policies works through
 `nix-configs-infra-policy-versions` (`iam:CreatePolicyVersion` / `iam:DeletePolicyVersion`).
 
+### Every principal that manages a bucket needs `s3:ListBucket` on it
+
+The AWS provider checks that an `aws_s3_bucket` exists with `HeadBucket`, which needs
+`s3:ListBucket` (not covered by `s3:Get*`). Without it the refresh reads the bucket as
+deleted, plans to create it again and **replaces** its versioning, public access block
+and lifecycle — `prevent_destroy` on the bucket does not stop that. This happened to
+`juliusblank-backups` in the CI apply after #161.
+
+**Review the plan content, not only the check status:** a PR plan that shows an
+existing bucket as "will be created" or its settings as "must be replaced" must not be
+merged.
+
 ### Use managed policies for IAM users, not inline policies
 
 IAM inline user policies cap at **2048 characters** — too small for any non-trivial permission
