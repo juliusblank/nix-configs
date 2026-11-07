@@ -273,6 +273,10 @@ deployments:` section), so you can see drift, for example after a manual
   fix for pid `-1` apps); when either is fixed, remove the override and the
   `bin/firefox` path in **`home/modules/granted.nix`**. Other wrapped Nix apps (kitty, Emacs)
   have the same problem.
+  LaunchServices also keeps the `Firefox.app` of every old Nix generation (same bundle id); a
+  link click, the Dock or Spotlight could start an old, wrapped build, which AeroSpace does not
+  see and which makes `login` open a second, empty instance. The **`registerCurrentFirefox`**
+  activation in **`home/darwin.nix`** unregisters the old bundles on every deploy.
 
 - **`darwin-rebuild: command not found` in `just diff`** — Recipes run under non-interactive
   **`bash`**, so **`PATH`** often omits **`/run/current-system/sw/bin`** and direnv is not
