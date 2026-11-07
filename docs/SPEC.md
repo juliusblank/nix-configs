@@ -487,6 +487,21 @@ Serenity backs up manually (`just backup`) until scheduled runs can get their se
 - **Harmonic DJ:** paths and `inhibitApps` from `docs/harmonic-dj.md` → *Backup handoff*; the AUv3 inside a DAW is not covered by `inhibitApps`.
 - **Storage class / cost:** `music` is large and only grows — check restic's `-o s3.storage-class=STANDARD_IA` (data packs only; minimum storage duration and retrieval cost) against S3 Standard (~$5/month for 206 GB).
 
+**rekordbox restore test (after the groups exist).** Never restore over the live library; quit rekordbox before every comparison. Three levels:
+
+1. **File level — complete and identical?** Safe; after every change to the `dj` group.
+   `restic restore latest --tag dj --target /tmp/rb-restore`, then
+   `diff -rq /tmp/rb-restore$HOME/Library/Pioneer/rekordbox ~/Library/Pioneer/rekordbox` (and the same for `Application Support/Pioneer`). No output when nothing changed since the backup.
+2. **Database level — is `master.db` usable?** Safe; works on copies only. A read-only script in `scripts/dj/` (`pyrekordbox`, which handles the SQLCipher encryption) opens the **restored** `master.db` and a copy of the live one and compares counts: tracks, playlists, cue points, analysed tracks. Proves the backup is readable, not only present.
+3. **Fire drill — does rekordbox start from the backup?** Strongest; occasionally, step by step:
+   1. Quit rekordbox; cut the network if Cloud Library Sync is on, so an older state does not sync to the cloud or other devices.
+   2. Rename the live folders (`~/Library/Pioneer/rekordbox` → `rekordbox.live`, same for `~/Library/Application Support/Pioneer`) — instant and reversible.
+   3. `restic restore latest --tag dj --target /` (restores to the original paths).
+   4. Start rekordbox: collection, playlists, cues, a few tracks play.
+   5. Quit rekordbox, delete the restored folders, rename the `.live` folders back.
+
+   Track paths in `master.db` are absolute (`/Users/jbl/Music/purchased/…`): tracks play only where the music sits at the same path — on a new Mac, restore the `music` group to the same path as well.
+
 ### Scheduled backups while locked (planned)
 
 > **TODO** — after the manual baseline has run for a while; then set `custom.backup.automatic = true`.
