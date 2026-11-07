@@ -392,43 +392,42 @@ diff host: _gc-check
 # Backup
 # ==============================================================================
 
+# AWS keys: restic cannot resolve the profile's credential_process, so the AWS CLI
+# exports them as environment variables (same as the backup-run command).
 # Initialise the restic repository in S3 (run once, before the first backup)
 backup-init:
     #!/usr/bin/env bash
     set -euo pipefail
     RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
-    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    creds=$(AWS_CONFIG_FILE=$HOME/.aws/config aws configure export-credentials --profile personal-nix-configs-infra --format env)
+    export RESTIC_PASSWORD
+    eval "$creds"
     restic --repo {{backup_repo}} init
 
-# Run a backup immediately with live terminal output
+# Run a backup now with live output — the configured paths of `custom.backup` (backup-run)
 backup:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
-    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
-    restic --repo {{backup_repo}} backup \
-        --exclude=.DS_Store --exclude=node_modules --exclude=.git \
-        --exclude='*.tmp' --exclude='*.pyc' --exclude='__pycache__' \
-        ~/Music ~/Pictures ~/github/juliusblank
+    backup-run
 
-# Pause the automatic background backup (writes sentinel file)
+# Pause scheduled backups (writes sentinel file); manual `just backup` still runs
 backup-pause:
     @mkdir -p ~/.config/backup
     @touch ~/.config/backup/paused
     @echo "Backup paused. Run 'just backup-resume' to re-enable."
 
-# Resume the automatic background backup (removes sentinel file)
+# Resume scheduled backups (removes sentinel file)
 backup-resume:
     @rm -f ~/.config/backup/paused
     @echo "Backup resumed."
 
+# For a full data check, run the same with `check --read-data`.
 # Verify backup integrity — samples 10 % of data (low egress cost)
-# For a full data check: RESTIC_PASSWORD=$(op read "{{backup_op_ref}}") restic --repo {{backup_repo}} check --read-data
 backup-check:
     #!/usr/bin/env bash
     set -euo pipefail
     RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
-    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    creds=$(AWS_CONFIG_FILE=$HOME/.aws/config aws configure export-credentials --profile personal-nix-configs-infra --format env)
+    export RESTIC_PASSWORD
+    eval "$creds"
     restic --repo {{backup_repo}} check --read-data-subset=10%
 
 # List available snapshots
@@ -436,7 +435,9 @@ backup-snapshots:
     #!/usr/bin/env bash
     set -euo pipefail
     RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
-    export RESTIC_PASSWORD AWS_PROFILE=personal-nix-configs-infra AWS_CONFIG_FILE=$HOME/.aws/config
+    creds=$(AWS_CONFIG_FILE=$HOME/.aws/config aws configure export-credentials --profile personal-nix-configs-infra --format env)
+    export RESTIC_PASSWORD
+    eval "$creds"
     restic --repo {{backup_repo}} snapshots
 
 # ==============================================================================

@@ -88,6 +88,9 @@ in
     # Restic S3 backup — music, photos, personal projects
     backup = {
       enable = true;
+      # Manual backups (`just backup`) until scheduled runs can get secrets while the
+      # Mac is locked — op read / credential_process need an unlocked 1Password.
+      automatic = false;
       bucket = "juliusblank-backups";
       # ~/Music excluded during initial testing — add back once baseline is verified
       paths = [

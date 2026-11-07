@@ -445,13 +445,17 @@ Reliable, simple backup of serenity user data to AWS S3 using **restic**.
 **S3 repository:** `s3:s3.eu-central-1.amazonaws.com/juliusblank-backups/serenity`
 Bucket managed by OpenTofu (`terraform/s3-backup.tf`) — private, versioned, `prevent_destroy = true`.
 
-**1Password secret:** `op://github_nix-configs/Restic Backup Password/password` — injected at runtime by the backup script via `op read`. Create this item manually before running `just backup-init`.
+**Secrets (read at runtime):** restic password from `op://github_nix-configs/Restic Backup Password/password` via `op read` — create this item manually before running `just backup-init`. AWS keys via `aws configure export-credentials --profile personal-nix-configs-infra` (restic's S3 client cannot resolve the profile's `credential_process`). Both need an unlocked 1Password.
 
-**Schedule:**
-- **Daily at 02:00** — launchd agent (`com.juliusblank.backup`), logs to `~/Library/Logs/backup.log`
+**Commands:** `backup-run` (backup of the configured paths, then retention) and `backup-check` (structural check), installed by `home/modules/backup.nix`; `just backup` calls `backup-run`. Output goes to stdout: live progress in a terminal, one progress line per minute under launchd.
+
+**Schedule (`custom.backup.automatic`, off on serenity for now):**
+- **Daily at 02:00** — launchd agent (`com.juliusblank.backup`, runs `backup-run --scheduled`), logs to `~/Library/Logs/backup.log`
 - **Sunday at 03:00** — launchd integrity check (`com.juliusblank.backup-check`), structural only (no data download), logs to `~/Library/Logs/backup-check.log`
 
-**Inhibit behaviour:** backup is skipped automatically if `rekordbox` or `djay Pro AI` is running. Use `just backup-pause` / `just backup-resume` for manual override (sentinel file: `~/.config/backup/paused`).
+Serenity backs up manually (`just backup`) until scheduled runs can get their secrets while the Mac is locked: `op read` and the 1Password-backed `credential_process` fail then.
+
+**Inhibit behaviour:** any run is skipped if `rekordbox` or `djay Pro AI` is running. `just backup-pause` / `just backup-resume` pause scheduled runs only (sentinel file: `~/.config/backup/paused`); a manual `just backup` ignores the sentinel.
 
 **Retention:** `restic forget --keep-last 30 --keep-monthly 12 --prune` runs after every backup.
 
@@ -461,13 +465,13 @@ Bucket managed by OpenTofu (`terraform/s3-backup.tf`) — private, versioned, `p
 # 1. Create the 1Password item manually in the github_nix-configs vault:
 #    Item: "Restic Backup Password" / Field: "password"
 
-# 2. Deploy the nix config (installs restic + launchd agents)
+# 2. Deploy the nix config (installs restic, backup-run, backup-check; agents if automatic)
 just deploy serenity
 
 # 3. Initialise the restic repository in S3 (once only)
 just backup-init
 
-# 4. Seed the initial backup (200–300 GB — will take hours; start before sleeping)
+# 4. Seed the initial backup of the configured paths (can take hours; 1Password must stay unlocked)
 just backup
 ```
 
@@ -475,8 +479,8 @@ just backup
 
 ```bash
 just backup             # run a backup now (interactive, live output)
-just backup-pause       # pause automatic backups (sentinel file)
-just backup-resume      # resume automatic backups
+just backup-pause       # pause scheduled backups (sentinel file)
+just backup-resume      # resume scheduled backups
 just backup-check       # integrity check — samples 10 % of data
 just backup-snapshots   # list available snapshots
 ```
