@@ -101,6 +101,7 @@ that directory:
 
 - `terraform/CLAUDE.md` — HCL (OpenTofu)
 - `.github/CLAUDE.md` — YAML (GitHub Actions)
+- `scripts/dj/CLAUDE.md` — Python (DJ toolchain helper scripts)
 
 Nix conventions are below (root `CLAUDE.md` covers the whole repo).
 
