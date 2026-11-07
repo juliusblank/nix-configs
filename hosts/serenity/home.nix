@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   # The 1Password entry name is the single source of truth — the AWS CLI
@@ -39,6 +39,7 @@ in
     ../../home/modules/granted.nix
     ../../home/modules/aws.nix
     ../../home/modules/harmonic-dj.nix
+    ../../home/modules/backup.nix
   ];
 
   home = {
@@ -83,6 +84,42 @@ in
 
     # Harmonic DJ, evaluation phase (roadmap #32; docs/harmonic-dj.md)
     harmonicDj.enable = true;
+
+    # Restic S3 backup — music, photos, personal projects
+    backup = {
+      enable = true;
+      # Manual backups (`just backup`) until scheduled runs can get secrets while the
+      # Mac is locked — op read / credential_process need an unlocked 1Password.
+      automatic = false;
+      bucket = "juliusblank-backups";
+      # Rest of ~/Music still excluded — only the purchased collection for now
+      paths = [
+        "${config.home.homeDirectory}/Pictures"
+        "${config.home.homeDirectory}/github/juliusblank"
+        # rekordbox: library (master.db, analysis), settings, preferences
+        "${config.home.homeDirectory}/Library/Pioneer/rekordbox"
+        "${config.home.homeDirectory}/Library/Application Support/Pioneer"
+        "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.rekordboxdj.plist"
+        "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.FwDownloader.plist"
+        # Music collection (~206 GB)
+        "${config.home.homeDirectory}/Music/purchased"
+      ];
+      excludes = [
+        # iCloud Photos holds the originals (Optimize Mac Storage); plain-file archive
+        # of the photos is explored in docs/explorations (photo-archive)
+        "${config.home.homeDirectory}/Pictures/Photos Library.photoslibrary"
+        ".DS_Store"
+        "node_modules"
+        ".git"
+        "*.tmp"
+        "*.pyc"
+        "__pycache__"
+      ];
+      inhibitApps = [
+        "rekordbox"
+        "djay Pro AI"
+      ];
+    };
 
     # AWS CLI profiles
     aws = {
