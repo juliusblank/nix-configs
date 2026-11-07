@@ -96,7 +96,12 @@
     user = "jbl";
     onActivation = {
       autoUpdate = false;
-      cleanup = "uninstall";
+      # nix-darwin 26.05 maps cleanup = "uninstall" to `--force-cleanup`, which the
+      # Homebrew bundled with the pinned nix-homebrew (7d0038b, 5.1.10) rejects.
+      # `--cleanup` does the same. Back to cleanup = "uninstall" after the
+      # nix-homebrew upgrade.
+      cleanup = "none";
+      extraFlags = [ "--cleanup" ];
       upgrade = true;
     };
     greedyCasks = true;
