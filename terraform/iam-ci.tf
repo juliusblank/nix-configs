@@ -126,6 +126,9 @@ resource "aws_iam_role_policy" "github_actions_iam_management" {
 # Uses the same wildcard pattern as nix-cache-management — covers all bucket-level
 # config actions the AWS provider reads/writes on refresh.
 # Object-level access is not granted to CI — backups run from serenity only.
+# s3:ListBucket is required: the provider checks that the bucket exists with
+# HeadBucket, which needs it. Without it CI reads the bucket as deleted and replaces
+# its versioning, public access block and lifecycle (happened after #161).
 resource "aws_iam_role_policy" "github_actions_backup_mgmt" {
   name = "backup-bucket-management"
   role = aws_iam_role.github_actions.id
@@ -138,6 +141,7 @@ resource "aws_iam_role_policy" "github_actions_backup_mgmt" {
         Action = [
           "s3:CreateBucket",
           "s3:DeleteBucket",
+          "s3:ListBucket",
           "s3:Get*",
           "s3:Put*",
           "s3:Delete*",
