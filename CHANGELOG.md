@@ -1,6 +1,17 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.1 — 2026-11-07
+
+### Bug Fixes
+- **serenity:** pass --cleanup to brew bundle instead of --force-cleanup (#157)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.10.13 (#152)
+
+### Features
+- **devshell:** manual gc via just with a 30-day reminder (#154)
+- **serenity:** Harmonic DJ evaluation — app derivation, spec and research (#124)
 ## v2026.10.13 — 2026-10-26
 
 ### Bug Fixes
