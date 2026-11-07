@@ -404,9 +404,10 @@ backup-init:
     eval "$creds"
     restic --repo {{backup_repo}} init
 
-# Run a backup now with live output — the configured paths of `custom.backup` (backup-run)
-backup:
-    backup-run
+# Usage: just backup [group…]   (e.g. `just backup dj` after a DJ session)
+# Run a backup now with live output — all groups of `custom.backup.sets`, or the named ones
+backup *groups:
+    backup-run {{groups}}
 
 # Pause scheduled backups (writes sentinel file); manual `just backup` still runs
 backup-pause:
@@ -430,15 +431,17 @@ backup-check:
     eval "$creds"
     restic --repo {{backup_repo}} check --read-data-subset=10%
 
-# List available snapshots
-backup-snapshots:
+# Usage: just backup-snapshots [group]
+# List available snapshots, grouped by tag (= backup group); optionally of one group only
+backup-snapshots group="":
     #!/usr/bin/env bash
     set -euo pipefail
     RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
     creds=$(AWS_CONFIG_FILE=$HOME/.aws/config aws configure export-credentials --profile personal-nix-configs-infra --format env)
     export RESTIC_PASSWORD
     eval "$creds"
-    restic --repo {{backup_repo}} snapshots
+    group={{quote(group)}}
+    restic --repo {{backup_repo}} snapshots --group-by tags ${group:+--tag "$group"}
 
 # ==============================================================================
 # OpenTofu

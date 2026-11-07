@@ -492,8 +492,10 @@ differences, not for close ones. A second folder (e.g. `20260815`) can be added 
 > For the backup work (roadmap #10, draft PR #126: restic, `home/modules/backup.nix`).
 > This section has all the facts. Status: copy tested on concinnity (v1.2.9); copy and
 > restore with the app tested on serenity (v1.2.9, 27 tracks), no rescan.
+> **Applied:** both folders and `inhibitApps "APU Harmonic DJ"` are in the `dj` backup
+> group (`custom.backup.sets.dj` in `hosts/serenity/home.nix`; see *SPEC → Backup*).
 
-**What to change in `custom.backup` (serenity):**
+**What to change in `custom.backup` (serenity)** (now `sets.dj`):
 - `paths`: add `~/Library/APU Harmonic DJ` and
   `~/Library/Application Support/APU Harmonic DJ`.
 - `inhibitApps`: add `"APU Harmonic DJ"`. This is `CFBundleExecutable` of the 1.2.9 app

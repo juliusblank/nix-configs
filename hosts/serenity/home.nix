@@ -85,25 +85,37 @@ in
     # Harmonic DJ, evaluation phase (roadmap #32; docs/harmonic-dj.md)
     harmonicDj.enable = true;
 
-    # Restic S3 backup — music, photos, personal projects
+    # Restic S3 backup in groups — one snapshot series per group (`just backup [group…]`)
     backup = {
       enable = true;
       # Manual backups (`just backup`) until scheduled runs can get secrets while the
       # Mac is locked — op read / credential_process need an unlocked 1Password.
       automatic = false;
       bucket = "juliusblank-backups";
-      # Rest of ~/Music still excluded — only the purchased collection for now
-      paths = [
-        "${config.home.homeDirectory}/Pictures"
-        "${config.home.homeDirectory}/github/juliusblank"
-        # rekordbox: library (master.db, analysis), settings, preferences
-        "${config.home.homeDirectory}/Library/Pioneer/rekordbox"
-        "${config.home.homeDirectory}/Library/Application Support/Pioneer"
-        "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.rekordboxdj.plist"
-        "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.FwDownloader.plist"
-        # Music collection (~206 GB)
-        "${config.home.homeDirectory}/Music/purchased"
-      ];
+      sets = {
+        # rekordbox: library (master.db, analysis), settings, preferences;
+        # Harmonic DJ: library DB + Mixes, settings (docs/harmonic-dj.md → Backup handoff)
+        dj = {
+          paths = [
+            "${config.home.homeDirectory}/Library/Pioneer/rekordbox"
+            "${config.home.homeDirectory}/Library/Application Support/Pioneer"
+            "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.rekordboxdj.plist"
+            "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.FwDownloader.plist"
+            "${config.home.homeDirectory}/Library/APU Harmonic DJ"
+            "${config.home.homeDirectory}/Library/Application Support/APU Harmonic DJ"
+          ];
+          # The Harmonic DJ AUv3 inside a DAW is not covered (different process)
+          inhibitApps = [
+            "rekordbox"
+            "djay Pro AI"
+            "APU Harmonic DJ"
+          ];
+        };
+        # Music collection (~206 GB); the rest of ~/Music is not backed up yet
+        music.paths = [ "${config.home.homeDirectory}/Music/purchased" ];
+        photos.paths = [ "${config.home.homeDirectory}/Pictures" ];
+        projects.paths = [ "${config.home.homeDirectory}/github/juliusblank" ];
+      };
       excludes = [
         # iCloud Photos holds the originals (Optimize Mac Storage); plain-file archive
         # of the photos is explored in docs/explorations (photo-archive)
@@ -114,10 +126,6 @@ in
         "*.tmp"
         "*.pyc"
         "__pycache__"
-      ];
-      inhibitApps = [
-        "rekordbox"
-        "djay Pro AI"
       ];
     };
 

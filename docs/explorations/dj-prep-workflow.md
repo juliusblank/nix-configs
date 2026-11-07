@@ -232,7 +232,9 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 - [ ] Analysis scope: curated subset, grow on demand, or whole collection? Analysis
       time per track (measure on the first larger batch).
 - [ ] Does #126 (backup) include the two HDJ folders, `inhibitApps "APU Harmonic DJ"`
-      and an exclusion for `rekordbox_backup/`?
+      and an exclusion for `rekordbox_backup/`? — HDJ folders and inhibit: yes (`dj`
+      backup group). `rekordbox_backup/` is not backed up today (only
+      `~/Music/purchased`); open with *SPEC → Backup tailoring* (rest of `~/Music`).
 - [ ] Is rekordbox's minor bias real? (optional T4 listening)
 - [x] Key codes vs Camelot — answered (I1).
 - [x] Where the key profile is stored — per Mix; a new Mix starts with `ecma418` (I1).
