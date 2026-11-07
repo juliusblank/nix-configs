@@ -1,6 +1,22 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.3 — 2026-11-07
+
+### Bug Fixes
+- **infra:** give CI s3:ListBucket on the backup bucket (#162)
+- **darwin:** register only the current Firefox with LaunchServices (#153)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.11.2 (#159)
+
+### Documentation
+- **spec:** add roadmap #37 — AWS IAM Identity Center as code (#160)
+- **spec:** plan the rekordbox restore test (#163)
+
+### Features
+- **infra:** backup S3 bucket and IAM permissions (#161)
+- **serenity:** restic S3 backup (manual for now) (#126)
 ## v2026.11.2 — 2026-11-07
 
 ### Bug Fixes
