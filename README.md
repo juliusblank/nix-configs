@@ -219,6 +219,7 @@ just gc                  # delete generations older than 60 days, collect garbag
 just changelog           # regenerate CHANGELOG.md locally
 just backup [group…]     # run backup now (serenity; all groups, or e.g. `just backup dj`)
 just backup-snapshots [group]  # list snapshots, grouped by backup group
+just backup-baseline <group>   # keep a group's latest snapshot forever
 just backup-pause        # pause scheduled backups
 just backup-resume       # resume scheduled backups
 just backup-check        # verify backup integrity (10 % sample)

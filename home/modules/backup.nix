@@ -5,7 +5,8 @@
   - `backup-run [--scheduled] [group…]` — one `restic backup --tag <group>` per
     group of `sets` (all groups when none is named), then one
     `forget --group-by host,tags --prune`, so each group keeps its own snapshot
-    series. The daily agent runs it with `--scheduled` at `schedule` (default: 02:00).
+    series; snapshots tagged `baseline` are kept forever. The daily agent runs it
+    with `--scheduled` at `schedule` (default: 02:00).
   - `backup-check` — structural integrity check; the weekly agent runs it on
     Sunday at 03:00.
 
@@ -158,11 +159,13 @@ let
     done
 
     # Retention per group: the tag (= group) defines the snapshot series, so a
-    # changed path list in a group does not start a new series.
+    # changed path list in a group does not start a new series. Snapshots tagged
+    # `baseline` (`restic tag --add baseline <id>`) are never forgotten.
     if (( ''${#done_groups[@]} )); then
       log "pruning old snapshots"
       "$RESTIC" --repo "$REPO" forget \
         --group-by host,tags \
+        --keep-tag baseline \
         --keep-last ${toString cfg.keepLast} \
         --keep-monthly ${toString cfg.keepMonthly} \
         --prune \

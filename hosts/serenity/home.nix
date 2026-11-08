@@ -94,9 +94,13 @@ in
       bucket = "juliusblank-backups";
       sets = {
         # rekordbox: library (master.db, analysis), settings, preferences;
-        # Harmonic DJ: library DB + Mixes, settings (docs/harmonic-dj.md → Backup handoff)
+        # Harmonic DJ: library DB + Mixes, settings (docs/harmonic-dj.md → Backup handoff);
+        # all of ~/Music — master.db points at the tracks by absolute path, so library and
+        # files belong in one snapshot. Whole folder until the cleanup
+        # (docs/explorations/music-collection-quality.md) settles the structure.
         dj = {
           paths = [
+            "${config.home.homeDirectory}/Music"
             "${config.home.homeDirectory}/Library/Pioneer/rekordbox"
             "${config.home.homeDirectory}/Library/Application Support/Pioneer"
             "${config.home.homeDirectory}/Library/Preferences/com.pioneerdj.rekordboxdj.plist"
@@ -111,10 +115,12 @@ in
             "APU Harmonic DJ"
           ];
         };
-        # Music collection (~206 GB); the rest of ~/Music is not backed up yet
-        music.paths = [ "${config.home.homeDirectory}/Music/purchased" ];
-        photos.paths = [ "${config.home.homeDirectory}/Pictures" ];
-        projects.paths = [ "${config.home.homeDirectory}/github/juliusblank" ];
+        # Bitwig projects, rekordbox exports, loose images (Photos library excluded below).
+        # Desktop, Downloads and ~/github are not backed up.
+        documents.paths = [
+          "${config.home.homeDirectory}/Documents"
+          "${config.home.homeDirectory}/Pictures"
+        ];
       };
       excludes = [
         # iCloud Photos holds the originals (Optimize Mac Storage); plain-file archive

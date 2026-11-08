@@ -443,6 +443,18 @@ backup-snapshots group="":
     group={{quote(group)}}
     restic --repo {{backup_repo}} snapshots --group-by tags ${group:+--tag "$group"}
 
+# Usage: just backup-baseline dj   (e.g. before the Music cleanup)
+# Keep the latest snapshot of a group forever (adds tag `baseline`; forget never removes it)
+backup-baseline group:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    RESTIC_PASSWORD=$(op read "{{backup_op_ref}}")
+    creds=$(AWS_CONFIG_FILE=$HOME/.aws/config aws configure export-credentials --profile personal-nix-configs-infra --format env)
+    export RESTIC_PASSWORD
+    eval "$creds"
+    restic --repo {{backup_repo}} tag --tag {{quote(group)}} --add baseline latest
+    restic --repo {{backup_repo}} snapshots --tag baseline
+
 # ==============================================================================
 # OpenTofu
 # ==============================================================================
