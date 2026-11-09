@@ -36,6 +36,10 @@
       loginwindow.LoginwindowText = "serenity, ole";
       screencapture.location = "~/Pictures/screenshots";
       screensaver.askForPasswordDelay = 10;
+      # macOS updates are installed by hand, after a backup and a rekordbox / driver
+      # compatibility check. Security responses and system data files
+      # (CriticalUpdateInstall, ConfigDataInstall) stay automatic.
+      SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
       # AeroSpace prerequisite — keep one Spaces stack across all displays.
       # Logout required to take effect.
       spaces.spans-displays = true;
