@@ -1,6 +1,7 @@
 # release — manually triggered workflow that cuts a CalVer release.
 # Creates the tag first so git-cliff sections the changelog under the new version,
-# then opens a PR with the updated CHANGELOG.md. Merge the PR via the GitHub UI to publish.
+# publishes a GitHub release with that version's notes, then opens a PR with the updated
+# CHANGELOG.md. Merge the PR via the GitHub UI to publish.
 # Tag format: v<year>.<month>.<n> (e.g. v2026.04.1); always increments patch from latest tag.
 name: Release
 
@@ -42,6 +43,24 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.tag.outputs.tag }}" -m "Release ${{ steps.tag.outputs.tag }}"
           git push origin "${{ steps.tag.outputs.tag }}"
+
+      # Notes for this tag only — the tag exists already, so --latest selects it.
+      # Not staged below, so it stays out of the changelog PR.
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Create GitHub release
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            --title "${{ steps.tag.outputs.tag }}" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag
 
       - name: Generate changelog
         uses: orhun/git-cliff-action@v4
