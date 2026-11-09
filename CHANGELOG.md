@@ -1,6 +1,17 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.4 — 2026-11-09
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.11.3 (#164)
+- **deps:** update flake inputs; work around vscode 1.144 ripgrep path (#168)
+
+### Documentation
+- **explore:** add music-collection-quality exploration (#166)
+
+### Features
+- **serenity:** back up in groups (dj with all of ~/Music, documents) (#165)
 ## v2026.11.3 — 2026-11-07
 
 ### Bug Fixes
