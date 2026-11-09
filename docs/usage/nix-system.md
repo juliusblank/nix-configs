@@ -223,6 +223,21 @@ deployments:` section), so you can see drift, for example after a manual
 
 ## Known issues: macOS and nix-darwin
 
+- **macOS upgrade replaces `/etc/zshrc`** — after a major upgrade (seen on serenity,
+  15.7.3 → 26.7.2), `/etc/zshrc` is Apple's default file again instead of the
+  `/etc/static/zshrc` symlink. Nix still works (`/etc/zshenv` stays a symlink), but the
+  nix-darwin zsh setup is not loaded, and activation refuses to overwrite the file. Move it
+  aside and deploy; `/etc/zshrc.before-nix-darwin` may already exist from the first install,
+  so use a new name:
+
+  ```bash
+  sudo mv /etc/zshrc /etc/zshrc.before-nix-darwin.macos26
+  just deploy serenity
+  ```
+
+  After the upgrade, also check AeroSpace (`aerospace --version`): grant Accessibility
+  again if macOS asks.
+
 - **Zellij sessions "stopped" after a deploy** — Zellij keeps its sessions per socket
   dir and protocol version (`~/.cache/zj/contract_version_<n>/` via `ZELLIJ_SOCKET_DIR`;
   0.43 used `$TMPDIR/zellij-<uid>/<version>/`); a new client cannot see servers in another

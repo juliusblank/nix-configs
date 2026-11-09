@@ -2,7 +2,7 @@
 
 {
   # AeroSpace tiling WM config — installed as Homebrew cask in each host's
-  # configuration.nix; this module manages ~/.aerospace.toml only.
+  # configuration.nix; this module manages ~/.aerospace.toml and the login agent.
   #
   # Layout: 6 workspaces (1=term+code, 2=web, 3=comms, 4=docs+tickets, 5=music, 6=flex).
   # Mod key: alt. Default layout: tiles. Cycling: macOS native (cmd+tab, cmd+`).
@@ -15,7 +15,9 @@
     after-login-command = []
     after-startup-command = []
 
-    start-at-login = true
+    # Autostart is the launchd agent below; AeroSpace's own login item only gets
+    # registered while the app runs, so it was lost whenever AeroSpace was not running.
+    start-at-login = false
 
     # Layout
     default-root-container-layout = 'tiles'
@@ -176,4 +178,20 @@
     # Reload config
     alt-r = 'reload-config'
   '';
+
+  # Start AeroSpace at every login (and on activation). `open -a` goes through
+  # LaunchServices and is a no-op when AeroSpace already runs. No KeepAlive: quitting
+  # AeroSpace on purpose keeps it quit until the next login.
+  launchd.agents.aerospace = {
+    enable = true;
+    config = {
+      Label = "com.juliusblank.aerospace";
+      ProgramArguments = [
+        "/usr/bin/open"
+        "-a"
+        "AeroSpace"
+      ];
+      RunAtLoad = true;
+    };
+  };
 }
