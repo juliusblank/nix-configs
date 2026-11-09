@@ -1,6 +1,17 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.5 — 2026-11-09
+
+### CI/CD
+- **release:** publish a GitHub release with the tag's notes (#170)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.11.4 (#169)
+
+### Features
+- **serenity:** install macOS updates by hand only (#171)
+- **darwin:** start AeroSpace at login with a launchd agent (#172)
 ## v2026.11.4 — 2026-11-09
 
 ### Chores
