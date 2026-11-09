@@ -2,14 +2,18 @@
   Restic S3 backup module.
 
   Installs two commands and, when `automatic` is true, two launchd user agents:
-  - `backup-run` — backup of `paths`, then `forget --prune`. The daily agent runs
-    it with `--scheduled` at `schedule` (default: 02:00).
+  - `backup-run [--scheduled] [group…]` — one `restic backup --tag <group>` per
+    group of `sets` (all groups when none is named), then one
+    `forget --group-by host,tags --prune`, so each group keeps its own snapshot
+    series; snapshots tagged `baseline` are kept forever. The daily agent runs it
+    with `--scheduled` at `schedule` (default: 02:00).
   - `backup-check` — structural integrity check; the weekly agent runs it on
     Sunday at 03:00.
 
   Scheduled runs are skipped while the sentinel file $HOME/.config/backup/paused
-  exists (`just backup-pause` / `just backup-resume`); manual runs ignore it. Any
-  run is skipped while a process listed in `inhibitApps` is running.
+  exists (`just backup-pause` / `just backup-resume`); manual runs ignore it. A
+  group is skipped while a process listed in its `inhibitApps` is running; the
+  other groups still run.
 
   Secrets are read at runtime: the restic password via `op read`, the AWS keys via
   `aws configure export-credentials` (restic cannot resolve the profile's
@@ -29,16 +33,33 @@ let
 
   repo = "s3:s3.${cfg.awsRegion}.amazonaws.com/${cfg.bucket}/${cfg.hostPrefix}";
 
-  pathsArray = lib.concatStringsSep "\n  " (map lib.escapeShellArg cfg.paths);
+  groupNames = lib.attrNames cfg.sets;
+
   excludeArgs = lib.concatStringsSep "\n  " (
     map (e: "--exclude=${lib.escapeShellArg e}") cfg.excludes
   );
-  inhibitChecks = lib.concatMapStrings (app: ''
-    if pgrep -x ${lib.escapeShellArg app} > /dev/null 2>&1; then
-      log "backup skipped — ${app} is running"
-      exit 0
-    fi
-  '') cfg.inhibitApps;
+
+  # Two shell functions per group: `inhibitor_<group>` prints the first running
+  # inhibit app (status 1 when none runs); `backup_group_<group>` backs up the
+  # group's paths, tagged with the group name, and returns restic's exit code.
+  groupFunctions = lib.concatStrings (
+    lib.mapAttrsToList (name: set: ''
+      inhibitor_${name}() {
+        local app
+        for app in ${lib.escapeShellArgs set.inhibitApps}; do
+          if pgrep -x "$app" > /dev/null 2>&1; then
+            printf '%s' "$app"
+            return 0
+          fi
+        done
+        return 1
+      }
+      backup_group_${name}() {
+        local paths=(${lib.escapeShellArgs set.paths})
+        "$RESTIC" --repo "$REPO" backup --tag ${name} "''${excludes[@]}" "''${paths[@]}" 2>&1
+      }
+    '') cfg.sets
+  );
 
   # Shared preamble: logging, restic settings and secrets. Output goes to stdout
   # only — launchd writes it to the agent's log file, a manual run shows it in the
@@ -79,33 +100,83 @@ let
 
     ${preamble}
 
-    if [[ ''${1:-} == --scheduled && -f ${home}/.config/backup/paused ]]; then
+    scheduled=false
+    if [[ ''${1:-} == --scheduled ]]; then
+      scheduled=true
+      shift
+    fi
+
+    if $scheduled && [[ -f ${home}/.config/backup/paused ]]; then
       log "backup paused — sentinel file present"
       exit 0
     fi
 
-    ${inhibitChecks}
+    all_groups=(${lib.concatStringsSep " " groupNames})
+    groups=("$@")
+    (( ''${#groups[@]} )) || groups=("''${all_groups[@]}")
+    for g in "''${groups[@]}"; do
+      if [[ " ''${all_groups[*]} " != *" $g "* ]]; then
+        log "ERROR: unknown backup group '$g' — known groups: ''${all_groups[*]}"
+        exit 1
+      fi
+    done
 
-    load_secrets
-    log "starting backup to $REPO"
-
-    paths=(
-      ${pathsArray}
-    )
     excludes=(
       ${excludeArgs}
     )
 
-    "$RESTIC" --repo "$REPO" backup "''${excludes[@]}" "''${paths[@]}" 2>&1
+    ${groupFunctions}
 
-    log "pruning old snapshots"
-    "$RESTIC" --repo "$REPO" forget \
-      --keep-last ${toString cfg.keepLast} \
-      --keep-monthly ${toString cfg.keepMonthly} \
-      --prune \
-      2>&1
+    load_secrets
+    log "starting backup to $REPO — groups: ''${groups[*]}"
 
-    log "backup complete"
+    done_groups=()
+    failed_groups=()
+    for g in "''${groups[@]}"; do
+      if app=$("inhibitor_$g"); then
+        log "group $g skipped — $app is running"
+        continue
+      fi
+      log "backing up group $g"
+      rc=0
+      "backup_group_$g" || rc=$?
+      case $rc in
+        0) done_groups+=("$g") ;;
+        130)
+          log "backup interrupted in group $g"
+          exit 130
+          ;;
+        # restic exit code 3: snapshot created, but some files could not be read
+        3)
+          log "WARNING: group $g — some files could not be read"
+          done_groups+=("$g")
+          ;;
+        *)
+          log "ERROR: group $g failed (restic exit code $rc)"
+          failed_groups+=("$g")
+          ;;
+      esac
+    done
+
+    # Retention per group: the tag (= group) defines the snapshot series, so a
+    # changed path list in a group does not start a new series. Snapshots tagged
+    # `baseline` (`restic tag --add baseline <id>`) are never forgotten.
+    if (( ''${#done_groups[@]} )); then
+      log "pruning old snapshots"
+      "$RESTIC" --repo "$REPO" forget \
+        --group-by host,tags \
+        --keep-tag baseline \
+        --keep-last ${toString cfg.keepLast} \
+        --keep-monthly ${toString cfg.keepMonthly} \
+        --prune \
+        2>&1
+    fi
+
+    if (( ''${#failed_groups[@]} )); then
+      log "backup finished with errors — failed groups: ''${failed_groups[*]}"
+      exit 1
+    fi
+    log "backup complete — groups backed up: ''${done_groups[*]:-none}"
   '';
 
   # Weekly structural check — does not download data, so no egress cost.
@@ -120,6 +191,19 @@ let
   '';
 in
 {
+  imports = [
+    (lib.mkRemovedOptionModule [
+      "custom"
+      "backup"
+      "paths"
+    ] "Use custom.backup.sets.<group>.paths.")
+    (lib.mkRemovedOptionModule [
+      "custom"
+      "backup"
+      "inhibitApps"
+    ] "Use custom.backup.sets.<group>.inhibitApps.")
+  ];
+
   options.custom.backup = {
     enable = lib.mkEnableOption "restic S3 backup";
 
@@ -146,36 +230,52 @@ in
       description = "AWS CLI profile used for S3 access.";
     };
 
-    paths = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Absolute paths to include in the backup.";
-      example = [
-        "/Users/jbl/Music"
-        "/Users/jbl/Pictures"
-      ];
+    sets = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            paths = lib.mkOption {
+              type = lib.types.nonEmptyListOf lib.types.str;
+              description = "Absolute paths backed up in this group (no globs).";
+            };
+
+            inhibitApps = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = ''
+                Process names (matched via `pgrep -x`) that skip this group while
+                they run. Use the exact process name as shown by Activity Monitor.
+              '';
+              example = [
+                "rekordbox"
+                "djay Pro AI"
+              ];
+            };
+          };
+        }
+      );
+      default = { };
+      description = ''
+        Backup groups. Each group is backed up in its own `restic backup` run,
+        tagged with the group name (`backup-run [group…]`; restore with
+        `--tag <group>`). Names must be valid shell identifiers.
+      '';
+      example = {
+        music.paths = [ "/Users/jbl/Music/purchased" ];
+        dj = {
+          paths = [ "/Users/jbl/Library/Pioneer/rekordbox" ];
+          inhibitApps = [ "rekordbox" ];
+        };
+      };
     };
 
     excludes = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
-      description = "Patterns passed to restic --exclude.";
+      description = "Patterns passed to restic --exclude (all groups).";
       example = [
         ".DS_Store"
         "node_modules"
-      ];
-    };
-
-    inhibitApps = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = ''
-        Process names (matched via `pgrep -x`) that prevent the backup from
-        running. Use the exact process name as shown by Activity Monitor.
-      '';
-      example = [
-        "rekordbox"
-        "djay Pro AI"
       ];
     };
 
@@ -200,17 +300,28 @@ in
     keepLast = lib.mkOption {
       type = lib.types.int;
       default = 30;
-      description = "Number of most-recent snapshots to keep (passed to restic forget --keep-last).";
+      description = "Snapshots to keep per group (passed to restic forget --keep-last).";
     };
 
     keepMonthly = lib.mkOption {
       type = lib.types.int;
       default = 12;
-      description = "Number of monthly snapshots to keep (passed to restic forget --keep-monthly).";
+      description = "Monthly snapshots to keep per group (passed to restic forget --keep-monthly).";
     };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = lib.all (n: builtins.match "[A-Za-z_][A-Za-z0-9_]*" n != null) groupNames;
+        message = "custom.backup.sets: group names must be valid shell identifiers.";
+      }
+      {
+        assertion = groupNames != [ ];
+        message = "custom.backup.sets: define at least one backup group.";
+      }
+    ];
+
     home.packages = [
       pkgs.restic
       backupScript
@@ -218,7 +329,7 @@ in
     ];
 
     launchd.agents = lib.mkIf cfg.automatic {
-      # Daily backup agent — runs at cfg.schedule (default: 02:00).
+      # Daily backup agent — runs at cfg.schedule (default: 02:00), all groups.
       "com.juliusblank.backup" = {
         enable = true;
         config = {

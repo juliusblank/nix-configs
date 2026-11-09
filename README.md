@@ -217,7 +217,9 @@ just fmt                 # format nix files
 just update              # update flake inputs
 just gc                  # delete generations older than 60 days, collect garbage (warns after 30 days)
 just changelog           # regenerate CHANGELOG.md locally
-just backup              # run backup now (serenity; configured paths)
+just backup [group…]     # run backup now (serenity; all groups, or e.g. `just backup dj`)
+just backup-snapshots [group]  # list snapshots, grouped by backup group
+just backup-baseline <group>   # keep a group's latest snapshot forever
 just backup-pause        # pause scheduled backups
 just backup-resume       # resume scheduled backups
 just backup-check        # verify backup integrity (10 % sample)
@@ -235,7 +237,7 @@ just backup-check        # verify backup integrity (10 % sample)
 │   └── modules/
 │       ├── aerospace.nix  # AeroSpace tiling WM
 │       ├── aws.nix        # declarative ~/.aws/config (serenity)
-│       ├── backup.nix     # restic S3 backup: backup-run / backup-check (+ optional launchd agents)
+│       ├── backup.nix     # restic S3 backup in groups: backup-run / backup-check (+ optional launchd agents)
 │       ├── granted.nix    # Granted AWS credential manager
 │       ├── harmonic-dj.nix  # Harmonic DJ app derivation (serenity, evaluation)
 │       ├── zellij.nix     # Zellij layouts + config
