@@ -62,7 +62,8 @@ resource "github_repository_ruleset" "main" {
   }
 }
 
-# Ruleset that requests a Copilot code review on PRs to the default branch, drafts included.
+# Ruleset that requests a Copilot code review on PRs to the default branch, drafts included,
+# and again on every push.
 # Created by the repo's Copilot settings page, imported below. Follows
 # .github/copilot-instructions.md.
 resource "github_repository_ruleset" "copilot_review" {
@@ -83,7 +84,7 @@ resource "github_repository_ruleset" "copilot_review" {
     non_fast_forward = true
 
     copilot_code_review {
-      review_on_push             = false
+      review_on_push             = true # costs premium requests per push
       review_draft_pull_requests = true
     }
   }
