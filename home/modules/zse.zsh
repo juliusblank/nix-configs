@@ -323,6 +323,16 @@ _zse_start() {
     local owner=$match[1] repo=$match[2] pr=$match[3]
     name="review-$repo-pr$pr"
     review_cwd="$HOME/github/$owner/$repo"
+    # The name has no owner: refuse a registered session for another
+    # checkout (e.g. alice/docs#1 vs bob/docs#1), which would resume the
+    # other review in the other repo.
+    local registered_dir
+    registered_dir=$(_z_reg_get "$name" dir 2>/dev/null)
+    if [[ -n $registered_dir && $registered_dir != $review_cwd ]]; then
+      print -u2 -r "zse: session '$name' already reviews a PR in $registered_dir."
+      print -u2 -r "     Run 'zse kill $name' to end that review before starting this one."
+      return 1
+    fi
     if [[ ! -d $review_cwd/.git ]]; then
       print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
       return 1

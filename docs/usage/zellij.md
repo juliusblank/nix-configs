@@ -152,7 +152,9 @@ is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). To review new
 pushes, run `/review:review $ZELLIJ_SESSION_NAME` again in the session. The
 `review` command (`jbl-personal/review`, a local Claude Code marketplace
 at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
-`.claude/worktrees/pr-<n>`. No tig pane — review is read-first, not
+`.claude/worktrees/pr-<n>`. The session name has no owner: if a registered
+`review-<repo>-pr<n>` session belongs to another checkout (same repo name, other
+owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not
 commit-first. Instead, the **CI pane (`zse-ci`)** under the shell redraws
 `gh pr checks <n>` with the PR title every 30 s (`ZSE_CI_INTERVAL`), so new
 pushes show up; `gh` uses HTTPS, no SSH. `q` quits it. `zse kill` in a review
