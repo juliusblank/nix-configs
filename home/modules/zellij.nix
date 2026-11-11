@@ -612,21 +612,129 @@ in
 
       # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix).
       # Shipped as a separate theme file so the `theme` line in config.kdl
-      # above just needs to name it.
+      # above just needs to name it. Component format (Zellij 0.42+), not the
+      # legacy palette: the legacy mapping draws the selected row of lists and
+      # tables (session manager, plugin lists) as #434343 on #262427, which is
+      # hard to see. Selected rows are dark text on 0x96f blue instead.
       ".config/zellij/themes/ghostty-0x96f.kdl".text = ''
         themes {
             ghostty-0x96f {
-                fg "#FFFFFF"
-                bg "#262427"
-                black "#434343"
-                red "#FF2740"
-                green "#ABE047"
-                yellow "#FFC24B"
-                blue "#51A5FA"
-                magenta "#FF75B5"
-                cyan "#35BBB0"
-                white "#FFFFFF"
-                orange "#FFC24B"
+                text_unselected {
+                    base 255 255 255
+                    background 38 36 39
+                    emphasis_0 255 194 75
+                    emphasis_1 53 187 176
+                    emphasis_2 171 224 71
+                    emphasis_3 255 117 181
+                }
+                text_selected {
+                    base 255 255 255
+                    background 67 67 67
+                    emphasis_0 255 194 75
+                    emphasis_1 53 187 176
+                    emphasis_2 171 224 71
+                    emphasis_3 255 117 181
+                }
+                ribbon_selected {
+                    base 38 36 39
+                    background 171 224 71
+                    emphasis_0 255 39 64
+                    emphasis_1 255 194 75
+                    emphasis_2 255 117 181
+                    emphasis_3 81 165 250
+                }
+                ribbon_unselected {
+                    base 38 36 39
+                    background 255 255 255
+                    emphasis_0 255 39 64
+                    emphasis_1 255 255 255
+                    emphasis_2 81 165 250
+                    emphasis_3 255 117 181
+                }
+                table_title {
+                    base 171 224 71
+                    background 38 36 39
+                    emphasis_0 255 194 75
+                    emphasis_1 53 187 176
+                    emphasis_2 171 224 71
+                    emphasis_3 255 117 181
+                }
+                table_cell_selected {
+                    base 38 36 39
+                    background 81 165 250
+                    emphasis_0 38 36 39
+                    emphasis_1 38 36 39
+                    emphasis_2 38 36 39
+                    emphasis_3 38 36 39
+                }
+                table_cell_unselected {
+                    base 255 255 255
+                    background 38 36 39
+                    emphasis_0 255 194 75
+                    emphasis_1 53 187 176
+                    emphasis_2 171 224 71
+                    emphasis_3 255 117 181
+                }
+                list_selected {
+                    base 38 36 39
+                    background 81 165 250
+                    emphasis_0 38 36 39
+                    emphasis_1 38 36 39
+                    emphasis_2 38 36 39
+                    emphasis_3 38 36 39
+                }
+                list_unselected {
+                    base 255 255 255
+                    background 38 36 39
+                    emphasis_0 255 194 75
+                    emphasis_1 53 187 176
+                    emphasis_2 171 224 71
+                    emphasis_3 255 117 181
+                }
+                frame_selected {
+                    base 171 224 71
+                    background 38 36 39
+                    emphasis_0 255 194 75
+                    emphasis_1 53 187 176
+                    emphasis_2 255 117 181
+                    emphasis_3 38 36 39
+                }
+                frame_highlight {
+                    base 255 194 75
+                    background 38 36 39
+                    emphasis_0 255 117 181
+                    emphasis_1 255 194 75
+                    emphasis_2 255 194 75
+                    emphasis_3 255 194 75
+                }
+                exit_code_success {
+                    base 171 224 71
+                    background 38 36 39
+                    emphasis_0 53 187 176
+                    emphasis_1 67 67 67
+                    emphasis_2 255 117 181
+                    emphasis_3 81 165 250
+                }
+                exit_code_error {
+                    base 255 39 64
+                    background 38 36 39
+                    emphasis_0 255 194 75
+                    emphasis_1 38 36 39
+                    emphasis_2 38 36 39
+                    emphasis_3 38 36 39
+                }
+                multiplayer_user_colors {
+                    player_1 255 117 181
+                    player_2 81 165 250
+                    player_3 53 187 176
+                    player_4 255 194 75
+                    player_5 171 224 71
+                    player_6 255 39 64
+                    player_7 255 194 75
+                    player_8 255 255 255
+                    player_9 81 165 250
+                    player_10 53 187 176
+                }
             }
         }
       '';
