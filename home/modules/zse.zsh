@@ -46,15 +46,20 @@ _z_reg_get() {
   sed -n "s/^$2=//p" "$f"
 }
 
-# _z_reg_write NAME USE_CASE DIR AWS_PROFILE — keeps `created`, sets `last_started`.
+# _z_reg_write NAME USE_CASE DIR AWS_PROFILE [URL] — keeps `created` (and
+# `url` when URL is not given), sets `last_started`. `url` is the doc of a
+# `review-doc` session; zse-doc-url reads it for the first prompt.
 _z_reg_write() {
-  local f now created
+  local f now created url
   f=$(_z_reg_file "$1")
   now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
   created=$(_z_reg_get "$1" created 2>/dev/null)
+  url=${5:-$(_z_reg_get "$1" url 2>/dev/null)}
   mkdir -p "$ZSE_STATE_DIR"
   printf 'use_case=%s\ndir=%s\naws_profile=%s\ncreated=%s\nlast_started=%s\n' \
     "$2" "$3" "$4" "${created:-$now}" "$now" >"$f"
+  [[ -n $url ]] && printf 'url=%s\n' "$url" >>"$f"
+  return 0
 }
 
 _z_reg_names() {
@@ -99,8 +104,9 @@ _z_aws_warn() {
 
 # ----- Worktrees -----
 
-# Worktree dir name for a session: review sessions are `review-<repo>-pr<n>`,
-# but /review:review checks the PR out into `.claude/worktrees/pr-<n>`.
+# Worktree dir name for a session: review sessions are `review-<repo>-pr<n>`
+# (or `review-doc-<repo>-pr<n>`), but /review:review and /review:doc check
+# the PR out into `.claude/worktrees/pr-<n>`.
 _z_worktree_name() {
   if [[ $1 =~ '^review-.+-pr([0-9]+)$' ]]; then
     print -r -- "pr-$match[1]"
@@ -224,6 +230,38 @@ _z_launch() {
   return 0
 }
 
+# _z_doc_page_id URL — the 32-hex Notion page ID at the end of the URL's last
+# path segment, or nothing.
+_z_doc_page_id() {
+  emulate -L zsh
+  setopt extended_glob
+  local seg=${${1%%[?#]*}%/}
+  print -r -- "${(M)${seg:t}%%[0-9a-f](#c32)}"
+}
+
+# _z_doc_slug URL — session slug for a Notion page URL: the title part of the
+# last path segment (lower case, non-alphanumeric runs as `-`, at most 34
+# chars), then `-` and the first 8 chars of the page ID, so two pages with the
+# same title get different sessions. Only the ID part when there is no title.
+_z_doc_slug() {
+  emulate -L zsh
+  setopt extended_glob
+  local seg=${${1%%[?#]*}%/}
+  seg=${seg:t}
+  local id
+  id=$(_z_doc_page_id "$1")
+  seg=${seg%$id}
+  seg=${${seg:l}//[^a-z0-9]##/-}
+  seg=${${seg#-}%-}
+  # Reserve socket-path space for review-doc- and -<id8> on macOS.
+  seg=${seg[1,34]%-}
+  if [[ -n $seg && -n $id ]]; then
+    print -r -- "$seg-${id[1,8]}"
+  else
+    print -r -- "${seg:-${id[1,8]}}"
+  fi
+}
+
 # ----- Commands -----
 
 _zse_help() {
@@ -237,9 +275,11 @@ usage:
   zse restart --all | NAME...                stop running sessions, start them again
   zse switch NAME                            switch to NAME (start it if stopped)
 
-  USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review, daily,
-             explore, code-resume. A registered session keeps its use case.
-  NAME       default: the current directory name; for `review`, a GitHub PR URL.
+  USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review,
+             review-doc, daily, explore, code-resume. A registered session
+             keeps its use case.
+  NAME       default: the current directory name; for `review`, a GitHub PR URL;
+             for `review-doc`, a Notion URL or a GitHub PR URL.
              stop / kill default to the current session.
 
   stop vs kill
@@ -286,6 +326,48 @@ _zse_start() {
     if [[ ! -d $review_cwd/.git ]]; then
       print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
       return 1
+    fi
+  fi
+
+  # Review-doc mode: the doc URL names the session. A GitHub PR URL becomes
+  # `review-doc-<repo>-pr<n>` in ~/github/<owner>/<repo>; a Notion URL becomes
+  # `review-doc-<title>-<id8>` (title from the URL, first 8 page-ID chars). The URL goes into the
+  # registry; the claude pane sends `/review:doc <url>` on the first start.
+  local doc_url=""
+  if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == review-doc && $name == http(s|)://* ]]; then
+    doc_url=$name
+    if [[ $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
+      local owner=$match[1] repo=$match[2] pr=$match[3]
+      name="review-doc-$repo-pr$pr"
+      review_cwd="$HOME/github/$owner/$repo"
+      local registered_dir
+      registered_dir=$(_z_reg_get "$name" dir 2>/dev/null)
+      if [[ -n $registered_dir && $registered_dir != $review_cwd ]]; then
+        print -u2 -r "zse: session '$name' already belongs to $registered_dir."
+        print -u2 -r "     Run 'zse kill $name' to end that review before starting this one."
+        return 1
+      fi
+      if [[ ! -d $review_cwd/.git ]]; then
+        print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
+        return 1
+      fi
+    else
+      name="review-doc-$(_z_doc_slug "$name")"
+      # The ID suffix makes names unique per page; still refuse to reuse a
+      # registered session that belongs to another page (or another URL when
+      # neither has an ID), because it would resume the other review.
+      local reg_url
+      reg_url=$(_z_reg_get "$name" url 2>/dev/null)
+      if [[ -n $reg_url ]]; then
+        local old_id new_id
+        old_id=$(_z_doc_page_id "$reg_url")
+        new_id=$(_z_doc_page_id "$doc_url")
+        if [[ ${old_id:-${reg_url%%[?#]*}} != ${new_id:-${doc_url%%[?#]*}} ]]; then
+          print -u2 -r "zse: session '$name' already reviews another doc: $reg_url"
+          print -u2 -r "     Run 'zse kill $name' to end that review, or start this one under another name."
+          return 1
+        fi
+      fi
     fi
   fi
 
@@ -341,6 +423,7 @@ _zse_start() {
     fi
   fi
 
+  [[ -n $doc_url ]] && _z_reg_write "$name" "$use_case" "$dir" "$aws" "$doc_url"
   _z_launch "$name" "$use_case" "$dir" "$aws"
 }
 
@@ -443,6 +526,23 @@ _zse_kill() {
   reg_dir=$(_z_reg_get "$name" dir 2>/dev/null)
   root=$(git -C "${reg_dir:-$PWD}" rev-parse --show-toplevel 2>/dev/null)
   [[ -n $root ]] && worktree="$root/.claude/worktrees/$(_z_worktree_name "$name")"
+
+  # `review-<repo>-pr<n>` and `review-doc-<repo>-pr<n>` share the `pr-<n>`
+  # worktree: keep it while another registered session still uses it.
+  local other other_dir other_root
+  if [[ -n $worktree && -d $worktree ]]; then
+    for other in $(_z_reg_names); do
+      [[ $other == $name ]] && continue
+      other_dir=$(_z_reg_get "$other" dir 2>/dev/null)
+      other_root=$(git -C "${other_dir:-/nonexistent}" rev-parse --show-toplevel 2>/dev/null)
+      if [[ -n $other_root \
+        && "$other_root/.claude/worktrees/$(_z_worktree_name "$other")" == $worktree ]]; then
+        print -r "zse: keeping worktree $worktree — session '$other' also uses it."
+        worktree=""
+        break
+      fi
+    done
+  fi
 
   if [[ -n $worktree && -d $worktree ]]; then
     printf 'zse: remove worktree %s? [y/N] ' "$worktree"
@@ -634,7 +734,7 @@ _zse() {
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
-    '-l[layout / use case]:use case:(code project ticket review daily explore code-resume)' \
+    '-l[layout / use case]:use case:(code project ticket review review-doc daily explore code-resume)' \
     '-a[AWS profile]:profile:' \
     '*:session name:_zse_names'
 }

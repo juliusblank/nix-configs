@@ -17,6 +17,7 @@ bare session name.
 | **project** | `project.kdl` | tabs: master (claude · (shell · (git \| agents status))) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents --cwd <repo>` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
 | **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
+| **review-doc** | `review-doc.kdl` | claude · shell · compact bar (no tig, no CI) | `zse-claude --own --first-prompt "/review:doc <url>"` (URL from the zse registry via `zse-doc-url`; review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 | **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status $ZELLIJ_SESSION_NAME" --worktree $ZELLIJ_SESSION_NAME` |
 
@@ -157,6 +158,27 @@ commit-first. Instead, the **CI pane (`zse-ci`)** under the shell redraws
 pushes show up; `gh` uses HTTPS, no SSH. `q` quits it. `zse kill` in a review
 session offers to remove `.claude/worktrees/pr-<n>`.
 
+### review-doc
+
+A design doc review (ADR or PEP) with its own conversation. `zse -l review-doc
+<URL>` takes a Notion page URL or a GitHub PR URL. A Notion URL names the
+session `review-doc-<title>-<id8>` (the page title from the URL, lower case, at
+most 34 chars, so the Zellij socket path stays within the macOS limit, plus the
+first 8 chars of the page ID, so pages with the same
+title do not share a session; only the ID part when the URL has no title) and
+starts it in the current directory. If a registered session with that name
+belongs to another page, or (for a PR URL) to another checkout, `zse` stops with
+an error instead of resuming the other review. `review` and `review-doc`
+sessions for the same PR share the `pr-<n>` worktree; `zse kill` keeps it while
+the other session is still registered. A PR URL names it `review-doc-<repo>-pr<n>` and starts it in
+`~/github/<owner>/<repo>`, as for `review`. `zse` keeps the URL in the session
+registry (`url=`); on the first start the claude pane sends `/review:doc <url>`
+(`zse-doc-url` reads it back), and a restored session resumes without a new
+review. `/review:doc` (`jbl-personal/review`) ranks the findings by severity and
+then interviews you for each one: you write the comment, or start from a
+generated draft, or skip. Nothing is posted without your OK. The tab reads
+`[review-doc] <slug>`. No tig and no CI pane.
+
 ### daily
 
 For the `~/github/jbl-taktile/daily-tasks` repo. Start it with `zse -l
@@ -290,8 +312,8 @@ sessions: stop them with `zse stop --all` before you change it, and run
 
 Options and names:
 
-- `-l USE_CASE` — `code`, `project`, `ticket`, `review`, `daily`,
-  `explore`, `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
+- `-l USE_CASE` — `code`, `project`, `ticket`, `review`, `review-doc`,
+  `daily`, `explore`, `code-resume`. Default: the registered use case, else `$ZSE_LAYOUT`
   (devshells can bind a per-repo default), else `code`.
 - `-a AWS_PROFILE` — start Zellij through the host's `assume` fn
   (`aws-vault exec <profile> -d 8h`, 2h for on-call write, with YubiKey
@@ -306,6 +328,8 @@ Options and names:
   `zse` names the session `review-<repo>-pr<n>` and starts it in the
   local checkout at `~/github/<owner>/<repo>`, so the worktree lands in
   the right repo. The URL form is for drive-by reviews without a ticket.
+  For `review-doc`, a Notion page URL or a GitHub PR URL (see
+  [review-doc](#review-doc)).
   `ticket` / `review` layouts read the name from `$ZELLIJ_SESSION_NAME`.
 
 zsh completion: verbs, `-l` use cases, and session names (running and

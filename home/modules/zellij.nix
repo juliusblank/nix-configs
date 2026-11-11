@@ -4,7 +4,7 @@ let
   # ----- Welcome banner script -----
 
   /**
-    Prints a one-time welcome in a `ticket` / `project` / `review` / `explore`
+    Prints a one-time welcome in a `ticket` / `project` / `review` / `review-doc` / `explore`
     shell pane.
     First invocation per Zellij session writes a sentinel at
     `~/.cache/zse/sessions/<name>.welcomed`; subsequent attaches skip the
@@ -47,6 +47,9 @@ let
       explore)
         zellij action rename-tab "[explore] $name" 2>/dev/null || true
         ;;
+      review-doc)
+        zellij action rename-tab "[review-doc] ''${name#review-doc-}" 2>/dev/null || true
+        ;;
     esac
 
     dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
@@ -87,6 +90,14 @@ let
     ┗━━━━━━━━━━━┛
     ART
         printf '→ /explore status %s is auto-sent in the claude pane (repo skill)\n' "$name"
+        ;;
+      review-doc)
+        cat <<'ART'
+    ┏━━━━━━━━━━━━━━┓
+    ┃  REVIEW DOC  ┃
+    ┗━━━━━━━━━━━━━━┛
+    ART
+        printf '→ /review:doc <url> is auto-sent in the claude pane; you write each comment (jbl-personal/review)\n'
         ;;
       *)
         exit 0
@@ -410,6 +421,19 @@ let
     }
   '';
 
+  /**
+    `zse-doc-url` — prints the doc URL of a `review-doc` session from the zse
+    registry (`url=` in `~/.local/state/zse/sessions/<name>`, written by
+    `zse -l review-doc <url>`), else the session name. The `review-doc` claude
+    pane sends `/review:doc <url>` as its first prompt.
+  */
+  zseDocUrl = pkgs.writeShellScriptBin "zse-doc-url" ''
+    name="''${ZELLIJ_SESSION_NAME:?zse-doc-url: run inside a Zellij session}"
+    f="''${XDG_STATE_HOME:-$HOME/.local/state}/zse/sessions/$name"
+    url=$(sed -n 's/^url=//p' "$f" 2>/dev/null)
+    printf '%s\n' "''${url:-$name}"
+  '';
+
   codeClaudePane = mkClaudePane "code" "--own";
   codeResumeClaudePane = mkClaudePane "code" "--resume";
   projectClaudePane = mkClaudePane "project" "--own";
@@ -420,6 +444,8 @@ let
   # `--first-prompt`: the review runs on the first start only; a restored
   # session resumes its conversation.
   reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/review:review $ZELLIJ_SESSION_NAME\"'';
+  # Review-doc: `/review:doc <url>` on the first start, URL from the registry.
+  reviewDocClaudePane = mkClaudePane "review-doc" ''--own --first-prompt \"/review:doc $(${zseDocUrl}/bin/zse-doc-url)\"'';
   # Explore: own conversation in the slug's worktree; `/explore status` on the
   # first start only, so every new session opens with goal, iteration and budget.
   exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\"'';
@@ -459,6 +485,11 @@ in
   #              `review-<repo>-pr<n>`, parsed from a PR URL. The review
   #              command auto-fires on the first start only; a restored
   #              session resumes. The shell shows a one-time banner.
+  #   review-doc — `zse-claude --own --first-prompt "/review:doc <url>"` ·
+  #              shell (no tig, no CI). Session name `review-doc-<title>-<id8>` from a
+  #              Notion URL, or `review-doc-<repo>-pr<n>` from a PR URL; the URL
+  #              is kept in the zse registry (`zse-doc-url`). The command
+  #              interviews the user for each comment (jbl-personal/review).
   #   daily    — claude (own conversation) · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
   #   explore  — private explorations (docs/SPEC.md → Explorations). Session
@@ -562,6 +593,15 @@ in
                     args "${zseCi}/bin/zse-ci"
                 }
             }
+        }
+      '';
+
+      # Review-doc: claude + shell. No tig, no CI — the doc is in Notion or in
+      # the PR; the interview happens in the claude pane.
+      ".config/zellij/layouts/review-doc.kdl".text = mkSingleTreeLayout ''
+        pane split_direction="vertical" {
+            ${reviewDocClaudePane}
+            ${mkShellPane "review-doc"}
         }
       '';
 
