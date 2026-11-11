@@ -46,15 +46,20 @@ _z_reg_get() {
   sed -n "s/^$2=//p" "$f"
 }
 
-# _z_reg_write NAME USE_CASE DIR AWS_PROFILE — keeps `created`, sets `last_started`.
+# _z_reg_write NAME USE_CASE DIR AWS_PROFILE [URL] — keeps `created` (and
+# `url` when URL is not given), sets `last_started`. `url` is the doc of a
+# `review-doc` session; zse-doc-url reads it for the first prompt.
 _z_reg_write() {
-  local f now created
+  local f now created url
   f=$(_z_reg_file "$1")
   now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
   created=$(_z_reg_get "$1" created 2>/dev/null)
+  url=${5:-$(_z_reg_get "$1" url 2>/dev/null)}
   mkdir -p "$ZSE_STATE_DIR"
   printf 'use_case=%s\ndir=%s\naws_profile=%s\ncreated=%s\nlast_started=%s\n' \
     "$2" "$3" "$4" "${created:-$now}" "$now" >"$f"
+  [[ -n $url ]] && printf 'url=%s\n' "$url" >>"$f"
+  return 0
 }
 
 _z_reg_names() {
@@ -99,8 +104,9 @@ _z_aws_warn() {
 
 # ----- Worktrees -----
 
-# Worktree dir name for a session: review sessions are `review-<repo>-pr<n>`,
-# but /review:review checks the PR out into `.claude/worktrees/pr-<n>`.
+# Worktree dir name for a session: review sessions are `review-<repo>-pr<n>`
+# (or `review-doc-<repo>-pr<n>`), but /review:review and /review:doc check
+# the PR out into `.claude/worktrees/pr-<n>`.
 _z_worktree_name() {
   if [[ $1 =~ '^review-.+-pr([0-9]+)$' ]]; then
     print -r -- "pr-$match[1]"
@@ -224,6 +230,22 @@ _z_launch() {
   return 0
 }
 
+# _z_doc_slug URL — session slug for a Notion page URL: the title part of the
+# last path segment without the 32-hex page ID, lower case, non-alphanumeric
+# runs as `-`, at most 40 chars; the first 8 ID chars when there is no title.
+_z_doc_slug() {
+  emulate -L zsh
+  setopt extended_glob
+  local seg=${${1%%[?#]*}%/}
+  seg=${seg:t}
+  local id=${(M)seg%%[0-9a-f](#c32)}
+  seg=${seg%$id}
+  seg=${${seg:l}//[^a-z0-9]##/-}
+  seg=${${seg#-}%-}
+  [[ -z $seg ]] && seg=${id[1,8]}
+  print -r -- "${seg[1,40]%-}"
+}
+
 # ----- Commands -----
 
 _zse_help() {
@@ -237,9 +259,11 @@ usage:
   zse restart --all | NAME...                stop running sessions, start them again
   zse switch NAME                            switch to NAME (start it if stopped)
 
-  USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review, daily,
-             explore, code-resume. A registered session keeps its use case.
-  NAME       default: the current directory name; for `review`, a GitHub PR URL.
+  USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review,
+             review-doc, daily, explore, code-resume. A registered session
+             keeps its use case.
+  NAME       default: the current directory name; for `review`, a GitHub PR URL;
+             for `review-doc`, a Notion URL or a GitHub PR URL.
              stop / kill default to the current session.
 
   stop vs kill
@@ -286,6 +310,26 @@ _zse_start() {
     if [[ ! -d $review_cwd/.git ]]; then
       print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
       return 1
+    fi
+  fi
+
+  # Review-doc mode: the doc URL names the session. A GitHub PR URL becomes
+  # `review-doc-<repo>-pr<n>` in ~/github/<owner>/<repo>; a Notion URL becomes
+  # `review-doc-<slug>` from the page title in the URL. The URL goes into the
+  # registry; the claude pane sends `/review:doc <url>` on the first start.
+  local doc_url=""
+  if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == review-doc && $name == http(s|)://* ]]; then
+    doc_url=$name
+    if [[ $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
+      local owner=$match[1] repo=$match[2] pr=$match[3]
+      name="review-doc-$repo-pr$pr"
+      review_cwd="$HOME/github/$owner/$repo"
+      if [[ ! -d $review_cwd/.git ]]; then
+        print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
+        return 1
+      fi
+    else
+      name="review-doc-$(_z_doc_slug "$name")"
     fi
   fi
 
@@ -341,6 +385,7 @@ _zse_start() {
     fi
   fi
 
+  [[ -n $doc_url ]] && _z_reg_write "$name" "$use_case" "$dir" "$aws" "$doc_url"
   _z_launch "$name" "$use_case" "$dir" "$aws"
 }
 
@@ -634,7 +679,7 @@ _zse() {
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
-    '-l[layout / use case]:use case:(code project ticket review daily explore code-resume)' \
+    '-l[layout / use case]:use case:(code project ticket review review-doc daily explore code-resume)' \
     '-a[AWS profile]:profile:' \
     '*:session name:_zse_names'
 }
