@@ -253,7 +253,8 @@ _z_doc_slug() {
   seg=${seg%$id}
   seg=${${seg:l}//[^a-z0-9]##/-}
   seg=${${seg#-}%-}
-  seg=${seg[1,40]%-}
+  # Reserve socket-path space for review-doc- and -<id8> on macOS.
+  seg=${seg[1,34]%-}
   if [[ -n $seg && -n $id ]]; then
     print -r -- "$seg-${id[1,8]}"
   else
@@ -339,6 +340,13 @@ _zse_start() {
       local owner=$match[1] repo=$match[2] pr=$match[3]
       name="review-doc-$repo-pr$pr"
       review_cwd="$HOME/github/$owner/$repo"
+      local registered_dir
+      registered_dir=$(_z_reg_get "$name" dir 2>/dev/null)
+      if [[ -n $registered_dir && $registered_dir != $review_cwd ]]; then
+        print -u2 -r "zse: session '$name' already belongs to $registered_dir."
+        print -u2 -r "     Run 'zse kill $name' to end that review before starting this one."
+        return 1
+      fi
       if [[ ! -d $review_cwd/.git ]]; then
         print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
         return 1
