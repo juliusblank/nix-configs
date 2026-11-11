@@ -240,7 +240,7 @@ _z_doc_page_id() {
 }
 
 # _z_doc_slug URL — session slug for a Notion page URL: the title part of the
-# last path segment (lower case, non-alphanumeric runs as `-`, at most 40
+# last path segment (lower case, non-alphanumeric runs as `-`, at most 34
 # chars), then `-` and the first 8 chars of the page ID, so two pages with the
 # same title get different sessions. Only the ID part when there is no title.
 _z_doc_slug() {
@@ -526,6 +526,23 @@ _zse_kill() {
   reg_dir=$(_z_reg_get "$name" dir 2>/dev/null)
   root=$(git -C "${reg_dir:-$PWD}" rev-parse --show-toplevel 2>/dev/null)
   [[ -n $root ]] && worktree="$root/.claude/worktrees/$(_z_worktree_name "$name")"
+
+  # `review-<repo>-pr<n>` and `review-doc-<repo>-pr<n>` share the `pr-<n>`
+  # worktree: keep it while another registered session still uses it.
+  local other other_dir other_root
+  if [[ -n $worktree && -d $worktree ]]; then
+    for other in $(_z_reg_names); do
+      [[ $other == $name ]] && continue
+      other_dir=$(_z_reg_get "$other" dir 2>/dev/null)
+      other_root=$(git -C "${other_dir:-/nonexistent}" rev-parse --show-toplevel 2>/dev/null)
+      if [[ -n $other_root \
+        && "$other_root/.claude/worktrees/$(_z_worktree_name "$other")" == $worktree ]]; then
+        print -r "zse: keeping worktree $worktree — session '$other' also uses it."
+        worktree=""
+        break
+      fi
+    done
+  fi
 
   if [[ -n $worktree && -d $worktree ]]; then
     printf 'zse: remove worktree %s? [y/N] ' "$worktree"
