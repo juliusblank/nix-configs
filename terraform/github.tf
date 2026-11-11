@@ -22,7 +22,7 @@ resource "github_repository" "nix_configs" {
 }
 
 # Ruleset for main — PRs required for everyone, CI must pass, no deletion or force push.
-# Created in the GitHub UI, imported below; replaces the former classic branch
+# Created in the GitHub UI and imported; replaces the former classic branch
 # protection (github_branch_protection.main). No bypass actors, so it binds admins too.
 resource "github_repository_ruleset" "main" {
   name        = "main"
@@ -64,7 +64,7 @@ resource "github_repository_ruleset" "main" {
 
 # Ruleset that requests a Copilot code review on PRs to the default branch, drafts included,
 # and again on every push.
-# Created by the repo's Copilot settings page, imported below. Follows
+# Created by the repo's Copilot settings page and imported. Follows
 # .github/copilot-instructions.md.
 resource "github_repository_ruleset" "copilot_review" {
   name        = "Copilot review for default branch"
@@ -88,16 +88,4 @@ resource "github_repository_ruleset" "copilot_review" {
       review_draft_pull_requests = true
     }
   }
-}
-
-# One-time adoption of the two rulesets created in the GitHub UI. No-ops after the first
-# apply; remove them in a later change.
-import {
-  to = github_repository_ruleset.main
-  id = "${var.repo_name}:27024812"
-}
-
-import {
-  to = github_repository_ruleset.copilot_review
-  id = "${var.repo_name}:27024789"
 }
