@@ -162,9 +162,12 @@ session offers to remove `.claude/worktrees/pr-<n>`.
 
 A design doc review (ADR or PEP) with its own conversation. `zse -l review-doc
 <URL>` takes a Notion page URL or a GitHub PR URL. A Notion URL names the
-session `review-doc-<slug>` (the page title from the URL, lower case, at most
-40 chars; the first 8 ID chars when the URL has no title) and starts it in the
-current directory. A PR URL names it `review-doc-<repo>-pr<n>` and starts it in
+session `review-doc-<title>-<id8>` (the page title from the URL, lower case, at
+most 40 chars, plus the first 8 chars of the page ID, so pages with the same
+title do not share a session; only the ID part when the URL has no title) and
+starts it in the current directory. If a registered session with that name
+belongs to another page, `zse` stops with an error instead of resuming the
+other review. A PR URL names it `review-doc-<repo>-pr<n>` and starts it in
 `~/github/<owner>/<repo>`, as for `review`. `zse` keeps the URL in the session
 registry (`url=`); on the first start the claude pane sends `/review:doc <url>`
 (`zse-doc-url` reads it back), and a restored session resumes without a new

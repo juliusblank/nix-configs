@@ -486,7 +486,7 @@ in
   #              command auto-fires on the first start only; a restored
   #              session resumes. The shell shows a one-time banner.
   #   review-doc — `zse-claude --own --first-prompt "/review:doc <url>"` ·
-  #              shell (no tig, no CI). Session name `review-doc-<slug>` from a
+  #              shell (no tig, no CI). Session name `review-doc-<title>-<id8>` from a
   #              Notion URL, or `review-doc-<repo>-pr<n>` from a PR URL; the URL
   #              is kept in the zse registry (`zse-doc-url`). The command
   #              interviews the user for each comment (jbl-personal/review).

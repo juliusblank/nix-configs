@@ -230,20 +230,35 @@ _z_launch() {
   return 0
 }
 
+# _z_doc_page_id URL — the 32-hex Notion page ID at the end of the URL's last
+# path segment, or nothing.
+_z_doc_page_id() {
+  emulate -L zsh
+  setopt extended_glob
+  local seg=${${1%%[?#]*}%/}
+  print -r -- "${(M)${seg:t}%%[0-9a-f](#c32)}"
+}
+
 # _z_doc_slug URL — session slug for a Notion page URL: the title part of the
-# last path segment without the 32-hex page ID, lower case, non-alphanumeric
-# runs as `-`, at most 40 chars; the first 8 ID chars when there is no title.
+# last path segment (lower case, non-alphanumeric runs as `-`, at most 40
+# chars), then `-` and the first 8 chars of the page ID, so two pages with the
+# same title get different sessions. Only the ID part when there is no title.
 _z_doc_slug() {
   emulate -L zsh
   setopt extended_glob
   local seg=${${1%%[?#]*}%/}
   seg=${seg:t}
-  local id=${(M)seg%%[0-9a-f](#c32)}
+  local id
+  id=$(_z_doc_page_id "$1")
   seg=${seg%$id}
   seg=${${seg:l}//[^a-z0-9]##/-}
   seg=${${seg#-}%-}
-  [[ -z $seg ]] && seg=${id[1,8]}
-  print -r -- "${seg[1,40]%-}"
+  seg=${seg[1,40]%-}
+  if [[ -n $seg && -n $id ]]; then
+    print -r -- "$seg-${id[1,8]}"
+  else
+    print -r -- "${seg:-${id[1,8]}}"
+  fi
 }
 
 # ----- Commands -----
@@ -315,7 +330,7 @@ _zse_start() {
 
   # Review-doc mode: the doc URL names the session. A GitHub PR URL becomes
   # `review-doc-<repo>-pr<n>` in ~/github/<owner>/<repo>; a Notion URL becomes
-  # `review-doc-<slug>` from the page title in the URL. The URL goes into the
+  # `review-doc-<title>-<id8>` (title from the URL, first 8 page-ID chars). The URL goes into the
   # registry; the claude pane sends `/review:doc <url>` on the first start.
   local doc_url=""
   if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == review-doc && $name == http(s|)://* ]]; then
@@ -330,6 +345,21 @@ _zse_start() {
       fi
     else
       name="review-doc-$(_z_doc_slug "$name")"
+      # The ID suffix makes names unique per page; still refuse to reuse a
+      # registered session that belongs to another page (or another URL when
+      # neither has an ID), because it would resume the other review.
+      local reg_url
+      reg_url=$(_z_reg_get "$name" url 2>/dev/null)
+      if [[ -n $reg_url ]]; then
+        local old_id new_id
+        old_id=$(_z_doc_page_id "$reg_url")
+        new_id=$(_z_doc_page_id "$doc_url")
+        if [[ ${old_id:-${reg_url%%[?#]*}} != ${new_id:-${doc_url%%[?#]*}} ]]; then
+          print -u2 -r "zse: session '$name' already reviews another doc: $reg_url"
+          print -u2 -r "     Run 'zse kill $name' to end that review, or start this one under another name."
+          return 1
+        fi
+      fi
     fi
   fi
 
