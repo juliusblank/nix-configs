@@ -40,8 +40,13 @@
       # compatibility check. Security responses and system data files
       # (CriticalUpdateInstall, ConfigDataInstall) stay automatic.
       SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
-      # Mixed In Key must never change the music files: storage-migration tracks them
-      # by sha256 and rekordbox by path. Re-applied on every deploy. The first two keys
+      # Mixed In Key: switch off visible tag writes, renames and cue exports
+      # (storage-migration tracks the music files by sha256, rekordbox by path).
+      # Re-applied on every deploy. NOT a full guard: analysing a file still writes
+      # Mixed In Key's own data into its ID3 chunk (GEOB Key/Energy/BeatGrid/CuePoints,
+      # TXXX EnergyLevel; audio unchanged, sha256 changes; no setting stops this,
+      # seen 2026-11-12). Analyse only copies outside ~/Music until the music
+      # migration is done. The first two keys
       # were observed when tag writing was switched off in the app; the others are
       # file-writing options found in the app binary (Serato stores cues inside the
       # file). rekordbox / Traktor cue export writes into those libraries; during the
