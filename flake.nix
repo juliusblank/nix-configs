@@ -84,20 +84,28 @@
               };
             }
             nix-homebrew.darwinModules.nix-homebrew
-            {
-              nix-homebrew = {
-                enable = true;
-                enableRosetta = true;
-                user = "jbl";
-                autoMigrate = true;
-                taps = {
-                  "homebrew/homebrew-core" = inputs.homebrew-core;
-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
-                  "nikitabobko/homebrew-tap" = inputs.homebrew-aerospace;
+            (
+              { pkgs, ... }:
+              {
+                nix-homebrew = {
+                  enable = true;
+                  enableRosetta = true;
+                  user = "jbl";
+                  autoMigrate = true;
+                  taps = {
+                    "homebrew/homebrew-core" = inputs.homebrew-core;
+                    "homebrew/homebrew-cask" = inputs.homebrew-cask;
+                    "nikitabobko/homebrew-tap" = inputs.homebrew-aerospace;
+                    # Local cask overrides while homebrew-cask is pinned (SPEC roadmap #25).
+                    # nix-homebrew wants a package per tap, so the folder is copied into one.
+                    "juliusblank/homebrew-local" = pkgs.runCommandLocal "homebrew-local-tap" { } ''
+                      cp -r ${./homebrew/local-tap} $out
+                    '';
+                  };
+                  mutableTaps = false;
                 };
-                mutableTaps = false;
-              };
-            }
+              }
+            )
           ];
         };
 

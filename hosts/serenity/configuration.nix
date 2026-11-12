@@ -127,6 +127,7 @@
       "homebrew/core"
       "homebrew/cask"
       "nikitabobko/tap"
+      "juliusblank/local"
     ];
     brews = [
       "cowsay"
@@ -148,7 +149,7 @@
       "microsoft-outlook"
       # Harmonic key analysis. Keep "write to tags" off while storage-migration
       # works on the music files: tag writes change the files and their hashes.
-      "mixed-in-key"
+      "juliusblank/local/mixed-in-key" # local tap: see homebrew/local-tap
       "microsoft-auto-update"
       "font-bebas-neue"
       "font-rubik-dirt"
