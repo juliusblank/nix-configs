@@ -145,6 +145,8 @@
       "whatsapp"
       "gimp"
       "vlc"
+      "microsoft-outlook"
+      "microsoft-auto-update"
       "font-bebas-neue"
       "font-rubik-dirt"
       "font-josefin-sans"
