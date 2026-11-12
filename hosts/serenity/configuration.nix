@@ -40,6 +40,24 @@
       # compatibility check. Security responses and system data files
       # (CriticalUpdateInstall, ConfigDataInstall) stay automatic.
       SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
+      # Mixed In Key must never change the music files: storage-migration tracks them
+      # by sha256 and rekordbox by path. Re-applied on every deploy. The first two keys
+      # were observed when tag writing was switched off in the app; the others are
+      # file-writing options found in the app binary (Serato stores cues inside the
+      # file). rekordbox / Traktor cue export writes into those libraries; during the
+      # migration rekordbox is only changed by rekordbox itself. The licence (VIPCode)
+      # stays out of the config.
+      CustomUserPreferences."com.mixedinkey.application" = {
+        "writes id3 tag" = false;
+        "writes id3 key field" = false;
+        "writes id3 tempo field" = false;
+        "writes energy grouping field" = false;
+        "writes energy label field" = false;
+        "automatically rename files" = false;
+        "export cue points to Serato" = false;
+        "export cue points to Rekordbox" = false;
+        "export cue points to Traktor" = false;
+      };
       # AeroSpace prerequisite — keep one Spaces stack across all displays.
       # Logout required to take effect.
       spaces.spans-displays = true;
