@@ -146,6 +146,9 @@
       "gimp"
       "vlc"
       "microsoft-outlook"
+      # Harmonic key analysis. Keep "write to tags" off while storage-migration
+      # works on the music files: tag writes change the files and their hashes.
+      "mixed-in-key"
       "microsoft-auto-update"
       "font-bebas-neue"
       "font-rubik-dirt"
