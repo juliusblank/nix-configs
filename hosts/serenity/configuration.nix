@@ -44,7 +44,9 @@
       # by sha256 and rekordbox by path. Re-applied on every deploy. The first two keys
       # were observed when tag writing was switched off in the app; the others are
       # file-writing options found in the app binary (Serato stores cues inside the
-      # file). The licence (VIPCode) stays out of the config.
+      # file). rekordbox / Traktor cue export writes into those libraries; during the
+      # migration rekordbox is only changed by rekordbox itself. The licence (VIPCode)
+      # stays out of the config.
       CustomUserPreferences."com.mixedinkey.application" = {
         "writes id3 tag" = false;
         "writes id3 key field" = false;
@@ -53,6 +55,8 @@
         "writes energy label field" = false;
         "automatically rename files" = false;
         "export cue points to Serato" = false;
+        "export cue points to Rekordbox" = false;
+        "export cue points to Traktor" = false;
       };
       # AeroSpace prerequisite — keep one Spaces stack across all displays.
       # Logout required to take effect.
