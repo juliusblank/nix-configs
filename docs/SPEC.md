@@ -102,7 +102,7 @@ Tools and config that EVERY host gets:
 
 ## Host-Specific Config
 
-- **serenity**: macOS Tahoe 26.7.2 (upgraded from 15.7.3 on 2026-11-09, with the full installer: `softwareupdate --fetch-full-installer --full-installer-version <v>`), Homebrew casks (GUI apps), personal SSH keys, personal AWS credentials, Firefox (multi-account-containers, open-url-in-container, onepassword-password-manager, granted), macOS updates installed by hand only (`system.defaults.SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false`; security responses stay automatic) — upgrade after a backup and a rekordbox / driver compatibility check
+- **serenity**: macOS Tahoe 26.7.2 (upgraded from 15.7.3 on 2026-11-09, with the full installer: `softwareupdate --fetch-full-installer --full-installer-version <v>`), Homebrew casks (GUI apps), personal SSH keys, personal AWS credentials, Firefox (multi-account-containers, open-url-in-container, onepassword-password-manager, granted), Google Chrome (Homebrew cask; Claude in Chrome extension via `programs.google-chrome.extensions`, enabled by hand once on first start), macOS updates installed by hand only (`system.defaults.SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false`; security responses stay automatic) — upgrade after a backup and a rekordbox / driver compatibility check
 - **concinnity**: Work CLI tools, work SSH keys, work git identity override for repos under `~/github/taktile-org/`, `~/github/jbl-taktile/` (and legacy `~/work/`), company-managed GUI apps (not in nix). See host isolation section below.
 - **pi-moodpi**: NixOS system config, moodpi service definition
 
