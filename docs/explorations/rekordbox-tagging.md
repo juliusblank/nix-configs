@@ -92,16 +92,20 @@ Not yet tested on tracks; the first 20-track test fine-tunes values and definiti
 
 | Field | Meaning | Values |
 |---|---|---|
-| My Tag **Energy** | how the track feels in a set, calibrated against 2–3 reference tracks per level | `E1`–`E5` |
-| Mixed In Key energy | automatic starting value, compared with my `E` levels | 1–10 (if the MIK test shows a way into rekordbox) |
-| My Tag **Set position** | where it fits in a set; several allowed | warm-up · build · peak · closing · after-hours |
-| My Tag **Vibe** | character; 1–2 per track | dark (minor, tense) · driving (forward push) · hypnotic (repetitive) · deep (warm, subdued) · groovy (swing, bouncy) · melodic (lead / harmony in front) · euphoric (uplifting) · playful (quirky, light) |
-| My Tag **Situation** | where it fits; several allowed | club · open air / festival · bar / lounge · private party / wedding |
-| My Tag **Vocals** | vocal content | none · chops · full vocal · spoken |
-| My Tag **Family** | own genre family, mapped from the raw Genre | 8–12 families (to be drafted from the 112 raw genres) |
+rekordbox has exactly four My Tag categories (renamable; today `Genre`, `Components`,
+`Situation`, `storage`), so energy moves to the star rating.
+
+| Field | Meaning | Values |
+|---|---|---|
+| **Rating** (stars) = energy | how the track feels in a set, calibrated against 2–3 reference tracks per level | 1–5 stars (0 = not rated yet) |
+| Mixed In Key energy | automatic starting value, compared with my stars | 1–10 (if the MIK test shows a way into rekordbox) |
+| My Tag **Components** (kept) | what is audible; existing tags stay, vocal tags added | `vocals:full` · `vocals:chops` · `vocals:spoken` · `vocals:none` (only if smart playlists can't filter "no vocal tag", see open questions) |
+| My Tag **Set position** (renamed from `Genre`) | where it fits in a set; several allowed | warm-up · build · peak · closing · after-hours |
+| My Tag **Situation** (kept) | where it fits; several allowed | club · open air / festival · bar / lounge · private party / wedding |
+| My Tag **Vibe** (renamed from `storage`, after the library cleanup) | character; 1–2 per track | dark (minor, tense) · driving (forward push) · hypnotic (repetitive) · deep (warm, subdued) · groovy (swing, bouncy) · melodic (lead / harmony in front) · euphoric (uplifting) · playful (quirky, light) |
 | Genre (column) | as delivered by the shop; not edited | — |
+| Genre family | derived from the Genre column by script (`spannungsbogen` `genres/mapping.csv`), used for generated playlists; not a tag, not needed for v1 | 11 families (draft) |
 | Colour | prep status | none = new · yellow = tagged · green = ready (grid + cues) · blue = proven (played in a set) · red = rejected |
-| Rating | not used | — |
 
 Process: tag together with track prep (one pass per track); first set from `Setlists/…` and
 `Past gigs/…`; energy reference tracks are picked after the Mixed In Key test
@@ -142,21 +146,28 @@ feeds I1.
 - 2026-11-15 — Start my own genre families with a mapping from the raw genres; cover the tracks without genre.
 - 2026-11-15 — Tag scheme v1 draft (interview): six My Tag categories (Energy E1–E5, Set position, Vibe, Situation, Vocals, Family); Mixed In Key's 1–10 as an automatic starting value next to my own levels; colour = prep status (5 steps incl. rejected); rating unused; raw Genre column untouched (families in My Tag, avoids possible file writes).
 - 2026-11-15 — Tag together with track prep; first set from setlists / past gigs; energy references after the Mixed In Key test.
+- 2026-11-15 — Only four My Tag categories: energy = star rating (replaces "no star rating" above; frees a category, 5 steps, shown on the CDJs, usable by Related Tracks and intelligent playlists); `Components` kept with `vocals:*` tags added; `Genre` → Set position; `Situation` kept; `storage` → Vibe after the cleanup. Genre family is no tag (derived from the Genre column when needed).
 
 ## Open questions
 
 - [x] Which tag categories and values (v1)? — draft above (2026-11-15); to be tested on 20 tracks.
 - [ ] Which fields can intelligent playlists filter on (My Tag, Comments, color, rating)?
 - [ ] How many Matching pairs exist today; can they be read reliably from a `master.db` copy?
-- [x] Venue and energy: My Tag, rating, color — which field for what? — both My Tag; colour = prep status; rating unused (2026-11-15).
+- [x] Venue and energy: My Tag, rating, color — which field for what? — situation My Tag, energy = rating, colour = prep status (2026-11-15).
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
-- [ ] Which genre families (v1)? (8–12, as My Tag; the Genre column stays as delivered)
+- [ ] Which genre families (v1)? — draft of 11 in `spannungsbogen` PR #2; derived from the Genre column, not a tag.
 - [ ] My Tag → Comments: does it overwrite or append to existing comments?
-- [ ] How many My Tag categories and values does rekordbox allow (six categories needed)?
-  Manual p. 30: categories can be renamed, tags added; adding categories is not described,
-  and CueGen's README says it isn't possible in the UI. If the count is fixed and below six,
-  merge (e.g. Vocals into another category).
+- [x] How many My Tag categories does rekordbox allow? — four, renamable (checked in rekordbox
+  and manual p. 30, 2026-11-15); tags per category: no limit seen.
+- [ ] Can an intelligent playlist or the track filter express "has no `vocals:*` tag"? If not,
+  keep `vocals:none` (the track filter has only AND / OR).
+- [ ] Bulk updates of My Tags / ratings without the UI: does XML import update the rating of
+  existing entries? (Verified 2026-11-15: the XML export has `Rating` (0/51/102/153/204/255)
+  and `Comments`, but no My Tag field.)
+- [ ] 404 tracks already carry stars (export 2026-11-15: 14 × 1, 39 × 2, 30 × 3, 99 × 4,
+  222 × 5): what do they mean today, and do they get reset or converted before stars mean
+  energy?
 
 ## Summary (when closed)
 
