@@ -77,6 +77,28 @@
     prep playlists defined);
   - comparison with Tobi's scheme done, with a decision what to adopt.
 
+## Tag scheme v1 (draft, interview 2026-11-15)
+
+Not yet tested on tracks; the first 20-track test fine-tunes values and definitions.
+
+| Field | Meaning | Values |
+|---|---|---|
+| My Tag **Energy** | how the track feels in a set, calibrated against 2–3 reference tracks per level | `E1`–`E5` |
+| Mixed In Key energy | automatic starting value, compared with my `E` levels | 1–10 (if the MIK test shows a way into rekordbox) |
+| My Tag **Set position** | where it fits in a set; several allowed | warm-up · build · peak · closing · after-hours |
+| My Tag **Vibe** | character; 1–2 per track | dark (minor, tense) · driving (forward push) · hypnotic (repetitive) · deep (warm, subdued) · groovy (swing, bouncy) · melodic (lead / harmony in front) · euphoric (uplifting) · playful (quirky, light) |
+| My Tag **Situation** | where it fits; several allowed | club · open air / festival · bar / lounge · private party / wedding |
+| My Tag **Vocals** | vocal content | none · chops · full vocal · spoken |
+| My Tag **Family** | own genre family, mapped from the raw Genre | 8–12 families (to be drafted from the 112 raw genres) |
+| Genre (column) | as delivered by the shop; not edited | — |
+| Colour | prep status | none = new · yellow = tagged · green = ready (grid + cues) · blue = proven (played in a set) · red = rejected |
+| Rating | not used | — |
+
+Process: tag together with track prep (one pass per track); first set from `Setlists/…` and
+`Past gigs/…`; energy reference tracks are picked after the Mixed In Key test
+([`track-prep`](track-prep.md)), so energy tagging waits for it. My Tag → Comments: test on one
+track first (what happens to existing comments, fresh XML export).
+
 ## Approach backlog
 
 Scores 1–3: L = learning per effort, V = value toward the goal, T = time to first signal,
@@ -108,16 +130,23 @@ feeds I1.
 - 2026-11-15 — Repo `juliusblank/spannungsbogen` (private, via OpenTofu in `juliusblank/infra`): the shared parts only (taxonomy, genres, dramaturgy, craft, prompts); my tools stay in `scripts/dj`.
 - 2026-11-15 — Energy: no star rating; candidate is a My Tag category with ~5 levels, calibrated against reference tracks (as Tobi does with his 1–10 scale).
 - 2026-11-15 — Start my own genre families with a mapping from the raw genres; cover the tracks without genre.
+- 2026-11-15 — Tag scheme v1 draft (interview): six My Tag categories (Energy E1–E5, Set position, Vibe, Situation, Vocals, Family); Mixed In Key's 1–10 as an automatic starting value next to my own levels; colour = prep status (5 steps incl. rejected); rating unused; raw Genre column untouched (families in My Tag, avoids possible file writes).
+- 2026-11-15 — Tag together with track prep; first set from setlists / past gigs; energy references after the Mixed In Key test.
 
 ## Open questions
 
-- [ ] Which tag categories and values (v1)?
+- [x] Which tag categories and values (v1)? — draft above (2026-11-15); to be tested on 20 tracks.
 - [ ] Which fields can intelligent playlists filter on (My Tag, Comments, color, rating)?
 - [ ] How many Matching pairs exist today; can they be read reliably from a `master.db` copy?
-- [ ] Venue and energy: My Tag, rating, color — which field for what?
+- [x] Venue and energy: My Tag, rating, color — which field for what? — both My Tag; colour = prep status; rating unused (2026-11-15).
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
-- [ ] Which genre families (v1), and does rekordbox write a changed Genre into the file?
+- [ ] Which genre families (v1)? (8–12, as My Tag; the Genre column stays as delivered)
+- [ ] My Tag → Comments: does it overwrite or append to existing comments?
+- [ ] How many My Tag categories and values does rekordbox allow (six categories needed)?
+  Manual p. 30: categories can be renamed, tags added; adding categories is not described,
+  and CueGen's README says it isn't possible in the UI. If the count is fixed and below six,
+  merge (e.g. Vocals into another category).
 
 ## Summary (when closed)
 
