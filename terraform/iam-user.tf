@@ -36,11 +36,15 @@ resource "aws_iam_policy" "nix_configs_infra" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # State file object access (read/write state, DynamoDB locking)
+      # State file object access (read/write state, DynamoDB locking). The `infra/` prefix
+      # is the state of the juliusblank/infra repo (roadmap #20), applied locally by this user.
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-        Resource = "arn:aws:s3:::${var.state_bucket_name}/nix-configs/*"
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Resource = [
+          "arn:aws:s3:::${var.state_bucket_name}/nix-configs/*",
+          "arn:aws:s3:::${var.state_bucket_name}/infra/*",
+        ]
       },
       {
         Effect   = "Allow"
