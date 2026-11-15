@@ -60,8 +60,8 @@
       verified on 7.2.
   - **rekordbox INTELLIGENT CUE CREATION** (manual 7.2.18 pp. 41–45, 237–238): "CUE
     Analysis" sets hot cues (up to 16) and / or memory cues (up to 10) **during track
-    analysis**; needs phrase analysis on; may be unavailable depending on plan (to check
-    for Creative). Two modes:
+    analysis**; needs phrase analysis on; available on the Creative plan (checked
+    2026-11-15). Two modes:
     - **Auto**: general learning data plus **personal CUE trend** learned from tracks in
       the [CUE Analysis playlist] ([Start] button; "register 30 tracks or more", several
       genres; the more consistent my cues, the closer the result). Tried before with a
@@ -226,7 +226,7 @@ It also answers whether Mixed In Key's energy reaches rekordbox (`rekordbox-tagg
 - [x] Is a direct `master.db` write by CueGen acceptable? — yes, once the library fixes and
   cleanup are done (2026-11-15).
 - [ ] Does CueGen v1.0.37 work with rekordbox 7.2 (db format, `--glob` matching)?
-- [ ] Is Intelligent Cue Creation available on the Creative plan?
+- [x] Is Intelligent Cue Creation available on the Creative plan? — yes (2026-11-15).
 - [x] Was the personal CUE trend trained last time? — yes, results were off; enough tracks
   with my own cues exist for training (≥30) plus the test (10) (2026-11-15).
 - [ ] Do Mixed In Key's cues transfer from a copy's entry to the library entry (generated XML
