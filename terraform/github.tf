@@ -61,31 +61,3 @@ resource "github_repository_ruleset" "main" {
     }
   }
 }
-
-# Ruleset that requests a Copilot code review on PRs to the default branch, drafts included,
-# and again on every push.
-# Created by the repo's Copilot settings page and imported. Follows
-# .github/copilot-instructions.md.
-resource "github_repository_ruleset" "copilot_review" {
-  name        = "Copilot review for default branch"
-  repository  = github_repository.nix_configs.name
-  target      = "branch"
-  enforcement = "active"
-
-  conditions {
-    ref_name {
-      include = ["~DEFAULT_BRANCH"]
-      exclude = []
-    }
-  }
-
-  rules {
-    deletion         = true
-    non_fast_forward = true
-
-    copilot_code_review {
-      review_on_push             = true # costs premium requests per push
-      review_draft_pull_requests = true
-    }
-  }
-}
