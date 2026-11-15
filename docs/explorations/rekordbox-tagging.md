@@ -4,7 +4,7 @@
 |---|---|
 | **Slug** | `rekordbox-tagging` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-15 |
+| **Started / last update** | 2026-11-14 / 2026-11-16 |
 | **Budget** | 4 evenings, then end-of-budget review; €0 (rekordbox Creative plan, upgrade only if really necessary) |
 | **Roadmap** | — |
 
@@ -103,6 +103,21 @@ Process: tag together with track prep (one pass per track); first set from `Setl
 ([`track-prep`](track-prep.md)), so energy tagging waits for it. My Tag → Comments: test on one
 track first (what happens to existing comments, fresh XML export).
 
+**Before stars mean energy: archive the old ratings** (once, before the first energy tag):
+
+1. Fresh XML export; a script (`scripts/dj`) writes an XML with playlists
+   `_archive/old stars/1★` … `5★` holding the 404 rated tracks (by TrackID / Location).
+2. Import the playlists via rekordbox's XML import (reuses existing entries, proven
+   2026-11-14). Check: each playlist's count equals the export's count per rating.
+3. Julius clears the stars: Collection sorted by rating, select the rated tracks, set 0 stars.
+4. Fresh export: all ratings 0, the archive playlists unchanged, nothing else changed
+   (`rb_compare.py`).
+
+**Bulk tagging without database writes**: a script groups tracks (e.g. by Mixed In Key
+energy, Bandcamp tags, setlists) and imports the groups as XML playlists; in rekordbox, open
+a playlist, select all, set the tag or stars at once. Renaming a tag in the My Tag panel
+should change it on all tracks (inferred, test on one tag).
+
 ## Approach backlog
 
 Scores 1–3: L = learning per effort, V = value toward the goal, T = time to first signal,
@@ -116,6 +131,7 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 | Verify intelligent-playlist fields (My Tag? Comments? color? rating?) in rekordbox | 3 | 2 | 3 | 3 | 3 | 3 | open |
 | Target playlist structure (`Purchased` · `Friends` · `Recordings` · `Sets` · `Prep` · `Smart`), migrate via XML import | 2 | 3 | 2 | 3 | 3 | 3 | open |
 | Automated prep playlists generated as XML (e.g. "proven after X", "new and untagged") | 2 | 3 | 2 | 3 | 3 | 2 | open |
+| Archive old star ratings as playlists, then clear them (steps above) | 3 | 2 | 3 | 3 | 3 | 3 | open — before the first energy tag |
 | Analyse Tobi's handbook (research agent): summary, comparison, interview, collaboration repo | 3 | 2 | 3 | 3 | 3 | 3 | done (2026-11-14) |
 | Shared private repo with Tobi (taxonomy core + genre extensions + dramaturgy) | 2 | 2 | 1 | 3 | 3 | 2 | done — `spannungsbogen` (2026-11-15) |
 | Genre families + mapping of the 112 rekordbox genres; fill the 589 empty genres (Beatport IDs, Bandcamp tags, by hand) | 3 | 2 | 2 | 3 | 3 | 3 | open |
@@ -137,6 +153,7 @@ feeds I1.
 - 2026-11-15 — Tag scheme v1 draft (interview): six My Tag categories (Energy E1–E5, Set position, Vibe, Situation, Vocals, Family); Mixed In Key's 1–10 as an automatic starting value next to my own levels; colour = prep status (5 steps incl. rejected); rating unused; raw Genre column untouched (families in My Tag, avoids possible file writes).
 - 2026-11-15 — Tag together with track prep; first set from setlists / past gigs; energy references after the Mixed In Key test.
 - 2026-11-15 — Only four My Tag categories: energy = star rating (replaces "no star rating" above; frees a category, 5 steps, shown on the CDJs, usable by Related Tracks and intelligent playlists); `Components` kept with `vocals:*` tags added; `Genre` → Set position; `Situation` kept; `storage` → Vibe after the cleanup. Genre family is no tag (derived from the Genre column when needed).
+- 2026-11-16 — Stars stay energy (sorting and ranges at the decks beat a My Tag; alternative E1–E5 as My Tags in the Set position category rejected). Old ratings are archived as playlists and cleared first; bulk tagging via generated playlists + select all, no database writes.
 
 ## Open questions
 
@@ -155,9 +172,10 @@ feeds I1.
 - [ ] Bulk updates of My Tags / ratings without the UI: does XML import update the rating of
   existing entries? (Verified 2026-11-15: the XML export has `Rating` (0/51/102/153/204/255)
   and `Comments`, but no My Tag field.)
-- [ ] 404 tracks already carry stars (export 2026-11-15: 14 × 1, 39 × 2, 30 × 3, 99 × 4,
-  222 × 5): what do they mean today, and do they get reset or converted before stars mean
-  energy?
+- [x] 404 tracks already carry stars (export 2026-11-15: 14 × 1, 39 × 2, 30 × 3, 99 × 4,
+  222 × 5): what happens to them? — archived as playlists `_archive/old stars/<n>★`, then
+  cleared (2026-11-16, steps above).
+- [ ] Does renaming a My Tag keep it on all tagged tracks?
 
 ## Summary (when closed)
 
