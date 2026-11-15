@@ -13,7 +13,13 @@
     package = null;
     enableZshIntegration = true;
     settings = {
-      "font-family" = "FiraCode Nerd Font Mono";
+      # FiraCode has no circled digits (① U+2460 – ⑳ U+2473), and Ghostty's automatic
+      # fallback drew them as other symbols (∪, ∫). Hiragino Sans (macOS system font, on
+      # every host) has them; Ghostty uses it only for glyphs that FiraCode lacks.
+      "font-family" = [
+        "FiraCode Nerd Font Mono"
+        "Hiragino Sans"
+      ];
       "font-size" = 14;
       theme = "0x96f";
       "cursor-style" = "block";
