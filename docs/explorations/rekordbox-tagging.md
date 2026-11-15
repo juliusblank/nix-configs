@@ -4,7 +4,7 @@
 |---|---|
 | **Slug** | `rekordbox-tagging` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-14 |
+| **Started / last update** | 2026-11-14 / 2026-11-15 |
 | **Budget** | 4 evenings, then end-of-budget review; €0 (rekordbox Creative plan, upgrade only if really necessary) |
 | **Roadmap** | — |
 
@@ -27,8 +27,10 @@
   `beatport/<YYYY>/<YYYYMMDD>`; `Past gigs/…`, `Setlists/…`, `Sessions/…`; intelligent
   playlists `By Key/…`, `Downtempo (80-105)`; housekeeping lists (`old storage`,
   `new storage`, `beatport dups`, `beatport/_w/o playlist`, `_older`, `_like w/o playlist`).
-  Tobi (a friend) shared a project of agent instructions for several AI models for tagging,
-  strongly tailored to downtempo; it covers only part of my styles.
+  Tobi (a friend) shared the handbook of his downtempo project (tag schema, set dramaturgy,
+  craft notes); strongly tailored to downtempo, it covers only part of my styles. Analysis and
+  collaboration live in the private repo `juliusblank/spannungsbogen` (created via
+  `juliusblank/infra`, roadmap #20).
 - **Constraints / risk tolerance** — tags only in rekordbox's library (My Tag); rekordbox
   changed only by rekordbox itself (UI, XML import), never by writing `master.db`;
   reading a `master.db` copy is fine. Mixed In Key writes analysis into files (see
@@ -46,7 +48,8 @@
     Radar analysis).
   - **Intelligent playlists** (p. 58): filters with =, contains, range, "in the last" …;
     which fields (My Tag, Comments, color) are available is not verified yet.
-- **References** — Tobi's archive (`JuliusPUNKTzip.7z`, research report pending);
+- **References** — Tobi's handbook (analysis 2026-11-14 in `juliusblank/spannungsbogen`,
+  private);
   storage-migration `tools/rb_compare.py`, `tools/rb_merge_xml.py` (playlist changes via
   XML import, proven 2026-11-14: rekordbox reuses existing entries).
 
@@ -54,10 +57,10 @@
 
 - **Exists already?** — not in own docs (`music-collection-quality` excludes "a new tagging
   scheme"). rekordbox has the building blocks (My Tag, Matching, Related Tracks,
-  intelligent playlists); Tobi's project is a starting point for downtempo.
+  intelligent playlists); Tobi's handbook is a starting point for downtempo.
 - **Makes sense?** — yes: both use cases need data rekordbox can hold and query.
 - **Knowledge level** — medium (rekordbox features known from the manual; tag design open).
-- **Greenfield or researched before?** — greenfield for my scheme; Tobi's project as prior art.
+- **Greenfield or researched before?** — greenfield for my scheme; Tobi's handbook as prior art.
 - **Verdict** — **pursue**.
 
 ## Goal and definition of done
@@ -87,12 +90,14 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 | Verify intelligent-playlist fields (My Tag? Comments? color? rating?) in rekordbox | 3 | 2 | 3 | 3 | 3 | 3 | open |
 | Target playlist structure (`Purchased` · `Friends` · `Recordings` · `Sets` · `Prep` · `Smart`), migrate via XML import | 2 | 3 | 2 | 3 | 3 | 3 | open |
 | Automated prep playlists generated as XML (e.g. "proven after X", "new and untagged") | 2 | 3 | 2 | 3 | 3 | 2 | open |
-| Analyse Tobi's project (research agent): summary, comparison, interview, collaboration repo | 3 | 2 | 3 | 3 | 3 | 3 | selected |
-| Shared private repo with Tobi (taxonomy core + genre extensions + agent instructions) | 2 | 2 | 1 | 3 | 3 | 2 | open |
+| Analyse Tobi's handbook (research agent): summary, comparison, interview, collaboration repo | 3 | 2 | 3 | 3 | 3 | 3 | done (2026-11-14) |
+| Shared private repo with Tobi (taxonomy core + genre extensions + dramaturgy) | 2 | 2 | 1 | 3 | 3 | 2 | done — `spannungsbogen` (2026-11-15) |
+| Genre families + mapping of the 112 rekordbox genres; fill the 589 empty genres (Beatport IDs, Bandcamp tags, by hand) | 3 | 2 | 2 | 3 | 3 | 3 | open |
 
 ## Iterations
 
-_None yet._ Started 2026-11-14 with the research agent on Tobi's archive (results feed I1).
+_None yet._ Research on Tobi's handbook done 2026-11-14 (report in `spannungsbogen`); it
+feeds I1.
 
 ## Decisions
 
@@ -100,6 +105,9 @@ _None yet._ Started 2026-11-14 with the research agent on Tobi's archive (result
 - 2026-11-14 — Start with my own tag group (simple), compare with Tobi's afterwards.
 - 2026-11-14 — "Proven next track": one transition relation with a single score (my manual Matching mark highest, then pairs played in gigs/setlists), evidence kept separately so the weighting can change.
 - 2026-11-14 — Collaboration with Tobi preferably in a private GitHub repo in my account (to be proposed by the research).
+- 2026-11-15 — Repo `juliusblank/spannungsbogen` (private, via OpenTofu in `juliusblank/infra`): the shared parts only (taxonomy, genres, dramaturgy, craft, prompts); my tools stay in `scripts/dj`.
+- 2026-11-15 — Energy: no star rating; candidate is a My Tag category with ~5 levels, calibrated against reference tracks (as Tobi does with his 1–10 scale).
+- 2026-11-15 — Start my own genre families with a mapping from the raw genres; cover the tracks without genre.
 
 ## Open questions
 
@@ -108,7 +116,8 @@ _None yet._ Started 2026-11-14 with the research agent on Tobi's archive (result
 - [ ] How many Matching pairs exist today; can they be read reliably from a `master.db` copy?
 - [ ] Venue and energy: My Tag, rating, color — which field for what?
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
-- [ ] What to adopt from Tobi's project, what to extend for techno / house / psy?
+- [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
+- [ ] Which genre families (v1), and does rekordbox write a changed Genre into the file?
 
 ## Summary (when closed)
 
