@@ -4,7 +4,7 @@
 |---|---|
 | **Slug** | `rekordbox-tagging` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-15 |
+| **Started / last update** | 2026-11-14 / 2026-11-16 |
 | **Budget** | 4 evenings, then end-of-budget review; €0 (rekordbox Creative plan, upgrade only if really necessary) |
 | **Roadmap** | — |
 
@@ -77,6 +77,48 @@
     prep playlists defined);
   - comparison with Tobi's scheme done, with a decision what to adopt.
 
+## Tag scheme v1 (draft, interview 2026-11-15)
+
+Not yet tested on tracks; the first 20-track test fine-tunes values and definitions.
+
+| Field | Meaning | Values |
+|---|---|---|
+rekordbox has exactly four My Tag categories (renamable; today `Genre`, `Components`,
+`Situation`, `storage`), so energy moves to the star rating. Tag names with a prefix
+(`vocals:…`, `location:…`) keep related tags together in a category.
+
+| Field | Meaning | Values |
+|---|---|---|
+| **Rating** (stars) = energy | how the track feels in a set, calibrated against 2–3 reference tracks per level | 1–5 stars (0 = not rated yet) |
+| Mixed In Key energy | automatic starting value, compared with my stars | 1–10 (if the MIK test shows a way into rekordbox) |
+| My Tag **Components** (kept) | what is audible; existing tags stay, vocal tags added | `vocals:full` · `vocals:chops` · `vocals:spoken` · `vocals:none` (only if smart playlists can't filter "no vocal tag", see open questions) |
+| My Tag **Set position** (renamed from `Genre`) | where it fits in a set; several allowed | warm-up · build · peak · closing · after-hours |
+| My Tag **Venue** (renamed from `Situation`) | where it fits or was played; several allowed | types: club · open air / festival · bar / lounge · private party / wedding; specific places: `location:<name>` (one tag per place I play or played; names only in rekordbox, not in this public repo) |
+| My Tag **Vibe** (renamed from `storage`, after the library cleanup) | character; 1–2 per track | dark (minor, tense) · driving (forward push) · hypnotic (repetitive) · deep (warm, subdued) · groovy (swing, bouncy) · melodic (lead / harmony in front) · euphoric (uplifting) · playful (quirky, light) · melancholic (wistful, bittersweet) · weird (odd, off-kilter, experimental) · dirty (gritty, distorted, raw) |
+| Genre (column) | as delivered by the shop; not edited | — |
+| Genre family | derived from the Genre column by script (`spannungsbogen` `genres/mapping.csv`), used for generated playlists; not a tag, not needed for v1 | 11 families (draft) |
+| Colour | prep status | none = new · yellow = tagged · green = ready (grid + cues) · blue = proven (played in a set) · red = rejected |
+
+Process: tag together with track prep (one pass per track); first set from `Setlists/…` and
+`Past gigs/…`; energy reference tracks are picked after the Mixed In Key test
+([`track-prep`](track-prep.md)), so energy tagging waits for it. My Tag → Comments: test on one
+track first — done 2026-11-16: it writes into the files, stays off (see open questions).
+
+**Before stars mean energy: archive the old ratings** (once, before the first energy tag):
+
+1. Fresh XML export; a script (`scripts/dj`) writes an XML with playlists
+   `_archive/old stars/1★` … `5★` holding the 404 rated tracks (by TrackID / Location).
+2. Import the playlists via rekordbox's XML import (reuses existing entries, proven
+   2026-11-14). Check: each playlist's count equals the export's count per rating.
+3. Julius clears the stars: Collection sorted by rating, select the rated tracks, set 0 stars.
+4. Fresh export: all ratings 0, the archive playlists unchanged, nothing else changed
+   (`rb_compare.py`).
+
+**Bulk tagging without database writes**: a script groups tracks (e.g. by Mixed In Key
+energy, Bandcamp tags, setlists; `location:*` for tracks in a place's `Past gigs/…` playlists) and imports the groups as XML playlists; in rekordbox, open
+a playlist, select all, set the tag or stars at once. Renaming a tag in the My Tag panel
+should change it on all tracks (inferred, test on one tag).
+
 ## Approach backlog
 
 Scores 1–3: L = learning per effort, V = value toward the goal, T = time to first signal,
@@ -90,6 +132,7 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 | Verify intelligent-playlist fields (My Tag? Comments? color? rating?) in rekordbox | 3 | 2 | 3 | 3 | 3 | 3 | open |
 | Target playlist structure (`Purchased` · `Friends` · `Recordings` · `Sets` · `Prep` · `Smart`), migrate via XML import | 2 | 3 | 2 | 3 | 3 | 3 | open |
 | Automated prep playlists generated as XML (e.g. "proven after X", "new and untagged") | 2 | 3 | 2 | 3 | 3 | 2 | open |
+| Archive old star ratings as playlists, then clear them (steps above) | 3 | 2 | 3 | 3 | 3 | 3 | open — before the first energy tag |
 | Analyse Tobi's handbook (research agent): summary, comparison, interview, collaboration repo | 3 | 2 | 3 | 3 | 3 | 3 | done (2026-11-14) |
 | Shared private repo with Tobi (taxonomy core + genre extensions + dramaturgy) | 2 | 2 | 1 | 3 | 3 | 2 | done — `spannungsbogen` (2026-11-15) |
 | Genre families + mapping of the 112 rekordbox genres; fill the 589 empty genres (Beatport IDs, Bandcamp tags, by hand) | 3 | 2 | 2 | 3 | 3 | 3 | open |
@@ -108,16 +151,34 @@ feeds I1.
 - 2026-11-15 — Repo `juliusblank/spannungsbogen` (private, via OpenTofu in `juliusblank/infra`): the shared parts only (taxonomy, genres, dramaturgy, craft, prompts); my tools stay in `scripts/dj`.
 - 2026-11-15 — Energy: no star rating; candidate is a My Tag category with ~5 levels, calibrated against reference tracks (as Tobi does with his 1–10 scale).
 - 2026-11-15 — Start my own genre families with a mapping from the raw genres; cover the tracks without genre.
+- 2026-11-15 — Tag scheme v1 draft (interview): six My Tag categories (Energy E1–E5, Set position, Vibe, Situation, Vocals, Family); Mixed In Key's 1–10 as an automatic starting value next to my own levels; colour = prep status (5 steps incl. rejected); rating unused; raw Genre column untouched (families in My Tag, avoids possible file writes).
+- 2026-11-15 — Tag together with track prep; first set from setlists / past gigs; energy references after the Mixed In Key test.
+- 2026-11-15 — Only four My Tag categories: energy = star rating (replaces "no star rating" above; frees a category, 5 steps, shown on the CDJs, usable by Related Tracks and intelligent playlists); `Components` kept with `vocals:*` tags added; `Genre` → Set position; `Situation` kept; `storage` → Vibe after the cleanup. Genre family is no tag (derived from the Genre column when needed).
+- 2026-11-16 — `Situation` becomes **Venue**: venue types plus `location:<name>` tags for specific places (where a track fits or was played). Vibe gets melancholic, weird and dirty (11 words).
+- 2026-11-16 — "Add My Tag to the Comments" stays off for good (it rewrites the files' comment tags); scripts read My Tags from a `master.db` copy instead.
+- 2026-11-16 — Stars stay energy (sorting and ranges at the decks beat a My Tag; alternative E1–E5 as My Tags in the Set position category rejected). Old ratings are archived as playlists and cleared first; bulk tagging via generated playlists + select all, no database writes.
 
 ## Open questions
 
-- [ ] Which tag categories and values (v1)?
+- [x] Which tag categories and values (v1)? — draft above (2026-11-15); to be tested on 20 tracks.
 - [ ] Which fields can intelligent playlists filter on (My Tag, Comments, color, rating)?
 - [ ] How many Matching pairs exist today; can they be read reliably from a `master.db` copy?
-- [ ] Venue and energy: My Tag, rating, color — which field for what?
+- [x] Venue and energy: My Tag, rating, color — which field for what? — venue My Tag, energy = rating, colour = prep status (2026-11-15).
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
-- [ ] Which genre families (v1), and does rekordbox write a changed Genre into the file?
+- [ ] Which genre families (v1)? — draft of 11 in `spannungsbogen` PR #2; derived from the Genre column, not a tag.
+- [x] My Tag → Comments: does it overwrite or append to existing comments? — **it writes into the files**: enabling it appended ` /* <My Tags> */` to the comment tag of every tagged file (4,830 library files + 16 outside, 2026-11-16); disabling it removed the text again (3,445 byte-identical, 1,386 with a changed tag area, to be restored from restic). Never enable it; never edit tag columns in rekordbox on library files.
+- [x] How many My Tag categories does rekordbox allow? — four, renamable (checked in rekordbox
+  and manual p. 30, 2026-11-15); tags per category: no limit seen.
+- [ ] Can an intelligent playlist or the track filter express "has no `vocals:*` tag"? If not,
+  keep `vocals:none` (the track filter has only AND / OR).
+- [ ] Bulk updates of My Tags / ratings without the UI: does XML import update the rating of
+  existing entries? (Verified 2026-11-15: the XML export has `Rating` (0/51/102/153/204/255)
+  and `Comments`, but no My Tag field.)
+- [x] 404 tracks already carry stars (export 2026-11-15: 14 × 1, 39 × 2, 30 × 3, 99 × 4,
+  222 × 5): what happens to them? — archived as playlists `_archive/old stars/<n>★`, then
+  cleared (2026-11-16, steps above).
+- [ ] Does renaming a My Tag keep it on all tagged tracks?
 
 ## Summary (when closed)
 
