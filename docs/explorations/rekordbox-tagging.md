@@ -93,7 +93,8 @@ Not yet tested on tracks; the first 20-track test fine-tunes values and definiti
 | Field | Meaning | Values |
 |---|---|---|
 rekordbox has exactly four My Tag categories (renamable; today `Genre`, `Components`,
-`Situation`, `storage`), so energy moves to the star rating.
+`Situation`, `storage`), so energy moves to the star rating. Tag names with a prefix
+(`vocals:…`, `location:…`) keep related tags together in a category.
 
 | Field | Meaning | Values |
 |---|---|---|
@@ -101,8 +102,8 @@ rekordbox has exactly four My Tag categories (renamable; today `Genre`, `Compone
 | Mixed In Key energy | automatic starting value, compared with my stars | 1–10 (if the MIK test shows a way into rekordbox) |
 | My Tag **Components** (kept) | what is audible; existing tags stay, vocal tags added | `vocals:full` · `vocals:chops` · `vocals:spoken` · `vocals:none` (only if smart playlists can't filter "no vocal tag", see open questions) |
 | My Tag **Set position** (renamed from `Genre`) | where it fits in a set; several allowed | warm-up · build · peak · closing · after-hours |
-| My Tag **Situation** (kept) | where it fits; several allowed | club · open air / festival · bar / lounge · private party / wedding |
-| My Tag **Vibe** (renamed from `storage`, after the library cleanup) | character; 1–2 per track | dark (minor, tense) · driving (forward push) · hypnotic (repetitive) · deep (warm, subdued) · groovy (swing, bouncy) · melodic (lead / harmony in front) · euphoric (uplifting) · playful (quirky, light) |
+| My Tag **Venue** (renamed from `Situation`) | where it fits or was played; several allowed | types: club · open air / festival · bar / lounge · private party / wedding; specific places: `location:<name>` (one tag per place I play or played; names only in rekordbox, not in this public repo) |
+| My Tag **Vibe** (renamed from `storage`, after the library cleanup) | character; 1–2 per track | dark (minor, tense) · driving (forward push) · hypnotic (repetitive) · deep (warm, subdued) · groovy (swing, bouncy) · melodic (lead / harmony in front) · euphoric (uplifting) · playful (quirky, light) · melancholic (wistful, bittersweet) · weird (odd, off-kilter, experimental) · dirty (gritty, distorted, raw) |
 | Genre (column) | as delivered by the shop; not edited | — |
 | Genre family | derived from the Genre column by script (`spannungsbogen` `genres/mapping.csv`), used for generated playlists; not a tag, not needed for v1 | 11 families (draft) |
 | Colour | prep status | none = new · yellow = tagged · green = ready (grid + cues) · blue = proven (played in a set) · red = rejected |
@@ -123,7 +124,7 @@ track first (what happens to existing comments, fresh XML export).
    (`rb_compare.py`).
 
 **Bulk tagging without database writes**: a script groups tracks (e.g. by Mixed In Key
-energy, Bandcamp tags, setlists) and imports the groups as XML playlists; in rekordbox, open
+energy, Bandcamp tags, setlists; `location:*` for tracks in a place's `Past gigs/…` playlists) and imports the groups as XML playlists; in rekordbox, open
 a playlist, select all, set the tag or stars at once. Renaming a tag in the My Tag panel
 should change it on all tracks (inferred, test on one tag).
 
@@ -163,6 +164,7 @@ feeds I1.
 - 2026-11-15 — Tag scheme v1 draft (interview): six My Tag categories (Energy E1–E5, Set position, Vibe, Situation, Vocals, Family); Mixed In Key's 1–10 as an automatic starting value next to my own levels; colour = prep status (5 steps incl. rejected); rating unused; raw Genre column untouched (families in My Tag, avoids possible file writes).
 - 2026-11-15 — Tag together with track prep; first set from setlists / past gigs; energy references after the Mixed In Key test.
 - 2026-11-15 — Only four My Tag categories: energy = star rating (replaces "no star rating" above; frees a category, 5 steps, shown on the CDJs, usable by Related Tracks and intelligent playlists); `Components` kept with `vocals:*` tags added; `Genre` → Set position; `Situation` kept; `storage` → Vibe after the cleanup. Genre family is no tag (derived from the Genre column when needed).
+- 2026-11-16 — `Situation` becomes **Venue**: venue types plus `location:<name>` tags for specific places (where a track fits or was played). Vibe gets melancholic, weird and dirty (11 words).
 - 2026-11-16 — Stars stay energy (sorting and ranges at the decks beat a My Tag; alternative E1–E5 as My Tags in the Set position category rejected). Old ratings are archived as playlists and cleared first; bulk tagging via generated playlists + select all, no database writes.
 
 ## Open questions
@@ -170,7 +172,7 @@ feeds I1.
 - [x] Which tag categories and values (v1)? — draft above (2026-11-15); to be tested on 20 tracks.
 - [ ] Which fields can intelligent playlists filter on (My Tag, Comments, color, rating)?
 - [ ] How many Matching pairs exist today; can they be read reliably from a `master.db` copy?
-- [x] Venue and energy: My Tag, rating, color — which field for what? — situation My Tag, energy = rating, colour = prep status (2026-11-15).
+- [x] Venue and energy: My Tag, rating, color — which field for what? — venue My Tag, energy = rating, colour = prep status (2026-11-15).
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
 - [ ] Which genre families (v1)? — draft of 11 in `spannungsbogen` PR #2; derived from the Genre column, not a tag.
