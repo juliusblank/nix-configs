@@ -102,7 +102,7 @@ rekordbox has exactly four My Tag categories (renamable; today `Genre`, `Compone
 Process: tag together with track prep (one pass per track); first set from `Setlists/…` and
 `Past gigs/…`; energy reference tracks are picked after the Mixed In Key test
 ([`track-prep`](track-prep.md)), so energy tagging waits for it. My Tag → Comments: test on one
-track first (what happens to existing comments, fresh XML export).
+track first — done 2026-11-16: it writes into the files, stays off (see open questions).
 
 **Before stars mean energy: archive the old ratings** (once, before the first energy tag):
 
@@ -155,6 +155,7 @@ feeds I1.
 - 2026-11-15 — Tag together with track prep; first set from setlists / past gigs; energy references after the Mixed In Key test.
 - 2026-11-15 — Only four My Tag categories: energy = star rating (replaces "no star rating" above; frees a category, 5 steps, shown on the CDJs, usable by Related Tracks and intelligent playlists); `Components` kept with `vocals:*` tags added; `Genre` → Set position; `Situation` kept; `storage` → Vibe after the cleanup. Genre family is no tag (derived from the Genre column when needed).
 - 2026-11-16 — `Situation` becomes **Venue**: venue types plus `location:<name>` tags for specific places (where a track fits or was played). Vibe gets melancholic, weird and dirty (11 words).
+- 2026-11-16 — "Add My Tag to the Comments" stays off for good (it rewrites the files' comment tags); scripts read My Tags from a `master.db` copy instead.
 - 2026-11-16 — Stars stay energy (sorting and ranges at the decks beat a My Tag; alternative E1–E5 as My Tags in the Set position category rejected). Old ratings are archived as playlists and cleared first; bulk tagging via generated playlists + select all, no database writes.
 
 ## Open questions
@@ -166,7 +167,7 @@ feeds I1.
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
 - [ ] Which genre families (v1)? — draft of 11 in `spannungsbogen` PR #2; derived from the Genre column, not a tag.
-- [ ] My Tag → Comments: does it overwrite or append to existing comments?
+- [x] My Tag → Comments: does it overwrite or append to existing comments? — **it writes into the files**: enabling it appended ` /* <My Tags> */` to the comment tag of every tagged file (4,830 library files + 16 outside, 2026-11-16); disabling it removed the text again (3,445 byte-identical, 1,386 with a changed tag area, to be restored from restic). Never enable it; never edit tag columns in rekordbox on library files.
 - [x] How many My Tag categories does rekordbox allow? — four, renamable (checked in rekordbox
   and manual p. 30, 2026-11-15); tags per category: no limit seen.
 - [ ] Can an intelligent playlist or the track filter express "has no `vocals:*` tag"? If not,
