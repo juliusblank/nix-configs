@@ -4,9 +4,22 @@
 |---|---|
 | **Slug** | `track-prep` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-15 |
+| **Started / last update** | 2026-11-14 / 2026-11-17 |
 | **Budget** | 3 evenings, then end-of-budget review; €0 (Mixed In Key 11 licence and rekordbox Creative exist) |
 | **Roadmap** | — |
+
+## State and next steps
+
+_Last update 2026-11-17._
+
+- **Done:** research on Mixed In Key, CueGen and Intelligent Cue Creation; comparison test
+  A / B / C designed (below). Not run yet.
+- **Next, in order:**
+  1. Pick 10 hand-cued reference tracks (and, for C, ≥ 30 training tracks).
+  2. Copy plan into `~/Music/_cue-test/{A-mik,B-cuegen,C-icc}/` and a cue comparison script in
+     `scripts/dj`.
+  3. Run A (Mixed In Key) and C (Intelligent Cue Creation) on the copies.
+- **Blocked:** B (CueGen writes `master.db`) until the library cleanup is finished.
 
 ## Brief
 
@@ -28,10 +41,17 @@
   analysis (GEOB frames) into analysed files (verified 2026-11-12, track restored from
   restic), so it may only run on copies until the migration is done.
 - **Constraints / risk tolerance** — rekordbox changed only through rekordbox (UI, XML
-  import); music files in `~/Music/Library` must not change (sha256); tests on copies.
+  import). While the storage migration runs, music files in `~/Music/Library` must not
+  change (it verifies moves and duplicates by sha256), so tests run on copies. After the
+  migration, tools may write into library files **deliberately** (e.g. Mixed In Key's
+  analysis after a track's import); restic backs up the changed files incrementally.
+  What stays ruled out: writes nobody asked for, and bulk rewrites of the whole library
+  (e.g. rekordbox's "Add My Tag to the Comments", 4,830 files on 2026-11-16) — switch a
+  file-writing option on only knowing which files it touches, and test it on a copy first.
   Exception: CueGen may write `master.db` directly (test B and later use), but only once
-  the library fixes and cleanup (storage-migration) are done; backup first. rekordbox's Preferences → Analysis → [Key Analysis] → "Write the value to
-  the ID3 tag" writes into files: must stay off (manual p. 237).
+  the library fixes and cleanup (storage-migration) are done; backup first. rekordbox's
+  Preferences → Analysis → [Key Analysis] → "Write the value to the ID3 tag" writes into
+  files: must stay off (manual p. 237).
 - **Prior knowledge / research**
   - **Mixed In Key → rekordbox** (vendor docs, not verified): XML round trip — export the
     rekordbox collection as XML, connect it in Mixed In Key, analyse, then in rekordbox
@@ -71,8 +91,11 @@
       (Auto / Manual), [CUE Type] (hot / memory, how many), [Set to 1.1 Bars], repeat every
       N bars, [Prohibit overwriting CUEs], [Add a comment to CUE].
     - Re-analysing a track runs it again (manual p. 41: analyse already analysed tracks).
-  - rekordbox XML import reuses existing entries for playlists (proven 2026-11-14,
-    storage-migration); whether it updates cues of existing entries is unknown.
+  - rekordbox XML import reuses existing entries for playlists and changes none of their
+    attributes (proven 2026-11-14 → 17, storage-migration, about a dozen imports). Those imports
+    carried the entries' own data, so whether an import with **different** cues updates
+    an existing entry is still unknown. New tracks arrive unanalysed (Analyze Track by
+    hand), and rekordbox's analysis / Reload Tag can write the key into the file.
 - **References** — rekordbox 7.2.18 manual: beat grid editing, phrase edit, INTELLIGENT
   CUE CREATION (pp. 41–45), Preferences → Analysis (pp. 237–238), XML import; CueGen README
   and issues #14, #19, #25.
@@ -213,6 +236,7 @@ It also answers whether Mixed In Key's energy reaches rekordbox (`rekordbox-tagg
 - 2026-11-15 — CueGen and rekordbox Intelligent Cue Creation join the test (replaces the 2026-11-14 decision to leave Intelligent Cue Creation for later); one comparison test on shared copies.
 - 2026-11-15 — CueGen's direct `master.db` writes are acceptable once the library fixes and cleanup are done; test B waits until then, A and C can start now.
 - 2026-11-15 — Intelligent Cue Creation gets a retest although it was trained before (results were off), since newer versions may do better.
+- 2026-11-17 — After the migration, deliberate file writes are fine (the backup follows the files, it does not constrain the workflow); unasked and library-wide writes stay ruled out. Applies to Mixed In Key and rekordbox's tag / analysis writes alike.
 
 ## Open questions
 
