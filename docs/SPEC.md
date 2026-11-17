@@ -76,7 +76,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 35 | Firefox LaunchServices workaround (macOS 27) | **Watched (roadmap #36): #146 (NixOS/nixpkgs#571894) and #147 (nikitabobko/AeroSpace#2316, detects apps with pid -1). Remove the workaround when either is fixed (for #2316: after the AeroSpace update, check that `aerospace list-apps` shows Firefox started from the wrapped bundle), then close both watch issues.** On macOS 27, wrapped Nix app bundles (bundle executable = shell wrapper that `exec`s the real binary) lose their pid in LaunchServices, so AeroSpace never manages Firefox. `home/darwin.nix` overrides `programs.firefox.package`: real binary as bundle executable, `MOZ_*` variables in `Info.plist` `LSEnvironment`, shell wrapper at `bin/firefox` (Granted `CustomBrowserPath`). Details: `docs/usage/nix-system.md` (Known issues). |
 | 36 | Upstream watch — scheduled reminders for upstream fixes | Done (#145, #151) — one open issue per watched upstream issue / PR (label `upstream-watch`, data in a `yaml` block in the body: `url`, `interval_days`, `last_checked`, `next_check`). `.github/workflows/upstream-watch.yml` runs daily: comments on upstream state changes (open / closed / merged) and once when `next_check` is due; a `/checked` comment by the owner moves `next_check` forward. Logic in `scripts/upstream-watch.sh`; docs in `docs/usage/upstream-watch.md`. Label in `terraform/github-labels.tf`. Private repos (e.g. taktile-org) get the date check only. Watch issues: #146, #147 (roadmap #35), #148, #149 (AeroSpace ghost windows, see `home/modules/aerospace.nix`), #150 (roadmap #27); current list: `gh issue list --label upstream-watch`. |
 | 37 | AWS IAM Identity Center as code (personal account) | TODO — console and CLI access to the personal AWS account through IAM Identity Center, managed by OpenTofu in the dedicated `infra` repo (#20, which lists Identity Center as account-level infrastructure; depends on #20), instead of the root user or long-lived IAM user keys. Today the `personal-nix-configs-infra` profile on serenity uses permanent keys of `nix-configs-infra` via `credential_process`, so `assume -c` fails with HTTP 400 (the console federation endpoint needs temporary credentials). Scope: (1) AWS Organizations with this account as management account (`aws_organizations_organization`): an account instance of Identity Center cannot grant access to AWS accounts; (2) enable the Identity Center organization instance in `eu-central-1` — check whether OpenTofu can do this or it stays a documented one-time manual step (like the MFA settings); (3) users and groups (`aws_identitystore_user` / `_group` / `_group_membership`), permission sets (`aws_ssoadmin_permission_set` + policy attachments, e.g. `AdministratorAccess` with a short session and `ReadOnlyAccess`) and account assignments (`aws_ssoadmin_account_assignment`); (4) bootstrap: credentials for the infra repo's OpenTofu with the `organizations`, `sso`, `sso-admin` and `identitystore` actions (local and CI, like #6); (5) SSO profiles (`sso_session`, `sso_start_url`, `sso_region`, `sso_account_id`, `sso_role_name`) in `home/modules/aws.nix` on serenity, so `assume <profile>` and `assume -c` use SSO and open the console in a Granted container. Follow-up: run local OpenTofu through an SSO role and delete the `nix-configs-infra` access keys (no long-lived keys left; CI stays on OIDC, #6). Replaces the "configure SSO profiles" step of #12. |
-| 38 | Music collection quality (all sources) | Exploration, active — [`music-collection-quality`](explorations/music-collection-quality.md). One clean collection from serenity `~/Music`, external drives and Dropbox (`Musik`, `rekordbox`): rekordbox tracks point to existing files, no duplicates, one folder structure, Beatport purchases as rekordbox playlists per purchase date — "done" at ≈ 95 % per criterion. Read-only scripts on a `master.db` copy; moves only after the `dj` backup `baseline` (#10); storage-migration rules (ledger, no direct deletes). This is storage-migration's music pass; afterwards the `dj` backup group is narrowed to the collection. |
+| 38 | Music collection quality (all sources) | Exploration, active — [`music-collection-quality`](explorations/music-collection-quality.md). One clean collection from serenity `~/Music`, external drives and Dropbox (`Musik`, `rekordbox`): rekordbox tracks point to existing files, no duplicates, one folder structure, Beatport purchases as rekordbox playlists per purchase date — "done" at ≈ 95 % per criterion. Read-only scripts on rekordbox's XML export; moves only after the `dj` backup `baseline` (#10); storage-migration rules (ledger, no direct deletes). This is storage-migration's music pass. **serenity done (2026-11-17, I1):** `~/Music/Library/{Purchased,Friends,Collection}`, `Recordings`, `Productions`; 5,627 rekordbox entries, 1 missing (unwanted); date playlists per shop. Open: rest of the Data drive, Dropbox `Musik`, then narrow the `dj` backup group (*Backup tailoring*). |
 | 39 | Design doc review — `/review:doc` and zse `review-doc` | Done (jbl-taktile/claude-skills#11, #12, #177, #180) — a second command in `jbl-personal/review` (`review/commands/doc.md`, rules in `review/doc-rules.md`) reviews an ADR or PEP from a Notion URL or a PR with the doc as `.md`. Rules come from (1) six exemplary docs that Claudius picks (three ADRs, three PEPs; ranked by quality and by how often humans reference them as good examples), (2) the common traits I analyse, and (3) an interview with the user, merged with the base checks (problem, alternatives, decision, consequences, risks, rollout, open questions). Findings come in order of severity / priority; for each one the command interviews the user and asks them to write the comment prose, with a generated, editable text as the alternative, or skip. Nothing is posted without the user's OK: Notion comments or suggested edits (never direct edits on other people's pages), GitHub review comments for `.md` docs. nix-configs: zse use case `review-doc` (`zse -l review-doc <URL>` → session `review-doc-<slug>`, first prompt `/review:doc <URL>`, claude + shell, no tig, no CI pane); no plugin change, `review` is already enabled (row 28). See `docs/usage/zellij.md`. |
 | 40 | Clear-writing skill for prose (deslop) | In progress — `deslop` (taktile-org/metadev#745 by James Broadhead, based on zonderlabs.com/slop; preferred over cursor's `unslop`, whose em-dash / colon bans and manual-only invocation do not fit). **Interim:** a copy of #745 @ `aeba86e` in `~/.claude/skills/deslop` (personal skill, not managed by Nix); James is asked to move it to taktile-skills `tktl-eng`; an upstream-watch issue checks weekly. When it ships: change every `deslop` reference to `tktl-eng:deslop` and delete the copy. **Precedence:** genre rules first — `tktl-eng:tktl-eng-blog-voice` for blog posts, `/review:doc` doc-rules for design docs — then deslop for every sentence they do not cover. Resolved conflicts: blog kicker and dry asides (blog-voice rules 6, 10) stay; the house CTA is exempt; blog-voice rule 9 is the only banned-word list for blogs (the Vale `TaktileBlog` style in #156 follows it); contractions are fine in blogs, STE without them stays for chat / PR / commit prose; design docs keep method and alternatives. **References:** `design-docs` drafts, `linear-pm` tickets, `/review:doc` generated comment text and an optional clarity check (nit), global `CLAUDE.md` (Slack, Notion, PR prose); later the zse `blog` first prompt (#156) and the personal `blog-writer` skill (overlaps with blog-voice; keep, merge or retire). |
 
@@ -445,7 +445,7 @@ Reliable, simple backup of serenity user data to AWS S3 using **restic**.
 
 | Group | Paths | inhibitApps |
 |---|---|---|
-| `dj` | `~/Music` (all of it, ~500 GB on disk: `purchased`, `rekordbox_backup`, `Recordings`, `Fineschliff`, friends' music, …), `~/Library/Pioneer/rekordbox` (library: `master.db` + its own rotating backups, analysis data, playlists, ~3 GB), `~/Library/Application Support/Pioneer` (rekordbox and rekordboxAgent settings, ~430 MB), `~/Library/Preferences/com.pioneerdj.{rekordboxdj,FwDownloader}.plist` (listed one by one — no globs in `paths`), `~/Library/APU Harmonic DJ` (library DB + Mixes), `~/Library/Application Support/APU Harmonic DJ` (settings) | `rekordbox`, `djay Pro AI`, `APU Harmonic DJ` |
+| `dj` | `~/Music` (all of it; since the cleanup 2026-11-17: `Library` (rekordbox's music: `Purchased`, `Friends`, `Collection`), `Recordings`, `Productions`, plus the app folders `Music` (Apple Music) and `rekordbox`; before: ~500 GB with `purchased`, `rekordbox_backup`, friends' music, …), `~/Library/Pioneer/rekordbox` (library: `master.db` + its own rotating backups, analysis data, playlists, ~3 GB), `~/Library/Application Support/Pioneer` (rekordbox and rekordboxAgent settings, ~430 MB), `~/Library/Preferences/com.pioneerdj.{rekordboxdj,FwDownloader}.plist` (listed one by one — no globs in `paths`), `~/Library/APU Harmonic DJ` (library DB + Mixes), `~/Library/Application Support/APU Harmonic DJ` (settings) | `rekordbox`, `djay Pro AI`, `APU Harmonic DJ` |
 | `documents` | `~/Documents` (Bitwig projects, rekordbox exports), `~/Pictures` — `Photos Library.photoslibrary` excluded (iCloud Photos holds the originals) | — |
 
 **Why `dj` holds all of `~/Music`:** `master.db` points at the tracks by absolute path, so the library and the files only make sense together — one snapshot is one consistent state, and the rekordbox inhibit protects the files too. The whole folder (not only the track folders) is backed up until the cleanup (exploration [`music-collection-quality`](explorations/music-collection-quality.md)) settles the structure: files moved or renamed during the cleanup stay inside the group, and moves upload nothing new. The first `dj` snapshot is pinned with `just backup-baseline dj` and is never forgotten. Measured 2026-11-07: about 97 % of `rekordbox_backup` and almost all of `Music/2025` are byte-identical copies of `purchased` (sample of size matches, sha256), so they add little; the download zips (~16 GB in `purchased`) do not deduplicate. Expected unique data ~250–270 GB.
@@ -478,7 +478,7 @@ Serenity backs up manually (`just backup`) until scheduled runs can get their se
 **Open points:**
 - **rekordbox access:** trace a normal session (`sudo fs_usage -w -f filesys rekordbox rekordboxAgent`, plus `find ~ /Volumes -newer <marker>` for writes) and list which folders it reads and writes; check whether `rekordboxAgent` writes while rekordbox is closed (inhibit). Track folders of the collection from a **copy** of `master.db` (read-only, e.g. `pyrekordbox`) — the backup must cover every folder tracks live in.
 - **Exclusions:** caches/logs; whether rekordbox's own rotating copies (`master.backup*.db`, `*.backup*.edb`) are needed; `.git` is excluded today — unpushed local commits are not backed up.
-- **Narrow `~/Music`:** after the cleanup (exploration `music-collection-quality`), back up only the collection folders, recordings and productions; drop copies (`rekordbox_backup`, `2025`) and zips.
+- **Narrow `~/Music`:** after the cleanup (exploration `music-collection-quality`), back up only the collection folders, recordings and productions. Status 2026-11-17: the copies (`rekordbox_backup`, `2025`, `tmp`) and zips are gone from serenity, so `~/Music` already holds only `Library`, `Recordings`, `Productions` and the app folders `Music` (Apple Music: decide in or out) and `rekordbox` (`Recording`, `Sampler`). Narrow the path list after the Data drive step. The baseline `0f01c312` and the snapshots up to 2026-11-17 keep the trashed copies; restore of 1,386 files from `5ef00ec0` proved file-level restores into moved paths (via the storage-migration ledger).
 - **Harmonic DJ:** done — paths and `inhibitApps` from `docs/harmonic-dj.md` → *Backup handoff* are in the `dj` group; the AUv3 inside a DAW is not covered by `inhibitApps`.
 - **Storage class / cost:** `dj` is large and only grows — check restic's `-o s3.storage-class=STANDARD_IA` (data packs only; minimum storage duration and retrieval cost) against S3 Standard (~$6/month for ~260 GB).
 
@@ -810,11 +810,15 @@ The current workflow, with the new Harmonic DJ steps in **bold**:
    4. Export the Mix as M3U and import it into rekordbox (**File → Import → Import
       Playlist**). rekordbox creates `<name> (1)`; delete or rename the old playlist.
       Check the track count: tracks with `#` in the path are dropped (known issue).
+      **Planned (decision 2026-11-17):** convert the M3U into a rekordbox XML playlist
+      (script in `scripts/dj`, TRACK elements copied verbatim from a fresh collection
+      export), import it (Preferences → Advanced → rekordbox xml) and drag it onto the
+      old playlist (rekordbox asks to replace it) — keeps `#` tracks, no `(1)`.
 
 Data flow:
 - **rekordbox → Harmonic DJ:** M3U playlist export, used as the base list.
-- **Harmonic DJ → rekordbox:** M3U export of a planned Mix. Key, BPM and tags flow only
-  through the deferred T3 experiment.
+- **Harmonic DJ → rekordbox:** M3U export of a planned Mix (planned: via an XML playlist
+  import, step 6.4). Key, BPM and tags flow only through the deferred T3 experiment.
 - **Extra fields** (modes, in / out keys, intensity / loudness): used only in Harmonic DJ
   for now. Later, some of them can go into rekordbox, for example in a comment or tag
   field.
@@ -851,13 +855,14 @@ At the end of the evaluation:
       lists add their tracks, plus a defined suggestion pool (only if T6 shows HDJ adds
       and analyzes unknown tracks); (3) **whole collection** — only after the cleanup,
       not as a start.
-    - **Clean up first** (required). `~/Music` holds ≈6200 audio files; **2614 are in
-      `rekordbox_backup/rekordbox_bak`** and must never be analyzed (HDJ would suggest
-      backup copies). Main folders: `purchased/Beatport` (2481), `Fineschliff` (407),
-      `purchased/Main` (138), `purchased/Bandcamp` (62) — counts from 2026-10-18.
-    - **`#` paths:** HDJ handles them, but suggested tracks with `#` disappear on import
-      into rekordbox. Do the rename TODO before widening the scope, or check the track
-      count after each import.
+    - **Clean up first** — done on serenity (2026-11-17, `music-collection-quality`):
+      `rekordbox_backup` is gone; the collection is `~/Music/Library` —
+      `Purchased/Beatport` (2,486 audio files), `Purchased/Bandcamp` (157),
+      `Purchased/Various` (50), `Friends` (398), `Collection/iTunes` (2,542, old stock).
+      Own mixes live in `~/Music/Recordings` and are never analyzed as tracks.
+    - **`#` paths:** HDJ handles them, but suggested tracks with `#` disappear on an M3U
+      import into rekordbox. 54 are left (all in `Collection/iTunes`); the planned XML
+      playlist import (step 6.4) keeps them.
     - **Absolute paths:** HDJ and rekordbox key tracks by full path. Do not move files
       after analysis, or plan the re-link in both.
     - **Structure:** mirror the scope in HDJ groups (e.g. per year or genre), so a Mix's
@@ -894,9 +899,11 @@ These tasks need serenity, because the music library and rekordbox run there:
 6. Hand the backup paths and the inhibit process name to the #10 backup work. **Done** —
    both folders and `APU Harmonic DJ` are in the `dj` backup group. See
    [docs/harmonic-dj.md](harmonic-dj.md#backup-handoff).
-7. **Later:** rename the ~126 library files / folders with `#` in the path, then relocate
-   them in rekordbox (rekordbox's M3U import drops such tracks; XML import is ruled out).
-   See the known issue in [docs/harmonic-dj.md](harmonic-dj.md).
+7. ~~Rename the ~126 library files / folders with `#` in the path.~~ Mostly done by the
+   cleanup (`#` → `No.`, 54 left in `Collection/iTunes`); replaced by the XML playlist
+   import (decision 2026-11-17). Next: write the M3U → rekordbox XML converter in
+   `scripts/dj` and re-run T1 / T2 with it. See the known issue in
+   [docs/harmonic-dj.md](harmonic-dj.md).
 
 #### Open questions
 
@@ -921,9 +928,10 @@ These tasks need serenity, because the music library and rekordbox run there:
   - rekordbox stores only major or minor, so where does the mode go?
 - **M3U path matching.** Partly answered (T1, serenity): rekordbox matches HDJ's paths
   to existing entries, also NFC vs NFD names. **Known issue:** tracks with `#` in the
-  path are dropped silently (~2 % of the library). This is a rekordbox 7.2.14 import
-  limitation: it also drops them from its own `.m3u8` export, and no M3U spelling
-  works. See [docs/harmonic-dj.md](harmonic-dj.md). Moved files: not tested.
+  path are dropped silently (~2 % of the library then, 54 files now). This is a
+  rekordbox 7.2.14 import limitation: it also drops them from its own `.m3u8` export,
+  and no M3U spelling works; rekordbox's XML playlist import keeps them (workaround,
+  decision 2026-11-17). See [docs/harmonic-dj.md](harmonic-dj.md). Moved files: not tested.
 - **License.** Where is it stored, and is it bound to the machine?
 - **AUv3 registration.** The app is symlinked from the nix store into
   `~/Applications/Home Manager Apps/`, so macOS registers the embedded AUv3 from a store

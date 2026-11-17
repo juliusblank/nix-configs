@@ -419,7 +419,7 @@ Laaar – Dream for Dreaming (F), Organic Mood – UFO (A). Record which tool wa
 **Sample size:** 27 tracks ≈ 4 percentage points per track — enough for clear
 differences, not for close ones. A second folder (e.g. `20260815`) can be added later.
 
-### Known issue: rekordbox M3U import drops tracks with `#` in the path (open)
+### Known issue: rekordbox M3U import drops tracks with `#` in the path (workaround: XML playlist import)
 
 - **Symptom:** a track whose path contains `#` is missing after importing an M3U into
   rekordbox 7.2.14. No error, no log entry. Affects ~2 % of the library (126 files).
@@ -438,8 +438,18 @@ differences, not for close ones. A second folder (e.g. `20260815`) can be added 
 
   Together with T1c (plain, `file://` URL, `%23`): **no M3U spelling works.**
 - **rekordbox XML import: ruled out** (decision 2026-10-17) — risk of overwriting
-  existing track data in the collection.
-- **TODO (later): rename the files.** Remove `#` from the 126 affected paths (107 file
+  existing track data in the collection. **Revised 2026-11-17 for playlists:** the
+  storage-migration cleanup ran about a dozen XML playlist imports; rekordbox reused the
+  existing entries without changing any attribute, kept 36 tracks with `#` in the path,
+  and offered to replace a same-named playlist when the imported one is moved onto it.
+  New route for HDJ → rekordbox: HDJ's M3U export plus a fresh collection XML export →
+  a playlist XML whose TRACK elements are copied verbatim from that export (converter in
+  `scripts/dj`, to be written; it aborts on a path that is not in the collection) →
+  rekordbox imports it (Preferences → Advanced → rekordbox xml) → drag the playlist
+  onto the old one. See `dj-prep-workflow`, decision 2026-11-17.
+- **Rename the files: mostly done, rest not needed.** The cleanup renamed the purchases
+  (`#` → `No.`); 54 paths with `#` are left, all in `Collection/iTunes` (old stock).
+  The XML route makes further renames unnecessary. Original plan: remove `#` from the 126 affected paths (107 file
   names, mostly Beatport keys such as `F#_Minor` → `Gb_Minor`; 46 folders), then
   relocate the tracks in rekordbox so cue points and analysis stay attached. Plan it as
   its own step (dry-run list first, rekordbox library backup, then rename + relocate);
@@ -459,9 +469,9 @@ differences, not for close ones. A second folder (e.g. `20260815`) can be added 
   report found is an old Pioneer DJ forum thread about special characters (`é`, `°`, `'`)
   in M3U imports (forum closed, page returns 403). Nothing about `#`. Whether a newer
   version fixes it is unknown; re-test after the next rekordbox update.
-- **Until fixed:** after importing an HDJ M3U, compare the track count with the HDJ Mix
-  and add missing `#` tracks by hand. Reporting it to AlphaTheta (rekordbox support) is
-  an option.
+- **Until the converter exists:** after importing an HDJ M3U, compare the track count
+  with the HDJ Mix and add missing `#` tracks by hand. Reporting it to AlphaTheta
+  (rekordbox support) is an option.
 
 ## Claims from the task brief
 
@@ -482,7 +492,8 @@ differences, not for close ones. A second folder (e.g. `20260815`) can be added 
   manual install documented in the spec.
 - The license must be activated once by hand on each machine.
 - Rekordbox exchange is limited to M3U (paths only). Keys and BPM do not flow into
-  rekordbox.
+  rekordbox. On the rekordbox side, an M3U can be turned into an XML playlist import
+  (see the known issue) to keep `#` paths and replace existing playlists.
 - There is no CLI. But the database is plain SQLite with readable key, BPM and in/out
   columns, so read-only MCP / SQLite access is possible. Its schema is undocumented and
   can change between versions.
