@@ -4,9 +4,10 @@
 |---|---|
 | **Slug** | `music-collection-quality` |
 | **Status** | active |
-| **Started / last update** | 2026-11-08 / 2026-11-08 |
+| **Started / last update** | 2026-11-08 / 2026-11-17 |
 | **Budget** | a few evenings (start with 4, then end-of-budget review); €0 — a paid tool only after a decision |
 | **Roadmap** | #38 |
+| **Task state** | storage-migration `docs/progress.md` (the only task list: tasks 9a, 10a, 15); this file holds goal and decisions |
 
 ## Brief
 
@@ -20,7 +21,9 @@
 - **Non-goals / scope** — all music sources are in scope: serenity `~/Music`, external
   drives (3 TB drive, USB drives, the old music drive) and Dropbox (`Musik`,
   `rekordbox`). Not in scope: key / BPM analysis and Harmonic DJ's analysis scope
-  (`dj-prep-workflow`), re-buying tracks, a new tagging scheme.
+  (`dj-prep-workflow`), re-buying tracks, a new tagging scheme, consolidating the
+  playlist tree (similar lists, naming, folders: [`rekordbox-tagging`](rekordbox-tagging.md);
+  this pass only builds the date playlists and keeps existing lists intact).
 - **Context** — scan of serenity, 2026-11-07 (sizes on disk):
   - `~/Music` ≈ 500 GB: `purchased` 220 GB (2665 aiff, plus 11 download zips, 16 GB),
     `rekordbox_backup` 200 GB, `Recordings` 55 GB, `Fineschliff` 18 GB (rekordbox
@@ -103,20 +106,66 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 
 | Approach | L | V | T | R | C | F | Status |
 |---|---|---|---|---|---|---|---|
-| Read a copy of `master.db` (`pyrekordbox`): tracks, paths, missing files, folders, path-duplicates | 3 | 3 | 3 | 3 | 3 | 3 | open |
-| Inventory every source with the storage-migration scanner (sha256) → duplicate sets across sources | 3 | 3 | 2 | 3 | 3 | 3 | open |
-| Purchase dates from folder names and `beatport_tracks_YYYY-MM` zips → playlists per date | 3 | 3 | 3 | 3 | 3 | 3 | open |
-| rekordbox built-ins: Missing File Manager, Duplicated File Manager (on a test track first) | 2 | 2 | 3 | 2 | 3 | 3 | open |
-| Beatport library page: own purchase list (manual copy / export of `beatport.com/library`), match by file name, tags, Beatport ID | 2 | 3 | 2 | 3 | 3 | 2 | open |
-| Audio fingerprint (chromaprint `fpcalc`) for the same track in different files / formats | 2 | 2 | 1 | 3 | 3 | 2 | open |
-| Lexicon trial (duplicates, lost / broken tracks) | 2 | 2 | 2 | 2 | 1 | 2 | open |
-| Open-source fixers (rekordbox-library-fixer, rekordbox-repair) | 1 | 2 | 2 | 1 | 3 | 1 | open |
+| Read a copy of `master.db` (`pyrekordbox`): tracks, paths, missing files, folders, path-duplicates | 3 | 3 | 3 | 3 | 3 | 3 | replaced — rekordbox XML export (File → Export Collection) holds all of it and needs no decryption |
+| Inventory every source with the storage-migration scanner (sha256) → duplicate sets across sources | 3 | 3 | 2 | 3 | 3 | 3 | done (I1) |
+| Purchase dates from folder names and `beatport_tracks_YYYY-MM` zips → playlists per date | 3 | 3 | 3 | 3 | 3 | 3 | done (I1) — dates from the Beatport library export instead |
+| rekordbox built-ins: Missing File Manager, Duplicated File Manager (on a test track first) | 2 | 2 | 3 | 2 | 3 | 3 | Missing File Manager + Auto Relocate used (I1); Duplicated File Manager not needed |
+| Beatport library page: own purchase list (manual copy / export of `beatport.com/library`), match by file name, tags, Beatport ID | 2 | 3 | 2 | 3 | 3 | 2 | done (I1) |
+| Audio fingerprint (chromaprint `fpcalc`) for the same track in different files / formats | 2 | 2 | 1 | 3 | 3 | 2 | replaced — hash of the decoded audio (`audio_hash`, `pcm_hash` across WAV / AIFF) |
+| Lexicon trial (duplicates, lost / broken tracks) | 2 | 2 | 2 | 2 | 1 | 2 | dropped — not needed |
+| Open-source fixers (rekordbox-library-fixer, rekordbox-repair) | 1 | 2 | 2 | 1 | 3 | 1 | dropped — not needed |
+| Rest of the Data drive (unused iTunes ~120 GB, friends, recordings), then clear it | 2 | 3 | 2 | 3 | 3 | 3 | open (storage-migration step 9) |
+| Dropbox `Musik` / `rekordbox` (106 + 9.5 GB) against the collection | 2 | 2 | 2 | 3 | 3 | 3 | open |
+| Narrow the `dj` backup group to `Library`, `Recordings`, `Productions` (*SPEC → Backup tailoring*) | 1 | 3 | 3 | 3 | 3 | 3 | open — possible now |
 
 ## Iterations
 
-None yet. Proposed I1: *What is in the rekordbox collection, and where do its files
-live?* (track count, missing files, duplicates, folder distribution) — `master.db` copy
-plus the serenity inventory.
+### I1 — Clean up serenity `~/Music` and the rekordbox collection (2026-11-09 → 17)
+
+Run in the storage-migration repo (state and history: `docs/progress.md`; structure:
+`docs/structure.md`; every action in `ledger/ledger.csv`). Not run with the iteration
+format (one question, budget); recorded here after the fact.
+
+- **Results** —
+  - Inventory of serenity and the Data drive (sha256); rekordbox read only from its XML
+    export, changed only by rekordbox itself (XML playlist import, Auto Relocate, Missing
+    File Manager).
+  - Missing files 164 → 1 (the unwanted `Hochzeitsplaylist`); 606 drive ↔ serenity
+    double entries merged; 841 tag-only duplicates (same audio) merged; no entry points to
+    the Data drive any more.
+  - New structure `~/Music/Library/Purchased/<Source>/<YYYY>/<YYYYMMDD>`,
+    `Library/Friends/<Name>/<YYYYMMDD>`, `Library/Collection`, `~/Music/Recordings`,
+    `~/Music/Productions`; file names
+    `<Artists> - <Title> (<Mix>) [<shop id>]` (`#` → `No.`).
+  - Purchases: 2,512 Beatport files by purchase date (Beatport library export; the
+    Beatport Pro 2015 export for old ones), Bandcamp / Various / Juno / iTunes; rekordbox
+    playlists `<shop>/<YYYY>/<YYYYMMDD>`.
+  - Friends' music flat per delivery date; temp copies, `rekordbox_backup` (200 GB),
+    duplicates and zips in the Trash (kept in the `dj` backup).
+  - Own mixes (16) moved out of the library into `Recordings/DJ-Sets/`; old set-list
+    exports (June 2023) rebuilt as rekordbox playlists `Setlists 2023 (restored)`.
+  - Collection 2026-11-17: 5,627 entries.
+- **Conclusions** —
+  - The XML playlist import is safe for playlists: it reuses existing entries and
+    changes none of their attributes (checked after every import with
+    `tools/rb_compare.py`), also for paths with `#` (36 such tracks went through).
+    Moving an imported folder onto a same-named one asks to replace it.
+  - Auto Relocate finds renamed files (cues, grid, attributes kept), except a file whose
+    content changed since rekordbox last saw it (relocate by hand).
+  - rekordbox writes into music files: "Add My Tag to the Comments" (Preferences →
+    Advanced → Browse) rewrote 4,830 files on 2026-11-16 (restored byte-identical from
+    restic `dj`, 1,386 files that still differed); Analyze Track / Reload Tag on new
+    tracks wrote the key into 30 files. Mixed In Key writes too (`track-prep`, 2026-11-12).
+  - The restic `dj` backup restored 1,386 files byte-identical into their current
+    (moved) paths — a real restore test at file level.
+  - Many gig playlists had lost tracks between 2023-06 and 2026-11 (before this cleanup;
+    e.g. Rummelsbucht 27 → 15), found through the June 2023 set-list exports.
+- **Consequences applied** — open questions answered (below); backlog statuses;
+  `rekordbox-tagging` (file writes, set-list evidence, playlist consolidation),
+  `track-prep` (file-write rule), `dj-prep-workflow` and *SPEC → Harmonic DJ* (XML
+  playlist import, `#` paths, analysis scope figures), *SPEC → Backup* (paths).
+- **Goal check** — rekordbox and Beatport criteria met; open: Data drive, Dropbox,
+  backup narrowing. Continue.
 
 ## Decisions
 
@@ -126,22 +175,37 @@ plus the serenity inventory.
 - 2026-11-08 — Beatport purchases become rekordbox playlists per purchase date.
 - 2026-11-08 — before the cleanup, all of `~/Music` is backed up and pinned as
   `baseline` (*SPEC → Backup*), so nothing the cleanup moves can be lost.
+- 2026-11-09 — the collection lives locally in `~/Music/Library` (rekordbox needs local
+  files), backed up by restic `dj`; structure in storage-migration `docs/structure.md`.
+- 2026-11-15 — file names `<Artists> - <Title> (<Mix>) [<shop id>].<ext>`, names from
+  the shop's data; `#` → `No.`, no characters that break FAT32 / exFAT sticks.
+- 2026-11-15 — playlist changes through rekordbox's XML import (playlists only, TRACK
+  elements copied verbatim from a fresh export); never `master.db` writes.
+- 2026-11-16 — two copies of a track bought twice stay; other versions (edit / remix)
+  are different tracks.
+- 2026-11-17 — own mixes and recordings are not part of the library (`~/Music/Recordings`);
+  own productions in `~/Music/Productions` (workflows for both: later, storage-migration).
+- 2026-11-17 — no file writes into the library while the migration runs (moves and
+  duplicates are verified by sha256); afterwards tools may write into files deliberately
+  (`track-prep`).
 
 ## Open questions
 
-- [ ] Where does the collection live afterwards — local on serenity (+ S3 backup), or
-      also Dropbox (storage-migration's `40_Musik-DJ/Library`)? Which folder structure?
-- [ ] What counts as a duplicate: identical bytes, the same track in another format
-      (mp3 / aiff), another version (edit / remix)?
-- [ ] Does `rekordbox_backup` hold tracks that exist nowhere else (≈ 150 files —
-      63 aiff, 48 wav, 26 mp3, … — without a size match in `purchased`)?
-- [ ] Can the Beatport purchase history be exported, and does it carry the purchase
-      date per track?
-- [ ] Playlist import path: M3U drops `#` paths — rename those files first (TODO in
-      `docs/harmonic-dj.md`), or another route?
-- [ ] What does rekordbox's Duplicated File Manager keep (cues, playlists, play count)?
-- [ ] Which external drives exist, and what do they hold (`ext3tb`, `usb01`,
-      `musicdrive` in storage-migration's `locations.yaml`)?
+- [x] Where does the collection live afterwards? — local `~/Music/Library` (decision
+      2026-11-09).
+- [x] What counts as a duplicate? — identical bytes, or the same decoded audio with other
+      tags or another lossless container (WAV / AIFF); other versions are other tracks.
+- [x] Does `rekordbox_backup` hold tracks that exist nowhere else? — a few (sorted into
+      `Library` in round 9); the rest was copies (trashed).
+- [x] Can the Beatport purchase history be exported, with the date? — yes, the Beatport
+      library export has the purchase date per track.
+- [x] Playlist import path for `#` paths? — XML import (handles `#`); `#` is no longer
+      written in new file names.
+- [x] What does rekordbox's Duplicated File Manager keep? — not tested; merging via XML
+      import was enough.
+- [ ] Which external drives exist, and what do they hold? — the Data drive (data1tb)
+      is the only one used so far; its rest is step 9.
+- [ ] Dropbox `Musik`: what is there that the collection lacks?
 
 ## Summary (when closed)
 

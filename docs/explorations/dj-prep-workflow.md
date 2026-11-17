@@ -4,7 +4,7 @@
 |---|---|
 | **Slug** | `dj-prep-workflow` |
 | **Status** | active |
-| **Started / last update** | 2026-10-17 / 2026-11-07 |
+| **Started / last update** | 2026-10-17 / 2026-11-17 |
 | **Budget** | not set for I1–I3 (they predate the process); set one per iteration from I4 on. Money: Harmonic DJ Pro ($40 one-time) only at the decision gate |
 | **Roadmap** | #32 (Harmonic DJ evaluation); related #10 (backup), #15 (DJ toolchain), #16 (MCP) |
 
@@ -19,13 +19,14 @@ DJ* (workflow, tests T1–T6, decision gate incl. analysis scope). Scripts: `scr
 - **Goal** — for a set I have pre-selected, get a good running order (key, BPM, energy)
   with little effort, and have it in rekordbox ready to play.
 - **Non-goals / scope** — replacing rekordbox as the library or the key / BPM analyzer;
-  writing into rekordbox's database or importing rekordbox XML; writing tags.
+  writing into rekordbox's database; changing track data through an XML import (playlists
+  only, see decision 2026-11-17); writing tags.
 - **Context** — dig on Spotify → buy on Beatport → library folder per purchase date →
   rekordbox 7.2.14 (analysis, cue points; key display: Alphanumeric) → sets ordered by
   hand with Camelot.
-- **Constraints / risk tolerance** — no writes into rekordbox's data (playlist import
-  via M3U only); local over cloud; one-time payment over subscriptions; work on copies
-  when touching audio files; Harmonic DJ data only read via copies.
+- **Constraints / risk tolerance** — no writes into rekordbox's data except playlists
+  (M3U, or XML with TRACK elements copied verbatim from a fresh export); local over
+  cloud; one-time payment over subscriptions; work on copies when touching audio files; Harmonic DJ data only read via copies.
 - **Prior knowledge / research** — `docs/harmonic-dj.md`.
 - **References** — Harmonic DJ <https://apu.software/hdj/>; rekordbox 7.2.16 manual
   (pp. 40, 255); tool sources under I3.
@@ -63,6 +64,7 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 
 | Approach | L | V | T | R | C | F | Status |
 |---|---|---|---|---|---|---|---|
+| M3U → rekordbox XML playlist (`scripts/dj`): HDJ's M3U + a fresh collection XML export → playlist XML with verbatim TRACK elements; abort on paths not in the collection; re-run T1 / T2 with it (`#` tracks, replace an existing playlist) | 3 | 3 | 3 | 3 | 3 | 3 | open (next) |
 | T5a — real set in Harmonic DJ, base list only (Pro trial for > 5 tracks) | 3 | 3 | 2 | 3 | 2 | 3 | open (next) |
 | T6 — base list with a track HDJ has not analyzed | 3 | 2 | 3 | 3 | 3 | 3 | open (next) |
 | T5b — HDJ adds tracks from a larger analyzed pool | 2 | 3 | 1 | 3 | 2 | 2 | open (needs scope + cleanup) |
@@ -71,13 +73,13 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 | Online analyzer check (TuneBad / Song Finder) against the T4 references | 2 | 1 | 3 | 2 | 3 | 2 | open (pre-buy check) |
 | rekordbox Spotify integration: does it show keys for Spotify tracks? | 2 | 1 | 3 | 3 | 3 | 2 | open (1-minute check) |
 | Beatport previews analyzed in HDJ before buying | 1 | 2 | 1 | 3 | 3 | 2 | open (larger topic, #15) |
-| Re-test the `#` import after the next rekordbox update (`t1c-1-plain.m3u`) | 2 | 1 | 3 | 3 | 3 | 3 | open (on update) |
+| Re-test the `#` import after the next rekordbox update (`t1c-1-plain.m3u`) | 2 | 1 | 3 | 3 | 3 | 3 | optional (XML route avoids it) |
 | T4 listening on 4–5 major / minor cases | 1 | 1 | 2 | 3 | 3 | 3 | optional |
 | Generator tuning (BPM range, key strictness) | 2 | 2 | 3 | 3 | 3 | 3 | open (part of T5) |
-| Rename the 126 paths with `#` + relocate in rekordbox and HDJ | 1 | 2 | 1 | 1 | 3 | 2 | later (own step) |
+| Rename the 126 paths with `#` + relocate in rekordbox and HDJ | 1 | 2 | 1 | 1 | 3 | 2 | mostly done by the cleanup (`#` → `No.`; 54 left in `Collection/iTunes`); the rest not needed with the XML route |
 | SetFlow / Mixgraph | 1 | 1 | 3 | 1 | 2 | 1 | dropped for now (cloud, subscription, rekordbox keys) |
 | T3 — write HDJ data into tags | — | — | — | — | — | — | deferred (not needed for planning) |
-| rekordbox XML import / direct `master.db` writes (Mixo-style) | — | — | — | — | — | — | dropped (risk to existing track data) |
+| Direct `master.db` writes (Mixo-style) | — | — | — | — | — | — | dropped (risk to existing track data) |
 
 ## Iterations
 
@@ -221,6 +223,16 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
   tag writing.
 - 2026-10-18 — Analysis scope is decided after T6; `rekordbox_backup/` is never
   analyzed.
+- 2026-11-17 — **XML playlist import replaces M3U for HDJ → rekordbox** (revises the
+  2026-10-17 decision for playlists; direct DB writes stay ruled out). Evidence:
+  storage-migration ran about a dozen XML imports (2026-11-14 → 17) — existing entries were reused
+  and none of their attributes changed (checked with `rb_compare.py` each time), 36
+  tracks with `#` in the path went through, and moving an imported playlist onto a
+  same-named one asks to replace it. That removes both M3U limitations (`#` dropped,
+  `<name> (1)`). Guard: the XML carries TRACK elements copied **verbatim** from a fresh
+  collection export (so nothing differs that could overwrite track data), and the
+  converter aborts on a path that is not in the collection (no new entries). Open: is
+  the M3U8 export rekordbox → HDJ still fine (HDJ reads `#` paths — yes, I2)?
 
 ## Open questions
 
@@ -230,7 +242,11 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 - [ ] Where is the Pro license stored? (snapshot files before starting the trial)
 - [ ] Which generator settings (BPM range, key strictness) give useful orders?
 - [ ] Analysis scope: curated subset, grow on demand, or whole collection? Analysis
-      time per track (measure on the first larger batch).
+      time per track (measure on the first larger batch). After the cleanup (2026-11-17)
+      `rekordbox_backup` is gone; audio files in `~/Music/Library`: `Purchased/Beatport`
+      2,486, `Purchased/Bandcamp` 157, `Purchased/Various` 50, `Friends` 398,
+      `Collection/iTunes` 2,542 (old stock), plus own mixes outside the library
+      (`~/Music/Recordings`, never analyze as tracks).
 - [ ] Does #126 (backup) include the two HDJ folders, `inhibitApps "APU Harmonic DJ"`
       and an exclusion for `rekordbox_backup/`? — HDJ folders and inhibit: yes (`dj`
       backup group). `rekordbox_backup/` is backed up for now (all of `~/Music` until

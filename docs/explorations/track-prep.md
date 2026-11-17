@@ -4,7 +4,7 @@
 |---|---|
 | **Slug** | `track-prep` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-14 |
+| **Started / last update** | 2026-11-14 / 2026-11-17 |
 | **Budget** | 3 evenings, then end-of-budget review; €0 (Mixed In Key 11 licence and rekordbox Creative exist) |
 | **Roadmap** | — |
 
@@ -29,7 +29,13 @@
   analysis (GEOB frames) into analysed files (verified 2026-11-12, track restored from
   restic), so it may only run on copies until the migration is done.
 - **Constraints / risk tolerance** — rekordbox changed only through rekordbox (UI, XML
-  import); music files in `~/Music/Library` must not change (sha256); tests on copies.
+  import). While the storage migration runs, music files in `~/Music/Library` must not
+  change (it verifies moves and duplicates by sha256), so tests run on copies. After the
+  migration, tools may write into library files **deliberately** (e.g. Mixed In Key's
+  analysis after a track's import); restic backs up the changed files incrementally.
+  What stays ruled out: writes nobody asked for, and bulk rewrites of the whole library
+  (e.g. rekordbox's "Add My Tag to the Comments", 4,830 files on 2026-11-16) — switch a
+  file-writing option on only knowing which files it touches, and test it on a copy first.
 - **Prior knowledge / research**
   - Mixed In Key → rekordbox (vendor docs, not verified): XML round trip — export the
     rekordbox collection as XML, connect it in Mixed In Key, analyse, then in rekordbox
@@ -40,8 +46,11 @@
     arrive as hot or memory cues is not documented.
   - Third-party tools write rekordbox's database directly (e.g. CueGen) — out of scope
     (no writes to `master.db`).
-  - rekordbox XML import reuses existing entries for playlists (proven 2026-11-14,
-    storage-migration); whether it updates cues of existing entries is unknown.
+  - rekordbox XML import reuses existing entries for playlists and changes none of their
+    attributes (proven 2026-11-14 → 17, storage-migration, about a dozen imports). Those imports
+    carried the entries' own data, so whether an import with **different** cues updates
+    an existing entry is still unknown. New tracks arrive unanalysed (Analyze Track by
+    hand), and rekordbox's analysis / Reload Tag can write the key into the file.
 - **References** — rekordbox 7.2.18 manual: beat grid editing, INTELLIGENT CUE CREATION
   (p. 43, for the later review), XML import.
 
@@ -112,6 +121,7 @@ close is it to my standard?" (test plan above).
 
 - 2026-11-14 — Not rekordbox's Intelligent Cue Creation for now (did not work well last time); reviewing it again is a later, separate exploration.
 - 2026-11-14 — Mixed In Key only on copies until the music migration is done (it writes into files).
+- 2026-11-17 — After the migration, deliberate file writes are fine (the backup follows the files, it does not constrain the workflow); unasked and library-wide writes stay ruled out. Applies to Mixed In Key and rekordbox's tag / analysis writes alike.
 
 ## Open questions
 

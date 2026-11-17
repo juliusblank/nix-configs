@@ -4,7 +4,7 @@
 |---|---|
 | **Slug** | `rekordbox-tagging` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-15 |
+| **Started / last update** | 2026-11-14 / 2026-11-17 |
 | **Budget** | 4 evenings, then end-of-budget review; €0 (rekordbox Creative plan, upgrade only if really necessary) |
 | **Roadmap** | — |
 
@@ -20,13 +20,17 @@
   2. **At the decks** — a proven next track for the one playing; a fitting next track by
      energy and venue.
 - **Non-goals / scope** — adopting Tobi's scheme (compare only after v1); track prep (beat
-  grid, cues: `track-prep`); tags written into audio files; anything that changes the
-  music files (storage-migration tracks them by sha256).
-- **Context** — after the 2026-11-14 cleanup ([`music-collection-quality`](music-collection-quality.md),
-  storage-migration): rekordbox 7.2.x, ~6,440 entries, all on serenity; date playlists
-  `beatport/<YYYY>/<YYYYMMDD>`; `Past gigs/…`, `Setlists/…`, `Sessions/…`; intelligent
+  grid, cues: `track-prep`); tags written into audio files; changes to the music files
+  while the storage migration runs (it verifies them by sha256; afterwards see
+  `track-prep` → *Decisions*).
+- **Context** — after the cleanup ([`music-collection-quality`](music-collection-quality.md),
+  storage-migration, 2026-11-17): rekordbox 7.2.x, 5,627 entries, all on serenity under
+  `~/Music/Library`; date playlists `<shop>/<YYYY>/<YYYYMMDD>` (`beatport`, `bandcamp`,
+  `various`, `juno`, `itunes`), `Friends/<Name>/<YYYYMMDD>`; `Past gigs/…`,
+  `Setlists/…`, `Sessions/…`, `Setlists 2023 (restored)/…` (28 set lists from June 2023
+  exports, 2017–2023; many `Past gigs` lists had lost tracks since); intelligent
   playlists `By Key/…`, `Downtempo (80-105)`; housekeeping lists (`old storage`,
-  `new storage`, `beatport dups`, `beatport/_w/o playlist`, `_older`, `_like w/o playlist`).
+  `new storage`, `beatport dups`, `beatport/all main folder`, `beatport/_…`).
   Tobi (a friend) shared the handbook of his downtempo project (tag schema, set dramaturgy,
   craft notes); strongly tailored to downtempo, it covers only part of my styles. Analysis and
   collaboration live in the private repo `juliusblank/spannungsbogen` (created via
@@ -35,6 +39,10 @@
   changed only by rekordbox itself (UI, XML import), never by writing `master.db`;
   reading a `master.db` copy is fine. Mixed In Key writes analysis into files (see
   `hosts/serenity/configuration.nix`), so it is not a tagging tool here.
+  **"Add My Tag to the Comments"** (Preferences → Advanced → Browse) stays **off**: it
+  rewrites every file with My Tags on each change — on 2026-11-16 it rewrote 4,830
+  library files in one go (restored from restic). So My Tags stay in the library only,
+  and Comments cannot carry them for intelligent playlists.
 - **Prior knowledge / research** — rekordbox 7.2.18 manual (verified 2026-11-14,
   [PDF](https://cdn.rekordbox.com/files/20260807093645/rekordbox7.2.18_manual_EN.pdf)):
   - **My Tag** (p. 30): own tags in categories, several per track, track filter with
@@ -74,7 +82,8 @@
     highest; played-after-each-other pairs from gigs/setlists next);
   - 3–5 smart playlists built and used;
   - target playlist structure decided and migrated (housekeeping lists gone, automated
-    prep playlists defined);
+    prep playlists defined); playlists consolidated: similar / overlapping lists merged,
+    one naming scheme, a clear folder tree;
   - comparison with Tobi's scheme done, with a decision what to adopt.
 
 ## Approach backlog
@@ -85,10 +94,11 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 | Approach | L | V | T | R | C | F | Status |
 |---|---|---|---|---|---|---|---|
 | Draft tag categories from the two use cases (set position, vibe, energy, venue, …), test on 20 tracks | 3 | 3 | 3 | 3 | 3 | 3 | open |
-| Mine "played after each other" pairs from `Past gigs` / `[as played]` playlists → candidates for Matching | 3 | 3 | 3 | 3 | 3 | 3 | open |
+| Mine "played after each other" pairs from `Past gigs` / `[as played]` playlists and `Setlists 2023 (restored)` (fuller than today's `Past gigs`) → candidates for Matching | 3 | 3 | 3 | 3 | 3 | 3 | open |
 | Read Matching pairs from a `master.db` copy (how many exist, which tracks) | 2 | 2 | 2 | 3 | 3 | 2 | open |
 | Verify intelligent-playlist fields (My Tag? Comments? color? rating?) in rekordbox | 3 | 2 | 3 | 3 | 3 | 3 | open |
 | Target playlist structure (`Purchased` · `Friends` · `Recordings` · `Sets` · `Prep` · `Smart`), migrate via XML import | 2 | 3 | 2 | 3 | 3 | 3 | open |
+| Playlist consolidation: (a) find similar / overlapping lists by track overlap (e.g. `Setlists 2023 (restored)` vs `Past gigs` / `Setlists` / `Sessions`, `old storage` / `new storage`); (b) one naming scheme (e.g. `YYYYMMDD - <event>`); (c) a clear folder tree — script on the XML export proposes, XML import applies | 3 | 3 | 3 | 3 | 3 | 3 | open |
 | Automated prep playlists generated as XML (e.g. "proven after X", "new and untagged") | 2 | 3 | 2 | 3 | 3 | 2 | open |
 | Analyse Tobi's handbook (research agent): summary, comparison, interview, collaboration repo | 3 | 2 | 3 | 3 | 3 | 3 | done (2026-11-14) |
 | Shared private repo with Tobi (taxonomy core + genre extensions + dramaturgy) | 2 | 2 | 1 | 3 | 3 | 2 | done — `spannungsbogen` (2026-11-15) |
@@ -108,6 +118,8 @@ feeds I1.
 - 2026-11-15 — Repo `juliusblank/spannungsbogen` (private, via OpenTofu in `juliusblank/infra`): the shared parts only (taxonomy, genres, dramaturgy, craft, prompts); my tools stay in `scripts/dj`.
 - 2026-11-15 — Energy: no star rating; candidate is a My Tag category with ~5 levels, calibrated against reference tracks (as Tobi does with his 1–10 scale).
 - 2026-11-15 — Start my own genre families with a mapping from the raw genres; cover the tracks without genre.
+- 2026-11-17 — "Add My Tag to the Comments" stays off (it rewrote 4,830 library files on 2026-11-16); the planned My Tag → Comments test is settled.
+- 2026-11-17 — Playlist consolidation (similar lists, naming scheme, folder tree) belongs to this exploration's playlist structure goal.
 
 ## Open questions
 
@@ -118,6 +130,10 @@ feeds I1.
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
 - [ ] Which genre families (v1), and does rekordbox write a changed Genre into the file?
+      Likely yes: rekordbox already wrote the key into 30 files on Analyze Track / Reload
+      Tag (2026-11-16) — test on a copy before editing tag columns.
+- [ ] Which playlists overlap or duplicate each other, and which naming scheme / folder
+      tree do they get?
 
 ## Summary (when closed)
 
