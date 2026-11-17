@@ -7,6 +7,7 @@
 | **Started / last update** | 2026-11-08 / 2026-11-17 |
 | **Budget** | a few evenings (start with 4, then end-of-budget review); €0 — a paid tool only after a decision |
 | **Roadmap** | #38 |
+| **Task state** | storage-migration `docs/progress.md` (the only task list: tasks 9a, 10a, 15); this file holds goal and decisions |
 
 ## Brief
 
