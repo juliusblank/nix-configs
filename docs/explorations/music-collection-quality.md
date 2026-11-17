@@ -106,11 +106,11 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 
 | Approach | L | V | T | R | C | F | Status |
 |---|---|---|---|---|---|---|---|
-| Read a copy of `master.db` (`pyrekordbox`): tracks, paths, missing files, folders, path-duplicates | 3 | 3 | 3 | 3 | 3 | 3 | replaced — rekordbox XML export (File → Export Collection) holds all of it and needs no decryption |
-| Inventory every source with the storage-migration scanner (sha256) → duplicate sets across sources | 3 | 3 | 2 | 3 | 3 | 3 | done (I1) |
-| Purchase dates from folder names and `beatport_tracks_YYYY-MM` zips → playlists per date | 3 | 3 | 3 | 3 | 3 | 3 | done (I1) — dates from the Beatport library export instead |
-| rekordbox built-ins: Missing File Manager, Duplicated File Manager (on a test track first) | 2 | 2 | 3 | 2 | 3 | 3 | Missing File Manager + Auto Relocate used (I1); Duplicated File Manager not needed |
-| Beatport library page: own purchase list (manual copy / export of `beatport.com/library`), match by file name, tags, Beatport ID | 2 | 3 | 2 | 3 | 3 | 2 | done (I1) |
+| Read a copy of `master.db` (`pyrekordbox`): tracks, paths, missing files, folders, path-duplicates | 3 | 3 | 3 | 3 | 3 | 3 | done (I1, via the rekordbox XML export instead of `master.db`: no decryption) |
+| Inventory every source with the storage-migration scanner (sha256) → duplicate sets across sources | 3 | 3 | 2 | 3 | 3 | 3 | done (I2) |
+| Purchase dates from folder names and `beatport_tracks_YYYY-MM` zips → playlists per date | 3 | 3 | 3 | 3 | 3 | 3 | done (I2) — dates from the Beatport library export instead |
+| rekordbox built-ins: Missing File Manager, Duplicated File Manager (on a test track first) | 2 | 2 | 3 | 2 | 3 | 3 | Missing File Manager + Auto Relocate used (I2); Duplicated File Manager not needed |
+| Beatport library page: own purchase list (manual copy / export of `beatport.com/library`), match by file name, tags, Beatport ID | 2 | 3 | 2 | 3 | 3 | 2 | done (I2) |
 | Audio fingerprint (chromaprint `fpcalc`) for the same track in different files / formats | 2 | 2 | 1 | 3 | 3 | 2 | replaced — hash of the decoded audio (`audio_hash`, `pcm_hash` across WAV / AIFF) |
 | Lexicon trial (duplicates, lost / broken tracks) | 2 | 2 | 2 | 2 | 1 | 2 | dropped — not needed |
 | Open-source fixers (rekordbox-library-fixer, rekordbox-repair) | 1 | 2 | 2 | 1 | 3 | 1 | dropped — not needed |
@@ -120,11 +120,33 @@ R = risk / reversibility (3 = safe), C = cost (3 = cheap), F = fit.
 
 ## Iterations
 
-### I1 — Clean up serenity `~/Music` and the rekordbox collection (2026-11-09 → 17)
+### I1 — What is in the rekordbox collection, and where do its files live? (2026-11-09)
+
+- **Approach:** rekordbox XML export (*File → Export Collection in xml format*, rekordbox
+  7.2.19) instead of a `master.db` copy — official, no decryption. Matched against the
+  serenity inventory (storage-migration `inventory/serenity/home-2026-11-09.csv.gz`,
+  106,642 files, 607 GB, sha256) with storage-migration `tools/rekordbox_refs.py`.
+- **Results:** 7,079 tracks. On serenity: 2,711 (2,635 in `~/Music/purchased`). On the
+  external "Data" drive (`data1tb`): 4,055 (`juliusblank/Music/iTunes` 2,576,
+  `…/Beatport` 1,468). `/Volumes/storage/Musik`: 119. Broken: 74 under
+  `~/Music/purchased`, 43 under `/Users/juliusblank/Desktop` (old Mac). Streaming
+  (`v4/catalog`): 68. No file is used by two tracks.
+- **Duplicates on serenity** (identical sha256): 8,191 sets, 211 GB of extra copies — 2,346
+  sets with exactly one copy in rekordbox (180.6 GB, mostly `rekordbox_backup`), 5,845 sets
+  with none (30.5 GB), 1 set with two referenced copies. 3,568 audio files in `~/Music` are
+  not in rekordbox, incl. all 2,614 in `rekordbox_backup`.
+- **Consequences applied:** most of the collection lives on `data1tb`, so the drive is
+  inventoried before the target structure is applied; its music moves to serenity
+  (`Library/Collection/`) before the cleanup, the drive is cleared last. Dedup starts with
+  the 2,346 one-referenced-copy sets. Next: I2 — *Which data1tb tracks are already on
+  serenity, and is auto relocate by file name safe?*
+
+### I2 — Clean up serenity `~/Music` and the rekordbox collection (2026-11-09 → 17)
 
 Run in the storage-migration repo (state and history: `docs/progress.md`; structure:
-`docs/structure.md`; every action in `ledger/ledger.csv`). Not run with the iteration
-format (one question, budget); recorded here after the fact.
+`docs/structure.md`; every action in `ledger/ledger.csv`). Answers I1's follow-up (*which
+data1tb tracks are already on serenity, is auto relocate safe?*) and carries the cleanup
+through; not run with the iteration format (one question, budget), recorded after the fact.
 
 - **Results** —
   - Inventory of serenity and the Data drive (sha256); rekordbox read only from its XML
@@ -175,8 +197,22 @@ format (one question, budget); recorded here after the fact.
 - 2026-11-08 — Beatport purchases become rekordbox playlists per purchase date.
 - 2026-11-08 — before the cleanup, all of `~/Music` is backed up and pinned as
   `baseline` (*SPEC → Backup*), so nothing the cleanup moves can be lost.
-- 2026-11-09 — the collection lives locally in `~/Music/Library` (rekordbox needs local
-  files), backed up by restic `dj`; structure in storage-migration `docs/structure.md`.
+  Done 2026-11-09: `dj` baseline `0f01c312`, level 1 restore test passed.
+- 2026-11-09 — target structure (storage-migration `docs/structure.md`, confirmed for
+  `~/Music`): everything rekordbox uses under `~/Music/Library/` —
+  `Purchased/<Source>/<YYYY>/<YYYYMMDD>/` (no month level; `purchased/Main` → `Various`),
+  `Friends/<Name>/<YYYYMMDD>/` (rekordbox folder `Friends`, one playlist per name),
+  `Collection/` for old stock (moved as is, files move to their place once identified).
+  Recordings in `~/Music/Recordings/<Series>/<YYYYMMDD> <name>/` with
+  `raw/edit/master/assets/publish` and a `recording.yaml`.
+- 2026-11-09 — rekordbox rules: read via XML export (or a `master.db` copy); change only
+  through rekordbox (auto relocate, Duplicated File Manager); the referenced copy of a
+  duplicate wins; referenced files are never marked for deletion and move in batches with
+  a relocate and a fresh XML check.
+- 2026-11-09 — music on `data1tb` is copied to serenity first (only what serenity lacks),
+  backed up, relocated; the drive is cleared last, after verification.
+- 2026-11-09 — per-folder procedure for today's `~/Music` folders (`50 Jahre 50 Freunde`,
+  `2025`, `tmp`, friends' folders): storage-migration `docs/structure.md`.
 - 2026-11-15 — file names `<Artists> - <Title> (<Mix>) [<shop id>].<ext>`, names from
   the shop's data; `#` → `No.`, no characters that break FAT32 / exFAT sticks.
 - 2026-11-15 — playlist changes through rekordbox's XML import (playlists only, TRACK
@@ -191,8 +227,9 @@ format (one question, budget); recorded here after the fact.
 
 ## Open questions
 
-- [x] Where does the collection live afterwards? — local `~/Music/Library` (decision
-      2026-11-09).
+- [x] Where does the collection live afterwards, and in which folder structure? — local on
+      serenity in `~/Music/Library` (+ restic `dj` backup), not in Dropbox; structure in
+      storage-migration `docs/structure.md` (2026-11-09).
 - [x] What counts as a duplicate? — identical bytes, or the same decoded audio with other
       tags or another lossless container (WAV / AIFF); other versions are other tracks.
 - [x] Does `rekordbox_backup` hold tracks that exist nowhere else? — a few (sorted into
