@@ -4,9 +4,26 @@
 |---|---|
 | **Slug** | `rekordbox-tagging` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-16 |
+| **Started / last update** | 2026-11-14 / 2026-11-17 |
 | **Budget** | 4 evenings, then end-of-budget review; €0 (rekordbox Creative plan, upgrade only if really necessary) |
 | **Roadmap** | — |
+
+## State and next steps
+
+_Last update 2026-11-17._
+
+- **Done:** tag scheme v1 (interview 2026-11-15/16, table below); My Tag → Comments test
+  (writes into the files, stays off; the affected files were restored, see open questions).
+- **Next, in order:**
+  1. Rename test: does renaming a My Tag keep it on its tracks? Check for a leftover `zz-test`
+     tag in Components and remove it afterwards.
+  2. Old-stars archive script in `scripts/dj` (playlists `_archive/old stars/<n>★`), then the
+     archive steps below.
+  3. Remaining open questions: "no `vocals:*` tag" filter, XML import of ratings, intelligent
+     playlist fields.
+  4. Which ideas to adopt from Tobi's scheme.
+  5. Tag the first tracks (Setlists / Past gigs) together with track prep.
+- **Waiting on:** genre families draft (`spannungsbogen` PR #2).
 
 ## Brief
 
@@ -157,6 +174,7 @@ feeds I1.
 - 2026-11-16 — `Situation` becomes **Venue**: venue types plus `location:<name>` tags for specific places (where a track fits or was played). Vibe gets melancholic, weird and dirty (11 words).
 - 2026-11-16 — "Add My Tag to the Comments" stays off for good (it rewrites the files' comment tags); scripts read My Tags from a `master.db` copy instead.
 - 2026-11-16 — Stars stay energy (sorting and ranges at the decks beat a My Tag; alternative E1–E5 as My Tags in the Set position category rejected). Old ratings are archived as playlists and cleared first; bulk tagging via generated playlists + select all, no database writes.
+- 2026-11-17 — "Add My Tag to the Comments" stays off for good (it rewrites every tagged file at once). Editing other tag columns on library files: not during the library migration; afterwards deliberate writes are fine — backup specifics must not drive the workflow. Test any setting that touches tag fields on copies first, with hashes before / after.
 
 ## Open questions
 
@@ -167,7 +185,8 @@ feeds I1.
 - [ ] Which prep playlists can be generated automatically, and how often refreshed?
 - [ ] What to adopt from Tobi's handbook, what to extend for techno / house / psy?
 - [ ] Which genre families (v1)? — draft of 11 in `spannungsbogen` PR #2; derived from the Genre column, not a tag.
-- [x] My Tag → Comments: does it overwrite or append to existing comments? — **it writes into the files**: enabling it appended ` /* <My Tags> */` to the comment tag of every tagged file (4,830 library files + 16 outside, 2026-11-16); disabling it removed the text again (3,445 byte-identical, 1,386 with a changed tag area, to be restored from restic). Never enable it; never edit tag columns in rekordbox on library files.
+- [x] My Tag → Comments: does it overwrite or append to existing comments? — **it writes into the files**: enabling it appended ` /* <My Tags> */` to the comment tag of every tagged file (4,830 library files + 16 outside, 2026-11-16); disabling it removed the text again (3,445 byte-identical, 1,386 with a changed tag area). Those 1,386 were restored byte-identical from the restic `dj`
+  backup on 2026-11-17 and checked against a fresh export. Never enable it.
 - [x] How many My Tag categories does rekordbox allow? — four, renamable (checked in rekordbox
   and manual p. 30, 2026-11-15); tags per category: no limit seen.
 - [ ] Can an intelligent playlist or the track filter express "has no `vocals:*` tag"? If not,

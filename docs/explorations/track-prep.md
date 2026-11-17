@@ -4,9 +4,22 @@
 |---|---|
 | **Slug** | `track-prep` |
 | **Status** | active |
-| **Started / last update** | 2026-11-14 / 2026-11-15 |
+| **Started / last update** | 2026-11-14 / 2026-11-17 |
 | **Budget** | 3 evenings, then end-of-budget review; €0 (Mixed In Key 11 licence and rekordbox Creative exist) |
 | **Roadmap** | — |
+
+## State and next steps
+
+_Last update 2026-11-17._
+
+- **Done:** research on Mixed In Key, CueGen and Intelligent Cue Creation; comparison test
+  A / B / C designed (below). Not run yet.
+- **Next, in order:**
+  1. Pick 10 hand-cued reference tracks (and, for C, ≥ 30 training tracks).
+  2. Copy plan into `~/Music/_cue-test/{A-mik,B-cuegen,C-icc}/` and a cue comparison script in
+     `scripts/dj`.
+  3. Run A (Mixed In Key) and C (Intelligent Cue Creation) on the copies.
+- **Blocked:** B (CueGen writes `master.db`) until the library cleanup is finished.
 
 ## Brief
 
