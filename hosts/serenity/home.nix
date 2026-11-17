@@ -58,25 +58,37 @@ in
     '';
   };
 
-  # Firefox with container tabs for multi-account AWS console access.
-  # multi-account-containers: named containers per AWS account.
-  # open-url-in-container: handles ext+container: protocol from `login` function.
-  # granted: Granted AWS extension for console session management.
-  programs.firefox = {
-    enable = true;
-    profiles.default = {
-      isDefault = true;
-      extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
-        multi-account-containers
-        open-url-in-container
-        onepassword-password-manager
+  programs = {
+    # Firefox with container tabs for multi-account AWS console access.
+    # multi-account-containers: named containers per AWS account.
+    # open-url-in-container: handles ext+container: protocol from `login` function.
+    # granted: Granted AWS extension for console session management.
+    firefox = {
+      enable = true;
+      profiles.default = {
+        isDefault = true;
+        extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
+          multi-account-containers
+          open-url-in-container
+          onepassword-password-manager
+        ];
+      };
+    };
+
+    # Chrome extensions via External Extensions JSON files (the app is a Homebrew cask).
+    # Chrome asks once on its next start before it enables a new extension.
+    google-chrome = {
+      enable = true;
+      package = null;
+      extensions = [
+        { id = "fcoeoabgfenejglbffodgkkbkcdhcgfn"; } # Claude in Chrome (Claude Code /chrome)
       ];
     };
-  };
 
-  # Default signing key for commits on this host — personal SSH key served by the
-  # 1Password agent (Private vault). Matches the first entry in `personalAllowedSigners`.
-  programs.git.signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
+    # Default signing key for commits on this host — personal SSH key served by the
+    # 1Password agent (Private vault). Matches the first entry in `personalAllowedSigners`.
+    git.signing.key = "key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6QO1pTcyRnhLUEBfx//MDIsM+APRr/Lniw/vXwzBWS";
+  };
 
   custom = {
     # Granted for AWS credential management

@@ -40,6 +40,29 @@
       # compatibility check. Security responses and system data files
       # (CriticalUpdateInstall, ConfigDataInstall) stay automatic.
       SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
+      # Mixed In Key: switch off visible tag writes, renames and cue exports
+      # (storage-migration tracks the music files by sha256, rekordbox by path).
+      # Re-applied on every deploy. NOT a full guard: analysing a file still writes
+      # Mixed In Key's own data into its ID3 chunk (GEOB Key/Energy/BeatGrid/CuePoints,
+      # TXXX EnergyLevel; audio unchanged, sha256 changes; no setting stops this,
+      # seen 2026-11-12). Analyse only copies outside ~/Music until the music
+      # migration is done. The first two keys
+      # were observed when tag writing was switched off in the app; the others are
+      # file-writing options found in the app binary (Serato stores cues inside the
+      # file). rekordbox / Traktor cue export writes into those libraries; during the
+      # migration rekordbox is only changed by rekordbox itself. The licence (VIPCode)
+      # stays out of the config.
+      CustomUserPreferences."com.mixedinkey.application" = {
+        "writes id3 tag" = false;
+        "writes id3 key field" = false;
+        "writes id3 tempo field" = false;
+        "writes energy grouping field" = false;
+        "writes energy label field" = false;
+        "automatically rename files" = false;
+        "export cue points to Serato" = false;
+        "export cue points to Rekordbox" = false;
+        "export cue points to Traktor" = false;
+      };
       # AeroSpace prerequisite — keep one Spaces stack across all displays.
       # Logout required to take effect.
       spaces.spans-displays = true;
@@ -127,6 +150,7 @@
       "homebrew/core"
       "homebrew/cask"
       "nikitabobko/tap"
+      "juliusblank/local"
     ];
     brews = [
       "cowsay"
@@ -145,6 +169,12 @@
       "whatsapp"
       "gimp"
       "vlc"
+      "microsoft-outlook"
+      "google-chrome" # extensions: programs.google-chrome in home.nix
+      # Harmonic key analysis. Keep "write to tags" off while storage-migration
+      # works on the music files: tag writes change the files and their hashes.
+      "juliusblank/local/mixed-in-key" # local tap: see homebrew/local-tap
+      "microsoft-auto-update"
       "font-bebas-neue"
       "font-rubik-dirt"
       "font-josefin-sans"

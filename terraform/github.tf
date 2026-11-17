@@ -1,4 +1,4 @@
-# GitHub repository configuration — manages settings, merge strategy, and branch protection.
+# GitHub repository configuration — manages settings, merge strategy, and rulesets.
 resource "github_repository" "nix_configs" {
   name        = var.repo_name
   description = "Multi-system nix configuration"
@@ -21,19 +21,43 @@ resource "github_repository" "nix_configs" {
   }
 }
 
-# Branch protection for main — requires CI to pass; PRs required for everyone including admins.
-resource "github_branch_protection" "main" {
-  repository_id = github_repository.nix_configs.node_id
-  pattern       = "main"
+# Ruleset for main — PRs required for everyone, CI must pass, no deletion or force push.
+# Created in the GitHub UI and imported; replaces the former classic branch
+# protection (github_branch_protection.main). No bypass actors, so it binds admins too.
+resource "github_repository_ruleset" "main" {
+  name        = "main"
+  repository  = github_repository.nix_configs.name
+  target      = "branch"
+  enforcement = "active"
 
-  required_status_checks {
-    strict   = true
-    contexts = ["CI passed"]
+  conditions {
+    ref_name {
+      include = ["refs/heads/main"]
+      exclude = []
+    }
   }
 
-  required_pull_request_reviews {
-    required_approving_review_count = 0 # PR required, no approvals needed (solo repo)
-  }
+  rules {
+    deletion         = true
+    non_fast_forward = true
 
-  enforce_admins = true # block direct pushes for everyone, including repo owner
+    required_status_checks {
+      strict_required_status_checks_policy = true
+      do_not_enforce_on_create             = true
+
+      required_check {
+        context        = "CI passed"
+        integration_id = 15368 # GitHub Actions
+      }
+    }
+
+    pull_request {
+      required_approving_review_count   = 0          # PR required, no approvals needed (solo repo)
+      allowed_merge_methods             = ["squash"] # matches allow_squash_merge only
+      dismiss_stale_reviews_on_push     = false
+      require_code_owner_review         = false
+      require_last_push_approval        = false
+      required_review_thread_resolution = false
+    }
+  }
 }

@@ -1,7 +1,7 @@
 # terraform/ — OpenTofu (HCL) conventions
 
 This directory contains all OpenTofu infrastructure definitions: GitHub repo settings,
-branch protection, AWS OIDC federation, and the S3 nix binary cache bucket.
+the `main` ruleset, AWS OIDC federation, and the S3 nix binary cache bucket.
 
 ## Formatting
 
