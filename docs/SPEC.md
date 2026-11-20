@@ -102,9 +102,31 @@ Tools and config that EVERY host gets:
 
 ## Host-Specific Config
 
-- **serenity**: macOS Tahoe 26.7.2 (upgraded from 15.7.3 on 2026-11-09, with the full installer: `softwareupdate --fetch-full-installer --full-installer-version <v>`), Homebrew casks (GUI apps), personal SSH keys, personal AWS credentials, Firefox (multi-account-containers, open-url-in-container, onepassword-password-manager, granted), Google Chrome (Homebrew cask; Claude in Chrome extension via `programs.google-chrome.extensions`, enabled by hand once on first start), AusweisApp (Homebrew cask; the nixpkgs package is Linux-only; needs Rosetta 2), macOS updates installed by hand only (`system.defaults.SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false`; security responses stay automatic) — upgrade after a backup and a rekordbox / driver compatibility check
+- **serenity**: macOS Tahoe 26.7.2 (upgraded from 15.7.3 on 2026-11-09, with the full installer: `softwareupdate --fetch-full-installer --full-installer-version <v>`), Homebrew casks (GUI apps), personal SSH keys, personal AWS credentials, Firefox (multi-account-containers, open-url-in-container, onepassword-password-manager, granted), Google Chrome (Homebrew cask; Claude in Chrome extension via `programs.google-chrome.extensions`, enabled by hand once on first start), AusweisApp (Homebrew cask; the nixpkgs package is Linux-only; needs Rosetta 2), signer check of the cask apps (*Cask signature check* below), macOS updates installed by hand only (`system.defaults.SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false`; security responses stay automatic) — upgrade after a backup and a rekordbox / driver compatibility check
 - **concinnity**: Work CLI tools, work SSH keys, work git identity override for repos under `~/github/taktile-org/`, `~/github/jbl-taktile/` (and legacy `~/work/`), company-managed GUI apps (not in nix). See host isolation section below.
 - **pi-moodpi**: NixOS system config, moodpi service definition
+
+### Cask signature check (serenity)
+
+Homebrew checks a cask download against the cask's SHA-256 (fixed by the `homebrew-cask` pin),
+and Gatekeeper checks signature and notarization on the first launch (casks get the quarantine
+flag). Gatekeeper accepts **any** notarized Developer ID, though. `modules/darwin/cask-signatures.nix`
+(`custom.caskSignatures`) also pins each app to its vendor's Team ID:
+
+- **Data:** `custom.caskSignatures.apps` in `hosts/serenity/configuration.nix` — app path →
+  Team ID, seeded from the installed apps on 2026-11-20 (each Authority line checked against the
+  vendor). A new cask gets an entry with the cask; AeroSpace (self-signed), Vial (unsigned) and
+  font casks cannot be listed.
+- **Check:** `codesign --verify -R='anchor apple generic and certificate leaf[subject.OU] = "<team>"'`.
+  No `--strict`: it rejects Finder xattrs that app updaters leave behind (Google Chrome).
+- **When:** in `postActivation`, which nix-darwin runs after the homebrew step, so every
+  `just deploy` checks what it installed or upgraded (outer bundle only, ~10 s).
+  `just verify-apps` checks nested code too (`--deep`, ~30 s) — run it after an app updated
+  itself or after a manual `brew upgrade`.
+- **On failure:** a warning, the deploy goes on (the app is already on disk). Do not open the app
+  until it is checked; a new Team ID after a vendor change is fine once confirmed — update the entry.
+- **Limits:** a stolen vendor signing key passes; self-updates between deploys are only seen by
+  the next deploy or `just verify-apps`.
 
 ## Infrastructure
 

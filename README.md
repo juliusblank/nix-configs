@@ -223,6 +223,7 @@ just backup-baseline <group>   # keep a group's latest snapshot forever
 just backup-pause        # pause scheduled backups
 just backup-resume       # resume scheduled backups
 just backup-check        # verify backup integrity (10 % sample)
+just verify-apps         # check every cask app's signer incl. nested code (serenity)
 ```
 
 ## Repo Structure
@@ -243,6 +244,8 @@ just backup-check        # verify backup integrity (10 % sample)
 │       ├── zellij.nix     # Zellij layouts + config
 │       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
+├── modules/darwin/
+│   └── cask-signatures.nix  # signer (Team ID) check of cask apps (serenity)
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
 │   ├── concinnity/        # nix-darwin + home-manager (work Mac)

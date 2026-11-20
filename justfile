@@ -354,6 +354,10 @@ _gc-check:
         echo "WARNING: last 'just gc' on $(cat "$marker"), more than 30 days ago — run 'just gc'." >&2
     fi
 
+# Check every cask app's signer (Team ID) incl. nested code (serenity; see custom.caskSignatures)
+verify-apps:
+    verify-cask-signatures --deep
+
 # Format all nix files
 fmt:
     find . -name '*.nix' -not -path './.direnv/*' | xargs nixfmt

@@ -6,6 +6,33 @@
 }:
 
 {
+  imports = [ ../../modules/darwin/cask-signatures.nix ];
+
+  # Signer check of the cask apps after every activation; `just verify-apps` runs it
+  # with --deep. Team ID of a new cask: `codesign -dv <app>` → TeamIdentifier, after
+  # checking that the Authority line names the vendor. Not listed: AeroSpace
+  # (self-signed), Vial (unsigned), font casks (no app).
+  custom.caskSignatures = {
+    enable = true;
+    apps = {
+      "/Applications/1Password.app" = "2BUA8C4S2C"; # AgileBits Inc.
+      "/Applications/Audacity.app" = "AWEYX923UX"; # Dmitri Vedenko (Audacity team)
+      "/Applications/AusweisApp.app" = "G7EQCJU4BR"; # Governikus GmbH & Co. KG
+      "/Applications/GIMP.app" = "T25BQ8HSJF"; # GNOME Foundation
+      "/Applications/Ghostty.app" = "24VZTF6M5V"; # Mitchell Hashimoto
+      "/Applications/Google Chrome.app" = "EQHXZ8M8AV"; # Google LLC
+      "/Applications/Microsoft Outlook.app" = "UBF8T346G9"; # Microsoft Corporation
+      "/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app" = "UBF8T346G9";
+      "/Applications/Mixed In Key 11.app" = "T4A2E2DEM7"; # Mixed In Key, LLC
+      "/Applications/OrbStack.app" = "HUAQ24HBR6"; # Orbital Labs, LLC
+      "/Applications/Splice.app" = "9962T6AKMH"; # Distributed Creation Inc
+      "/Applications/Telegram.app" = "6N38VWS5BX"; # Telegram Messenger LLP
+      "/Applications/VLC.app" = "75GAHG3SZQ"; # VideoLAN
+      "/Applications/WhatsApp.app" = "57T9237FN3"; # WhatsApp Inc.
+      "/Applications/rekordbox 7/rekordbox.app" = "6BRHGXQ6VU"; # AlphaTheta Corporation
+    };
+  };
+
   # Nix binary cache — signing key for `nix copy` / `just push-cache` in 1Password
   # (op://github_nix-configs/Nix Cache Signing Key/private_key).
   nix.settings = {
