@@ -171,6 +171,8 @@
       "vlc"
       "microsoft-outlook"
       "google-chrome" # extensions: programs.google-chrome in home.nix
+      # German eID client; nixpkgs#ausweisapp is Linux-only. Intel build, needs Rosetta 2.
+      "ausweisapp"
       # Harmonic key analysis. Keep "write to tags" off while storage-migration
       # works on the music files: tag writes change the files and their hashes.
       "juliusblank/local/mixed-in-key" # local tap: see homebrew/local-tap
