@@ -1,6 +1,24 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.6 — 2026-11-11
+
+### Bug Fixes
+- **home:** readable selection in Zellij lists (0x96f theme) (#176)
+- **home:** refuse a review session that belongs to another checkout (#180)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.11.5 (#173)
+- **infra:** drop the one-time ruleset import blocks (#179)
+
+### Documentation
+- **spec:** roadmap #39 — design doc review with /review:doc (#175)
+- **spec:** mark roadmap #39 as implemented, pending deploy (#181)
+- **spec:** mark roadmap #34 and #39 as done (#182)
+
+### Features
+- **infra:** manage Copilot review and main rulesets; add Copilot instructions (#178)
+- **home:** zse review-doc use case for design doc reviews (#177)
 ## v2026.11.5 — 2026-11-09
 
 ### CI/CD
