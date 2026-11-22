@@ -1,6 +1,48 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.7 — 2026-11-20
+
+### Bug Fixes
+- **serenity:** install Mixed In Key from a local cask tap (#189)
+- **home:** add a fallback font for circled digits in Ghostty (#192)
+
+### Documentation
+- **spec:** add roadmap #40 for the deslop writing skill (#184)
+- **explore:** add rekordbox-tagging and track-prep (#194)
+- **explore:** rekordbox-tagging points to the spannungsbogen repo (#197)
+- **serenity:** Mixed In Key settings don't stop analysis writes (#191)
+- **explore:** sync music explorations with the serenity cleanup (#199)
+- **explore:** music target structure and rekordbox findings (I1) (#174)
+- **spec:** Team ID check for security-relevant casks (#202)
+
+### Features
+- **serenity:** install Microsoft Outlook via Homebrew cask (#187)
+- **serenity:** install Mixed In Key via Homebrew cask (#188)
+- **serenity:** keep Mixed In Key from writing to music files (#190)
+- **infra:** let the local tofu user use the infra repo's state (#195)
+- **infra:** make Copilot code review on demand only (#196)
+- **serenity:** install Google Chrome with the Claude in Chrome extension (#193)
+- **home:** accordion layout on AeroSpace workspace 2 (#155)
+- **serenity:** install AusweisApp via Homebrew cask (#200)
+## v2026.11.6 — 2026-11-11
+
+### Bug Fixes
+- **home:** readable selection in Zellij lists (0x96f theme) (#176)
+- **home:** refuse a review session that belongs to another checkout (#180)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.11.5 (#173)
+- **infra:** drop the one-time ruleset import blocks (#179)
+
+### Documentation
+- **spec:** roadmap #39 — design doc review with /review:doc (#175)
+- **spec:** mark roadmap #39 as implemented, pending deploy (#181)
+- **spec:** mark roadmap #34 and #39 as done (#182)
+
+### Features
+- **infra:** manage Copilot review and main rulesets; add Copilot instructions (#178)
+- **home:** zse review-doc use case for design doc reviews (#177)
 ## v2026.11.5 — 2026-11-09
 
 ### CI/CD
