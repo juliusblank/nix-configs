@@ -80,6 +80,25 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 39 | Design doc review — `/review:doc` and zse `review-doc` | Done (jbl-taktile/claude-skills#11, #12, #177, #180) — a second command in `jbl-personal/review` (`review/commands/doc.md`, rules in `review/doc-rules.md`) reviews an ADR or PEP from a Notion URL or a PR with the doc as `.md`. Rules come from (1) six exemplary docs that Claudius picks (three ADRs, three PEPs; ranked by quality and by how often humans reference them as good examples), (2) the common traits I analyse, and (3) an interview with the user, merged with the base checks (problem, alternatives, decision, consequences, risks, rollout, open questions). Findings come in order of severity / priority; for each one the command interviews the user and asks them to write the comment prose, with a generated, editable text as the alternative, or skip. Nothing is posted without the user's OK: Notion comments or suggested edits (never direct edits on other people's pages), GitHub review comments for `.md` docs. nix-configs: zse use case `review-doc` (`zse -l review-doc <URL>` → session `review-doc-<slug>`, first prompt `/review:doc <URL>`, claude + shell, no tig, no CI pane); no plugin change, `review` is already enabled (row 28). See `docs/usage/zellij.md`. |
 | 40 | Clear-writing skill for prose (deslop) | In progress — `deslop` (taktile-org/metadev#745 by James Broadhead, based on zonderlabs.com/slop; preferred over cursor's `unslop`, whose em-dash / colon bans and manual-only invocation do not fit). **Interim:** a copy of #745 @ `aeba86e` in `~/.claude/skills/deslop` (personal skill, not managed by Nix); James is asked to move it to taktile-skills `tktl-eng`; an upstream-watch issue checks weekly. When it ships: change every `deslop` reference to `tktl-eng:deslop` and delete the copy. **Precedence:** genre rules first — `tktl-eng:tktl-eng-blog-voice` for blog posts, `/review:doc` doc-rules for design docs — then deslop for every sentence they do not cover. Resolved conflicts: blog kicker and dry asides (blog-voice rules 6, 10) stay; the house CTA is exempt; blog-voice rule 9 is the only banned-word list for blogs (the Vale `TaktileBlog` style in #156 follows it); contractions are fine in blogs, STE without them stays for chat / PR / commit prose; design docs keep method and alternatives. **References:** `design-docs` drafts, `linear-pm` tickets, `/review:doc` generated comment text and an optional clarity check (nit), global `CLAUDE.md` (Slack, Notion, PR prose); later the zse `blog` first prompt (#156) and the personal `blog-writer` skill (overlaps with blog-voice; keep, merge or retire). |
 
+## Learning
+
+Tools and features to try out — learning, not config work. When an item is tried, tick it; if it
+leads to a config change, add a roadmap row for it.
+
+- [ ] **Claude Code `/color` per zse use case, then per task.** `/color <color>` sets the prompt
+  bar color of the current Claude Code session (`red`, `blue`, `green`, `yellow`, `purple`,
+  `orange`, `pink`, `cyan`; syncs to claude.ai/code over Remote Control).
+  1. **Per use case / layout:** one fixed color per `ZSE_USE_CASE` (`code`, `project`, `ticket`,
+     `review`, `review-doc`, `daily`, `explore`), so the kind of session shows at a glance. Also
+     try the terminal side: Zellij theme / frame / compact-bar colors per layout, Ghostty
+     settings (`home/ghostty.nix`).
+  2. **Per single task:** a color per session (e.g. per ticket or PR), on top of or instead of
+     the use-case color.
+
+  Open: how to set the color without typing it — `/color` in the first prompt
+  (`zse-claude --first-prompt`), a SessionStart hook keyed off `ZSE_USE_CASE` (like the
+  `project` plugin), or a setting; and whether it survives a resumed conversation.
+
 ## Hosts
 
 | Host              | OS         | Manager             | Purpose           | Status                   |
