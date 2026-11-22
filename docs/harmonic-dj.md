@@ -24,8 +24,9 @@
 | Windows | installer `.zip` (x64, x86) | App + VST3 / AAX | `…-Installer-<v>.zip`, `…-Installer-<v>-x86.zip` |
 | Linux | `.zip` (x64) | App + VST3; format inside not determined | `…-Linux-x64-<v>.zip` |
 
-- Current version: **1.2.9**, files dated 2026-10-02. Verified with HEAD requests: the dmg
-  is 54,648,046 bytes and the Linux zip is 19,514,625 bytes.
+- Current version: **1.3.7** (packaged 2026-11-22), dmg dated 2026-11-19, 65,305,195 bytes.
+  1.3.0–1.3.7 return 200, 1.3.8 and 1.4.0 return 404 (HEAD requests). The evaluation so far
+  ran on **1.2.9** (files dated 2026-10-02; dmg 54,648,046 bytes, Linux zip 19,514,625).
 - Download URLs include the version, and older versions stay online (1.2.8 and 1.2.0
   return 200). So a `fetchurl` pin with a hash is possible. The ETags are S3 multipart
   ETags, not content hashes, so we must compute the hash ourselves.

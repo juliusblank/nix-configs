@@ -144,7 +144,7 @@ in
       # bin/gh-<pname> into ~/.local/share/gh/extensions/<pname>/, so
       # `gh <name>` (e.g. `gh stack`) resolves without a manual install.
       extensions = [
-        (import ../lib/gh-stack-bin.nix { inherit pkgs; } "0.1.0")
+        (import ../lib/gh-stack-bin.nix { inherit pkgs; } "0.3.0")
       ];
     };
 

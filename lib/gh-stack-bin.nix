@@ -31,9 +31,9 @@ let
 
   # SRI hashes for fetchurl (raw binary), keyed by version and nix system.
   hashes = {
-    "0.1.0" = {
-      "aarch64-darwin" = "sha256-XKmCQaJl1t4BgJXNrl88QNpcp4JFDuwOqRqo4+sYMQM=";
-      "x86_64-linux" = "sha256-NYVS3X3OCkbOFT/hlicM7EgrhPCAlHiQqtQGGo1EvAs=";
+    "0.3.0" = {
+      "aarch64-darwin" = "sha256-cMDLETRq1dT5egKlz1JCBSJU0XddNW3AdZ8DVFeHOFA=";
+      "x86_64-linux" = "sha256-lX6CLPp+Q1zYSil82WxBm1jlHjrFi+JJdiwkvZ5FCZs=";
     };
   };
 
