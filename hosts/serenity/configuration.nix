@@ -137,12 +137,7 @@
     user = "jbl";
     onActivation = {
       autoUpdate = false;
-      # nix-darwin 26.05 maps cleanup = "uninstall" to `--force-cleanup`, which the
-      # Homebrew bundled with the pinned nix-homebrew (7d0038b, 5.1.10) rejects.
-      # `--cleanup` does the same. Back to cleanup = "uninstall" after the
-      # nix-homebrew upgrade.
-      cleanup = "none";
-      extraFlags = [ "--cleanup" ];
+      cleanup = "uninstall";
       upgrade = true;
     };
     greedyCasks = true;
@@ -150,7 +145,6 @@
       "homebrew/core"
       "homebrew/cask"
       "nikitabobko/tap"
-      "juliusblank/local"
     ];
     brews = [
       "cowsay"
@@ -158,7 +152,9 @@
     ];
     casks = [
       "1password"
-      "aerospace"
+      # Fully qualified: brew bundle only applies `trusted: true` (set by nix-darwin) to
+      # full names, and Homebrew 6+ refuses casks from untrusted non-official taps.
+      "nikitabobko/tap/aerospace"
       "ghostty"
       "orbstack"
       "telegram"
@@ -175,7 +171,7 @@
       "ausweisapp"
       # Harmonic key analysis. Keep "write to tags" off while storage-migration
       # works on the music files: tag writes change the files and their hashes.
-      "juliusblank/local/mixed-in-key" # local tap: see homebrew/local-tap
+      "mixed-in-key"
       "microsoft-auto-update"
       "font-bebas-neue"
       "font-rubik-dirt"
