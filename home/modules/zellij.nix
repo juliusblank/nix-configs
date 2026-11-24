@@ -65,7 +65,7 @@ let
     ┃  TICKET   ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /ticket:start %s — prime ticket context (jbl-personal/ticket)\n' "$name"
+        printf '→ /tktl-eng-delivery:ticket-start %s — prime ticket context (tktl-eng-delivery)\n' "$name"
         ;;
       project)
         cat <<'ART'
@@ -73,7 +73,7 @@ let
     ┃  PROJECT  ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /project:start %s — bootstrap master session (jbl-personal/project)\n' "$name"
+        printf '→ /tktl-eng-delivery:project-start %s — bootstrap master session (tktl-eng-delivery)\n' "$name"
         ;;
       review)
         cat <<'ART'
@@ -81,7 +81,7 @@ let
     ┃  REVIEW   ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /review:review %s is auto-sent in the claude pane (jbl-personal/review)\n' "$name"
+        printf '→ /tktl-eng-delivery:review %s is auto-sent in the claude pane (tktl-eng-delivery)\n' "$name"
         ;;
       explore)
         cat <<'ART'
@@ -97,7 +97,7 @@ let
     ┃  REVIEW DOC  ┃
     ┗━━━━━━━━━━━━━━┛
     ART
-        printf '→ /review:doc <url> is auto-sent in the claude pane; you write each comment (jbl-personal/review)\n'
+        printf '→ /tktl-eng-delivery:review-doc <url> is auto-sent in the claude pane; you write each comment (tktl-eng-delivery)\n'
         ;;
       *)
         exit 0
@@ -443,7 +443,7 @@ let
     `zse-doc-url` — prints the doc URL of a `review-doc` session from the zse
     registry (`url=` in `~/.local/state/zse/sessions/<name>`, written by
     `zse -l review-doc <url>`), else the session name. The `review-doc` claude
-    pane sends `/review:doc <url>` as its first prompt.
+    pane sends `/tktl-eng-delivery:review-doc <url>` as its first prompt.
   */
   zseDocUrl = pkgs.writeShellScriptBin "zse-doc-url" ''
     name="''${ZELLIJ_SESSION_NAME:?zse-doc-url: run inside a Zellij session}"
@@ -457,13 +457,13 @@ let
   projectClaudePane = mkClaudePane "project" "--own";
   dailyClaudePane = mkClaudePane "daily" "--own";
   ticketClaudePane = mkClaudePane "ticket" ''--own --worktree \"$ZELLIJ_SESSION_NAME\"'';
-  # Explicit namespace (`/review:review`) over the shorthand (`/review`) so
-  # the command stays unambiguous as more plugins add their own `review`.
+  # Explicit namespace (`/tktl-eng-delivery:review`) over the shorthand (`/review`) so
+  # the command stays unambiguous: other plugins have their own `review`.
   # `--first-prompt`: the review runs on the first start only; a restored
   # session resumes its conversation.
-  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/review:review $ZELLIJ_SESSION_NAME\"'';
-  # Review-doc: `/review:doc <url>` on the first start, URL from the registry.
-  reviewDocClaudePane = mkClaudePane "review-doc" ''--own --first-prompt \"/review:doc $(${zseDocUrl}/bin/zse-doc-url)\"'';
+  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME\"'';
+  # Review-doc: `/tktl-eng-delivery:review-doc <url>` on the first start, URL from the registry.
+  reviewDocClaudePane = mkClaudePane "review-doc" ''--own --first-prompt \"/tktl-eng-delivery:review-doc $(${zseDocUrl}/bin/zse-doc-url)\"'';
   # Explore: own conversation in the slug's worktree; `/explore status` on the
   # first start only, so every new session opens with goal, iteration and budget.
   exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\"'';
@@ -493,21 +493,21 @@ in
   #              with the `zse-agents` status pane) + full-screen
   #              `claude agents --cwd <repo>`. Status via
   #              `default_tab_template`. Master shell shows a one-time
-  #              `/project:start` welcome banner.
+  #              `/tktl-eng-delivery:project-start` welcome banner.
   #   ticket   — `claude --worktree $ZELLIJ_SESSION_NAME` · shell · tig.
   #              Session name is the ticket ID; worktree is created / reused
   #              at `.claude/worktrees/<id>`. Shell shows a one-time
-  #              `/ticket:start` welcome banner.
-  #   review   — `zse-claude --own --first-prompt "/review:review $NAME"` ·
+  #              `/tktl-eng-delivery:ticket-start` welcome banner.
+  #   review   — `zse-claude --own --first-prompt "/tktl-eng-delivery:review $NAME"` ·
   #              shell · CI pane (`zse-ci`, no tig). Session name is
   #              `review-<repo>-pr<n>`, parsed from a PR URL. The review
   #              command auto-fires on the first start only; a restored
   #              session resumes. The shell shows a one-time banner.
-  #   review-doc — `zse-claude --own --first-prompt "/review:doc <url>"` ·
+  #   review-doc — `zse-claude --own --first-prompt "/tktl-eng-delivery:review-doc <url>"` ·
   #              shell (no tig, no CI). Session name `review-doc-<title>-<id8>` from a
   #              Notion URL, or `review-doc-<repo>-pr<n>` from a PR URL; the URL
   #              is kept in the zse registry (`zse-doc-url`). The command
-  #              interviews the user for each comment (jbl-personal/review).
+  #              interviews the user for each comment (tktl-eng-delivery).
   #   daily    — claude (own conversation) · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
   #   explore  — private explorations (docs/SPEC.md → Explorations). Session

@@ -105,7 +105,7 @@ _z_aws_warn() {
 # ----- Worktrees -----
 
 # Worktree dir name for a session: review sessions are `review-<repo>-pr<n>`
-# (or `review-doc-<repo>-pr<n>`), but /review:review and /review:doc check
+# (or `review-doc-<repo>-pr<n>`), but /tktl-eng-delivery:review and /tktl-eng-delivery:review-doc check
 # the PR out into `.claude/worktrees/pr-<n>`.
 _z_worktree_name() {
   if [[ $1 =~ '^review-.+-pr([0-9]+)$' ]]; then
@@ -342,7 +342,7 @@ _zse_start() {
   # Review-doc mode: the doc URL names the session. A GitHub PR URL becomes
   # `review-doc-<repo>-pr<n>` in ~/github/<owner>/<repo>; a Notion URL becomes
   # `review-doc-<title>-<id8>` (title from the URL, first 8 page-ID chars). The URL goes into the
-  # registry; the claude pane sends `/review:doc <url>` on the first start.
+  # registry; the claude pane sends `/tktl-eng-delivery:review-doc <url>` on the first start.
   local doc_url=""
   if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == review-doc && $name == http(s|)://* ]]; then
     doc_url=$name

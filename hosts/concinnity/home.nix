@@ -351,7 +351,8 @@ in
   #   claude plugin marketplace add taktile-org/taktile-skills
   #   claude plugin marketplace add ~/github/jbl-taktile/claude-skills   (jbl-personal)
   #   claude plugin install tktl-eng-data tktl-eng-frontend
-  #   claude plugin install ticket@jbl-personal review@jbl-personal project@jbl-personal
+  #   claude plugin install tktl-eng-delivery tktl-general
+  #   claude plugin disable ticket@jbl-personal review@jbl-personal project@jbl-personal
   #   claude plugin install aws-serverless@claude-plugins-official deploy-on-aws@claude-plugins-official
   #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
@@ -390,9 +391,14 @@ in
           enabledPlugins = {
             "tktl-eng-data@taktile-skills" = true;
             "tktl-eng-frontend@taktile-skills" = true;
-            "ticket@jbl-personal" = true;
-            "review@jbl-personal" = true;
-            "project@jbl-personal" = true;
+            "tktl-eng-delivery@taktile-skills" = true;
+            "tktl-general@taktile-skills" = true;
+            # Moved to tktl-eng-delivery (taktile-org/taktile-skills#344). `false`,
+            # not removed: the merge keeps keys it does not declare, so a removed
+            # entry would stay enabled in settings.json.
+            "ticket@jbl-personal" = false;
+            "review@jbl-personal" = false;
+            "project@jbl-personal" = false;
             "aws-serverless@claude-plugins-official" = true;
             "deploy-on-aws@claude-plugins-official" = true;
           };
