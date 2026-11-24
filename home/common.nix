@@ -17,6 +17,12 @@ let
     dev@juliusblank.de ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICqzDzUYBHkpAe0EURy0G91tZMiUcoZAO4qjmBy/fbRQ
   '';
 
+  # GitHub handle used as the branch prefix for ticket worktrees:
+  # `<handle>/<ticket>` instead of Claude Code's default `worktree-<ticket>`.
+  # Read by the delivery plugins' worktree.sh (`git config delivery.branchPrefix`)
+  # and, until zse calls that script, by zse (ZSE_BRANCH_USER).
+  branchUser = "juliusblank";
+
 in
 {
   imports = [
@@ -174,6 +180,7 @@ in
         pull.rebase = true;
         gpg.format = "ssh";
         gpg.ssh.allowedSignersFile = "~/.ssh/allowed_signers";
+        delivery.branchPrefix = branchUser;
       };
     };
 
@@ -216,13 +223,10 @@ in
   };
 
   home = {
-    # GitHub handle used as the branch prefix when `zse -l ticket` creates
-    # a worktree. Branches land at `<ZSE_BRANCH_USER>/<ticket>` instead of
-    # Claude Code's default `worktree-<ticket>`, matching the convention
-    # used in Taktile repos (and personal). Override per-host in
-    # hosts/<name>/home.nix if a host uses a different handle; unset to
-    # fall back to Claude's default.
-    sessionVariables.ZSE_BRANCH_USER = "juliusblank";
+    # Branch prefix for `zse -l ticket` worktrees (see `branchUser` above).
+    # Override per-host in hosts/<name>/home.nix if a host uses a different
+    # handle; unset to fall back to Claude's default.
+    sessionVariables.ZSE_BRANCH_USER = branchUser;
 
     file = {
       # Maps signing keys to emails for local `git log --show-signature` verification.
