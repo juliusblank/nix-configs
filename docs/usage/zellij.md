@@ -16,8 +16,8 @@ bare session name.
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (claude · (shell · (git \| agents status))) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents --cwd <repo>` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
-| **review-doc** | `review-doc.kdl` | claude · shell · compact bar (no tig, no CI) | `zse-claude --own --first-prompt "/review:doc <url>"` (URL from the zse registry via `zse-doc-url`; review on first start; own conversation) |
+| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
+| **review-doc** | `review-doc.kdl` | claude · shell · compact bar (no tig, no CI) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review-doc <url>"` (URL from the zse registry via `zse-doc-url`; review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 | **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status $ZELLIJ_SESSION_NAME" --worktree $ZELLIJ_SESSION_NAME` |
 
@@ -77,7 +77,7 @@ helper (installed via home-manager):
 ┏━━━━━━━━━━━┓
 ┃  TICKET   ┃
 ┗━━━━━━━━━━━┛
-→ /ticket:start PCS-13558 — prime ticket context (jbl-personal/ticket)
+→ /tktl-eng-delivery:ticket-start PCS-13558 — prime ticket context (tktl-eng-delivery)
 ```
 
 A sentinel at `~/.cache/zse/sessions/<name>.welcomed` suppresses the
@@ -85,7 +85,7 @@ banner on resume. `zse kill` deletes the sentinel so a reused session name
 re-welcomes. `code` and `code-resume` have no banner — those shell panes
 are plain zsh.
 
-For `review`, the claude pane auto-sends `/review:review $NAME` on
+For `review`, the claude pane auto-sends `/tktl-eng-delivery:review $NAME` on
 the first start (not on restore); the banner just reports what's running. The
 same holds for `explore` with `/explore status $NAME`. For `ticket` and
 `project`, the user invokes the kickoff command manually from the
@@ -147,13 +147,13 @@ creation and simply attaches a fresh claude in the same directory.
 ### review
 
 A short-lived PR review with its own conversation (`--own`). On the first
-start the pane opens with `/review:review $ZELLIJ_SESSION_NAME` as its first
+start the pane opens with `/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME` as its first
 user message (`--first-prompt`); after `zse stop` / `zse restore` it resumes
 the conversation and does not run the review again. `$ZELLIJ_SESSION_NAME`
 is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). To review new
-pushes, run `/review:review $ZELLIJ_SESSION_NAME` again in the session. The
-`review` command (`jbl-personal/review`, a local Claude Code marketplace
-at `~/github/jbl-taktile/claude-skills`) handles PR checkout under
+pushes, run `/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME` again in the session. The
+`review` command (plugin `tktl-eng-delivery` from the `taktile-skills`
+marketplace) handles PR checkout under
 `.claude/worktrees/pr-<n>`. The session name has no owner: if a registered
 `review-<repo>-pr<n>` session belongs to another checkout (same repo name, other
 owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not
@@ -176,9 +176,9 @@ an error instead of resuming the other review. `review` and `review-doc`
 sessions for the same PR share the `pr-<n>` worktree; `zse kill` keeps it while
 the other session is still registered. A PR URL names it `review-doc-<repo>-pr<n>` and starts it in
 `~/github/<owner>/<repo>`, as for `review`. `zse` keeps the URL in the session
-registry (`url=`); on the first start the claude pane sends `/review:doc <url>`
+registry (`url=`); on the first start the claude pane sends `/tktl-eng-delivery:review-doc <url>`
 (`zse-doc-url` reads it back), and a restored session resumes without a new
-review. `/review:doc` (`jbl-personal/review`) ranks the findings by severity and
+review. `/tktl-eng-delivery:review-doc` (`tktl-eng-delivery`) ranks the findings by severity and
 then interviews you for each one: you write the comment, or start from a
 generated draft, or skip. Nothing is posted without your OK. The tab reads
 `[review-doc] <slug>`. No tig and no CI pane.
