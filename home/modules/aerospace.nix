@@ -5,7 +5,8 @@
   # configuration.nix; this module manages ~/.aerospace.toml and the login agent.
   #
   # Layout: 6 workspaces (1=term+code, 2=web (accordion), 3=comms, 4=docs+tickets, 5=music, 6=flex).
-  # Mod key: alt. Default layout: tiles. Cycling: macOS native (cmd+tab, cmd+`).
+  # Mod key: alt. Default layout: tiles (alt-/ tiles, alt-, accordion).
+  # Cycling: macOS native (cmd+tab, cmd+`).
   #
   # Monitor pinning when docked (workspace-to-monitor-force-assignment):
   #   main (4K external):  workspaces 1, 2, 4 — primary work surface
@@ -173,6 +174,11 @@
     # Resize
     alt-minus = 'resize smart -50'
     alt-equal = 'resize smart +50'
+
+    # Layout of the focused window's container (AeroSpace defaults). Press again
+    # to swap horizontal / vertical.
+    alt-slash = 'layout tiles horizontal vertical'
+    alt-comma = 'layout accordion horizontal vertical'
 
     # Toggle floating / tiling for focused window
     alt-f = 'layout floating tiling'
