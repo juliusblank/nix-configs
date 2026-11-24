@@ -40,11 +40,13 @@ The `agents` tab in `project` runs `claude agents --cwd <repo>` — a
 management view, not an interactive REPL.
 
 Each claude pane also exports `ZSE_USE_CASE=<code|project|ticket|review|daily|explore>`
-(`code-resume` exports `code`). Plugins use it to tailor a session to its
-layout: the `jbl-personal` `project` plugin has a `SessionStart` hook that
-injects the master-session ground rules (`project/rules.md`: role,
-phases, ADR change handling) when `ZSE_USE_CASE=project` and the cwd is
-not a `.claude/worktrees/*` sub-session. The hook fires on startup,
+(`code-resume` exports `code`) for zse's own scripts. The `project`, `ticket`,
+`review` and `review-doc` panes also export `DELIVERY_SESSION=<use case>`, the
+variable the delivery plugins (`project`, `ticket`, `review`) key off: the
+`project` plugin has a `SessionStart` hook that injects the master-session
+ground rules (`project/rules.md` and a mode file) when
+`DELIVERY_SESSION=project` and the cwd is not a `.claude/worktrees/*`
+sub-session. The hook fires on startup,
 resume, clear and compact, so the rules survive compaction. The rules
 live in the plugin repo, so changing them needs no nix deploy.
 
