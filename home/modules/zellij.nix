@@ -407,19 +407,37 @@ let
 
   /**
     Interactive claude pane for a use case. It exports `ZSE_USE_CASE=<useCase>`
-    (plugins key off it: the jbl-personal `project` plugin's SessionStart
-    hook injects the master-session ground rules) and runs `zse-claude` with
+    for zse's own scripts and, for the use cases the delivery plugins know
+    (`project`, `ticket`, `review`, `review-doc`), `DELIVERY_SESSION=<useCase>`:
+    the plugins' SessionStart hooks key off it (the `project` hook injects the
+    master-session ground rules). It runs `zse-claude` with
     `args` (already KDL-string-escaped). One shell wraps the exec so
     `$ZELLIJ_SESSION_NAME`, which Zellij sets per pane at session creation,
     interpolates at pane start — ticket / review sessions share one layout
     file and each sees its own name.
   */
-  mkClaudePane = useCase: args: ''
-    pane name="claude" {
-        command "sh"
-        args "-c" "export ZSE_USE_CASE=${useCase}; exec ${zseEnv}/bin/zse-env ${zseClaude}/bin/zse-claude ${args}"
-    }
-  '';
+  mkClaudePane =
+    useCase: args:
+    let
+      delivery =
+        if
+          builtins.elem useCase [
+            "project"
+            "ticket"
+            "review"
+            "review-doc"
+          ]
+        then
+          " DELIVERY_SESSION=${useCase}"
+        else
+          "";
+    in
+    ''
+      pane name="claude" {
+          command "sh"
+          args "-c" "export ZSE_USE_CASE=${useCase}${delivery}; exec ${zseEnv}/bin/zse-env ${zseClaude}/bin/zse-claude ${args}"
+      }
+    '';
 
   /**
     `zse-doc-url` — prints the doc URL of a `review-doc` session from the zse
