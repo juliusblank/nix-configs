@@ -26,6 +26,10 @@
     # Hidden windows of an accordion do not peek out at the edges (default: 30 px).
     accordion-padding = 0
 
+    # The mouse follows focus to the other monitor (for example after alt-3), so
+    # scrolling reaches the focused window.
+    on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
     # Pin workspaces to monitors when both are connected. AeroSpace tests each
     # entry in the array in order; the first match wins. If none match (e.g.
     # undocked), the workspace falls back to the active monitor.
@@ -182,6 +186,25 @@
 
     # Reload config
     alt-r = 'reload-config'
+
+    # Monitors: move the focused workspace / window to the next monitor
+    alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+    alt-shift-period = 'move-node-to-monitor --wrap-around next'
+
+    # Service mode (AeroSpace defaults): one command, then back to main
+    alt-shift-semicolon = 'mode service'
+
+    [mode.service.binding]
+    esc = ['reload-config', 'mode main']
+    r = ['flatten-workspace-tree', 'mode main']  # reset a messy layout
+    f = ['layout floating tiling', 'mode main']
+    backspace = ['close-all-windows-but-current', 'mode main']
+
+    # Group the focused window with its neighbour in one container
+    alt-shift-h = ['join-with left', 'mode main']
+    alt-shift-j = ['join-with down', 'mode main']
+    alt-shift-k = ['join-with up', 'mode main']
+    alt-shift-l = ['join-with right', 'mode main']
   '';
 
   # Start AeroSpace at every login (and on activation). `open -a` goes through
