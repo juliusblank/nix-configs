@@ -354,7 +354,7 @@ in
   #   claude plugin install tktl-eng-delivery tktl-general
   #   claude plugin disable ticket@jbl-personal review@jbl-personal project@jbl-personal
   #   claude plugin install aws-serverless@claude-plugins-official deploy-on-aws@claude-plugins-official
-  #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws"]
+  #   edit ~/.claude/settings.json → add "sandbox.excludedCommands": ["gh", "aws", "git fetch *", "git pull *", "git push *"]
   # Claude Code writes to settings.json at runtime (/config, /model), so home.file
   # (read-only symlink) won't work. Deep-merge only these keys each activation; all other
   # settings are preserved. Claude Code installs enabled plugins on next startup.
@@ -372,6 +372,13 @@ in
   # - `aws`: same TLS story (Go-based AWS CLI v2 reaches STS/IAM endpoints), and
   #   ticket / review sessions routinely want `aws sts get-caller-identity`,
   #   `aws s3 ...`, etc. without a per-command permission prompt.
+  # - `git fetch` / `pull` / `push`: the remotes use SSH, and the sandbox lets only
+  #   HTTP(S) out through its proxy (and can block the 1Password agent socket), so
+  #   these fail even for an allowed host. This is the fallback the Claude Code
+  #   sandbox docs give; their fix is HTTPS remotes (not tested yet). Unsandboxed,
+  #   they can reach any host, and `git push` runs pre-push hooks unsandboxed. A
+  #   `git fetch` inside a script (for example a plugin's `worktree.sh`) does not
+  #   match and stays sandboxed.
   # The excluded commands still go through Claude Code's normal permission
   # prompt — they just skip the sandbox wrapper.
   home.activation.claudePlugins =
@@ -405,6 +412,9 @@ in
           sandbox.excludedCommands = [
             "gh"
             "aws"
+            "git fetch *"
+            "git pull *"
+            "git push *"
           ];
         }
       );
