@@ -2,12 +2,13 @@
 #
 # Sourced from ~/.zshrc by home/modules/zellij.nix. Docs: docs/usage/zellij.md.
 #
-#   zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]   start or attach
+#   zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]   start or attach
 #   zse ls                                      registry + live state
 #   zse stop [NAME]                             stop, keep registered
 #   zse kill [NAME]                             end: worktree prompt, cleanup, unregister
 #   zse restore [NAME…]                         start stopped sessions in the background
 #   zse switch NAME                             switch to a session (start it if stopped)
+#   zse migrate NAME... | --all [--force]       old-style session → name schema
 #
 # Zellij session serialization is off (config.kdl). The registry below is the
 # record of which sessions exist; each session is always (re)created from the
@@ -15,6 +16,9 @@
 
 typeset -g ZSE_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/zse/sessions"
 typeset -g ZSE_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
+# Repo short names for session names; filled by home/modules/zellij.nix
+# before this file is sourced.
+(( ${+ZSE_REPO_SHORT} )) || typeset -gA ZSE_REPO_SHORT
 
 # ----- Zellij state -----
 
@@ -46,20 +50,76 @@ _z_reg_get() {
   sed -n "s/^$2=//p" "$f"
 }
 
-# _z_reg_write NAME USE_CASE DIR AWS_PROFILE [URL] — keeps `created` (and
-# `url` when URL is not given), sets `last_started`. `url` is the doc of a
-# `review-doc` session; zse-doc-url reads it for the first prompt.
+# _z_reg_write NAME USE_CASE DIR AWS_PROFILE [URL] — sets these keys and
+# `last_started`; keeps `created`, `url` (when URL is not given) and every
+# other key (the name keys below). `url` is the PR of a `review` session or
+# the doc of a `review-doc` session; the claude panes read it (`zse-meta`).
 _z_reg_write() {
   local f now created url
   f=$(_z_reg_file "$1")
   now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
   created=$(_z_reg_get "$1" created 2>/dev/null)
   url=${5:-$(_z_reg_get "$1" url 2>/dev/null)}
+  local -a keep
+  [[ -r $f ]] && keep=(${(f)"$(grep -v -E '^(use_case|dir|aws_profile|created|last_started|url)=' "$f")"})
   mkdir -p "$ZSE_STATE_DIR"
-  printf 'use_case=%s\ndir=%s\naws_profile=%s\ncreated=%s\nlast_started=%s\n' \
-    "$2" "$3" "$4" "${created:-$now}" "$now" >"$f"
-  [[ -n $url ]] && printf 'url=%s\n' "$url" >>"$f"
+  {
+    printf 'use_case=%s\ndir=%s\naws_profile=%s\ncreated=%s\nlast_started=%s\n' \
+      "$2" "$3" "$4" "${created:-$now}" "$now"
+    [[ -n $url ]] && printf 'url=%s\n' "$url"
+    ((${#keep})) && print -rl -- $keep
+  } >"$f"
   return 0
+}
+
+# _z_reg_set NAME KEY VALUE — set one key of a registered session.
+# Name keys (schema `names=2`, written at the start of a new session):
+#   ticket, pr, owner, repo, slug   what the session is about
+#   wt                              worktree dir name under .claude/worktrees
+#   title, hint                     source title and the hint in the name
+#   conv                            Claude conversation ID (set by `zse migrate`;
+#                                   otherwise zse-claude derives it from the name)
+_z_reg_set() {
+  local f rest
+  f=$(_z_reg_file "$1")
+  [[ -r $f ]] || return 1
+  rest=$(grep -v "^$2=" "$f")
+  { [[ -n $rest ]] && print -r -- "$rest"; print -r -- "$2=${3//$'\n'/ }"; } >"$f"
+}
+
+# _z_find KEY VALUE [USE_CASE] — the first registered session whose KEY is
+# VALUE (and whose use case is USE_CASE, when given).
+_z_find() {
+  local n
+  for n in $(_z_reg_names); do
+    [[ $(_z_reg_get "$n" "$1") == "$2" ]] || continue
+    [[ -z ${3:-} || $(_z_reg_get "$n" use_case) == "$3" ]] || continue
+    print -r -- "$n"
+    return 0
+  done
+  return 1
+}
+
+# _z_resolve NAME — the session NAME refers to: NAME itself when it runs or is
+# registered, else the registered session whose ticket ID is NAME, else
+# `proj-NAME` / `exp-NAME`. Fails when there is none.
+_z_resolve() {
+  local n=$1 m
+  if [[ $(_z_session_state "$n") != none ]] || _z_reg_get "$n" use_case >/dev/null 2>&1; then
+    print -r -- "$n"
+    return 0
+  fi
+  if m=$(_z_find ticket "${n:u}"); then
+    print -r -- "$m"
+    return 0
+  fi
+  for m in "proj-$n" "exp-$n"; do
+    if _z_reg_get "$m" use_case >/dev/null 2>&1; then
+      print -r -- "$m"
+      return 0
+    fi
+  done
+  return 1
 }
 
 _z_reg_names() {
@@ -104,15 +164,229 @@ _z_aws_warn() {
 
 # ----- Worktrees -----
 
-# Worktree dir name for a session: review sessions are `review-<repo>-pr<n>`
-# (or `review-doc-<repo>-pr<n>`), but /tktl-eng-delivery:review and /tktl-eng-delivery:review-doc check
-# the PR out into `.claude/worktrees/pr-<n>`.
+# Worktree dir name for a session: the registry's `wt`. Sessions from before
+# the name schema: review sessions are `review-<repo>-pr<n>` (or
+# `review-doc-<repo>-pr<n>`), checked out into `.claude/worktrees/pr-<n>`;
+# every other session uses its name.
 _z_worktree_name() {
-  if [[ $1 =~ '^review-.+-pr([0-9]+)$' ]]; then
+  local wt
+  wt=$(_z_reg_get "$1" wt 2>/dev/null)
+  if [[ -n $wt ]]; then
+    print -r -- "$wt"
+  elif [[ $1 =~ '^review-.+-pr([0-9]+)$' ]]; then
     print -r -- "pr-$match[1]"
   else
     print -r -- "$1"
   fi
+}
+
+# Print `origin/<default branch>` of the repo at $1. Order: the local
+# `refs/remotes/origin/HEAD`, then `git remote set-head origin --auto` (asks
+# the remote), then `gh repo view`. Fails when none of them knows it.
+_z_default_branch() {
+  emulate -L zsh
+  local root="$1" ref
+  ref=$(git -C "$root" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) \
+    || { git -C "$root" remote set-head origin --auto >/dev/null 2>&1 \
+         && ref=$(git -C "$root" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); } \
+    || { ref=$(cd -q "$root" && gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null) \
+         && [[ -n $ref ]] && ref="origin/$ref"; }
+  [[ -n $ref ]] || return 1
+  print -r -- "$ref"
+}
+
+# _z_branch_worktree ROOT WT_NAME BRANCH — create (or re-attach)
+# `.claude/worktrees/WT_NAME` on BRANCH, based on the fetched origin default
+# branch, never on the main checkout's HEAD. Self-check: a new branch is
+# exactly origin/<default>; an existing branch is reused with a warning about
+# commits beyond it that do not name WT_NAME. Same rules as the
+# tktl-eng-delivery plugin's `worktree.sh`, which ticket sessions use first.
+_z_branch_worktree() {
+  emulate -L zsh
+  local root="$1" wt="$2" branch="$3" base dir
+  dir="$root/.claude/worktrees/$wt"
+  [[ -e $dir/.git ]] && return 0
+  print -r "zse: fetching origin in $root …"
+  if ! git -C "$root" fetch --quiet origin; then
+    print -u2 -r "zse: ✗ git fetch origin failed in $root — not creating $dir from a stale base."
+    return 1
+  fi
+  if ! base=$(_z_default_branch "$root"); then
+    print -u2 -r "zse: ✗ cannot resolve origin's default branch in $root (origin/HEAD unset, gh failed)."
+    return 1
+  fi
+  mkdir -p "${dir:h}"
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$root" worktree add "$dir" "$branch" >/dev/null || return 1
+    local -a foreign
+    foreign=(${(f)"$(git -C "$dir" log --format='%h %s' "$base..HEAD" 2>/dev/null | grep -v -i -F -- "$wt")"})
+    if ((${#foreign})); then
+      print -u2 -r "zse: ⚠ existing branch $branch has ${#foreign} commit(s) beyond $base that do not name '$wt':"
+      print -u2 -rl -- "      "${^foreign}
+      print -u2 -r "      Check them before you push (git -C $dir log $base..HEAD)."
+    fi
+    return 0
+  fi
+  # --no-track: the branch must not get origin/<default> as its upstream.
+  git -C "$root" worktree add --no-track -b "$branch" "$dir" "$base" >/dev/null || return 1
+  local extra
+  extra=$(git -C "$dir" rev-list "$base..HEAD" 2>/dev/null)
+  if ! git -C "$dir" merge-base --is-ancestor "$base" HEAD || [[ -n $extra ]]; then
+    git -C "$root" worktree remove --force "$dir" >/dev/null 2>&1
+    git -C "$root" branch -D "$branch" >/dev/null 2>&1
+    print -u2 -r "zse: ✗ self-check failed: new branch $branch was not exactly $base (commits beyond it: ${extra:-none}); removed it again."
+    return 1
+  fi
+  print -r "zse: ✓ $branch created from $base ($(git -C "$dir" rev-parse --short HEAD))"
+}
+
+# _z_ticket_worktree ROOT ID — the ticket's worktree `.claude/worktrees/ID`:
+# the tktl-eng-delivery plugin's `scripts/worktree.sh` when the plugin is
+# installed (one implementation with the project master's ticket sessions),
+# else `_z_branch_worktree` on `$ZSE_BRANCH_USER/ID`.
+_z_ticket_worktree() {
+  emulate -L zsh
+  local root="$1" id="$2" plugin
+  [[ -e $root/.claude/worktrees/$id/.git ]] && return 0
+  plugin=$(jq -r '.plugins["tktl-eng-delivery@taktile-skills"][]? | select(.scope == "user") | .installPath' \
+    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)
+  if [[ -n $plugin && -r $plugin/scripts/worktree.sh ]]; then
+    bash "$plugin/scripts/worktree.sh" "$id" "$root" >/dev/null || return 1
+  elif [[ -n ${ZSE_BRANCH_USER:-} ]]; then
+    _z_branch_worktree "$root" "$id" "$ZSE_BRANCH_USER/$id"
+  fi
+}
+
+# ----- Names: <type>-<repo>-<id>-<hint> -----
+
+# _z_repo_short REPO — short repo name for session names: the entry in
+# $ZSE_REPO_SHORT (a map from home/modules/zellij.nix), else: drop a
+# `taktile-` prefix; 3+ parts (split on - and _) become their initials;
+# otherwise the first 8 chars.
+_z_repo_short() {
+  emulate -L zsh
+  local r=${1:l}
+  if [[ -n ${ZSE_REPO_SHORT[$r]:-} ]]; then
+    print -r -- "${ZSE_REPO_SHORT[$r]}"
+    return
+  fi
+  r=${r#taktile-}
+  local -a parts
+  parts=(${(s:-:)${r//_/-}})
+  if ((${#parts} >= 3)); then
+    print -r -- "${(j::)${(@M)parts#?}}"
+  else
+    print -r -- "${${r//_/-}[1,8]%-}"
+  fi
+}
+
+# _z_hint_clean TEXT — a valid hint: lower case, runs of other chars as `-`,
+# at most 3 words of at most 8 chars.
+_z_hint_clean() {
+  emulate -L zsh
+  setopt extended_glob
+  local -a words out
+  words=(${(s:-:)${${1:l}//[^a-z0-9]##/-}})
+  local w
+  for w in ${words[1,3]}; do
+    out+=("${w[1,8]}")
+  done
+  print -r -- "${(j:-:)out}"
+}
+
+# _z_hint_rule TITLE — hint without AI: prefixes like `[ABC]`, `feat(x):` or
+# `PEP:` and stop words dropped, then the first 3 words.
+_z_hint_rule() {
+  emulate -L zsh
+  setopt extended_glob
+  local t=${1:l}
+  t=${t##\[[^\]]#\][[:space:]]#}
+  t=${t##[a-z]##(\([^\)]#\))#\!#:[[:space:]]#}
+  local -a stop words out
+  stop=(a an the and or of for to in on at by with from into via is are be as it its this that add adds make makes use new)
+  words=(${(s: :)${t//[^a-z0-9]##/ }})
+  local w
+  for w in $words; do
+    ((${stop[(Ie)$w]})) && continue
+    out+=("$w")
+    ((${#out} == 3)) && break
+  done
+  _z_hint_clean "${(j:-:)out}"
+}
+
+typeset -g _ZSE_HINT_RULES='a reminder hint of at most 3 lower-case words (letters a-z and digits only, each word at most 8 characters) joined by "-", saying what it is about'
+
+# _z_claude_p TOOLS PROMPT — one `claude -p` call with Haiku, 30 s timeout,
+# run in $HOME without the session's markers (no repo context, no delivery
+# rules). Prints the answer; fails on error or timeout.
+_z_claude_p() {
+  local -a tools
+  [[ -n $1 ]] && tools=(--allowedTools "$1")
+  local prompt=$2
+  (
+    cd -q "$HOME" || exit 1
+    unset DELIVERY_SESSION ZSE_USE_CASE CLAUDECODE CLAUDE_CODE_ENTRYPOINT \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+    ${ZSE_TIMEOUT:-timeout} 30 claude -p --model haiku $tools \
+      --output-format text "$prompt" </dev/null 2>/dev/null
+  )
+}
+
+# _z_ticket_info ID — sets REPLY to the Linear title of ticket ID and
+# REPLY_HINT to a suggested hint (one `claude -p` call through the Linear
+# connector). Both empty when Claude cannot read the ticket.
+_z_ticket_info() {
+  emulate -L zsh
+  local out
+  REPLY="" REPLY_HINT=""
+  print -u2 -r "zse: reading $1 from Linear for the hint (about 10 s) …"
+  out=$(_z_claude_p mcp__claude_ai_Linear__get_issue \
+    "Read Linear issue $1 with the get_issue tool. Reply with exactly two lines and nothing else. Line 1: the issue title. Line 2: $_ZSE_HINT_RULES. If you cannot read the issue, reply with the single line ERROR.") || return 0
+  local -a lines
+  lines=(${(f)out})
+  [[ ${lines[1]:-ERROR} == ERROR ]] && return 0
+  REPLY=${lines[1]}
+  REPLY_HINT=${lines[2]:-}
+  [[ $REPLY_HINT =~ '^[a-z0-9]{1,8}(-[a-z0-9]{1,8}){0,2}$' ]] || REPLY_HINT=$(_z_hint_rule "$REPLY")
+}
+
+# _z_hint_ai TITLE — a hint for TITLE from Claude; the rule-based hint when
+# Claude fails or answers out of shape.
+_z_hint_ai() {
+  emulate -L zsh
+  local out
+  out=$(_z_claude_p "" "Title: $1
+Reply with only $_ZSE_HINT_RULES.")
+  out=${${out%%$'\n'*}// /}
+  if [[ $out =~ '^[a-z0-9]{1,8}(-[a-z0-9]{1,8}){0,2}$' ]]; then
+    print -r -- "$out"
+  else
+    _z_hint_rule "$1"
+  fi
+}
+
+# _z_hint_ask WHAT TITLE SUGGESTION — sets REPLY to the hint. In a terminal,
+# shows WHAT and TITLE and lets the user edit SUGGESTION (Enter accepts, an
+# empty line means no hint); without a terminal, the suggestion.
+_z_hint_ask() {
+  emulate -L zsh
+  local hint=$3
+  if [[ -t 0 && -t 2 ]]; then
+    print -u2 -r "zse: hint for $1${2:+ \"$2\"}"
+    vared -p 'zse: hint (Enter accepts, empty = none): ' hint
+  fi
+  REPLY=$(_z_hint_clean "$hint")
+}
+
+# _z_name PREFIX ID [HINT] — `PREFIX-ID-HINT`, at most 40 chars (Zellij's
+# socket path limit is about 55): hint words are dropped from the end first.
+_z_name() {
+  emulate -L zsh
+  local base="$1-$2" hint=${3:-}
+  while [[ -n $hint ]] && ((${#base} + 1 + ${#hint} > 40)); do
+    [[ $hint == *-* ]] && hint=${hint%-*} || hint=""
+  done
+  print -r -- "$base${hint:+-$hint}"
 }
 
 # Remove a `.claude/worktrees/<name>` worktree if it is safe: no uncommitted
@@ -267,20 +541,32 @@ _z_doc_slug() {
 _zse_help() {
   cat <<'EOF'
 usage:
-  zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]  start NAME, or attach if it runs
+  zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]
+                                             start NAME, or attach if it runs
   zse ls                                     list registered and running sessions
   zse stop [--all | NAME]                    stop a session, keep it registered
   zse kill [NAME]                            end a session and clean up
   zse restore [NAME...]                      start stopped sessions in the background
   zse restart --all | NAME...                stop running sessions, start them again
   zse switch NAME                            switch to NAME (start it if stopped)
+  zse migrate NAME... | --all [--force]      give old-style sessions the new names
 
   USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review,
              review-doc, daily, explore, code-resume. A registered session
              keeps its use case.
-  NAME       default: the current directory name; for `review`, a GitHub PR URL;
-             for `review-doc`, a Notion URL or a GitHub PR URL.
+  NAME       default: the current directory name; for `ticket`, the ticket ID;
+             for `project` / `explore`, the slug; for `review`, a GitHub PR
+             URL; for `review-doc`, a Notion URL or a GitHub PR URL.
+             An existing session can also be named by its ticket ID or slug.
              stop / kill default to the current session.
+  HINT       up to 3 short words in the name. Without -t, zse suggests one
+             from the ticket / PR title (Claude, Haiku) and lets you edit it;
+             -t '' means no hint.
+
+  names      ticket tkt-<ID>-<hint>        review  rev-<repo>-<n>-<hint>
+             project proj-<slug>           review-doc doc-<title>-<id8> / doc-<repo>-<n>
+             explore exp-<slug>            code, daily: unchanged
+             Worktree and branch keep the ticket ID / pr-<n> / slug.
 
   stop vs kill
     stop   Only stops the Zellij session. Its registry entry, worktree and
@@ -297,95 +583,153 @@ usage:
   restore skips sessions that use -a (assume needs the YubiKey) and prints
   the command to start them.
 
+  migrate renames sessions from before the name schema. The worktree, branch
+  and Claude conversation stay. A running session is stopped and restored
+  (it asks; --force does not); sessions with -a are not restored.
+
   restart picks up a new layout after a deploy: stop, then restore. It
   skips the current session (stopping it would end the command too);
   --all also skips sessions that use -a, so they keep running.
 EOF
 }
 
-# zse [-l USE_CASE] [-a AWS_PROFILE] [NAME] — start or attach.
+# zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME] — start or attach.
+#
+# An existing session wins (`_z_resolve`: its name, a ticket ID, a project /
+# explore slug; for a PR URL the session of that PR). A new session gets a
+# name `<type>-<repo>-<id>-<hint>` and its name keys in the registry:
+#   ticket      tkt-<ID>-<hint>          hint from the Linear title (Claude)
+#   review      rev-<repo>-<n>-<hint>    hint from the PR title (Claude)
+#   review-doc  doc-<title>-<id8> (Notion URL) / doc-<repo>-<n> (PR URL)
+#   project     proj-<slug>
+#   explore     exp-<slug>
+# In a terminal zse shows the title and lets you edit the hint first;
+# -t HINT skips Claude and the prompt (-t '' = no hint).
 _zse_start() {
   emulate -L zsh
   local -A opts
-  zparseopts -D -E -A opts l: a: || return 1
+  zparseopts -D -E -A opts l: a: t: || return 1
   # `name` may be inherited from a parent nix devShell (`name=nix-shell-env`);
   # `local` makes it function-scoped and the assignment reads $1 first.
   local name
   name="${1:-${PWD:t}}"
   [[ -z $name || $name == nix-shell-env ]] && name="zellij-$$"
-
-  # Review mode: a GitHub PR URL becomes `review-<repo>-pr<n>`, started in
-  # the matching checkout at ~/github/<owner>/<repo>.
-  local review_cwd=""
   local use_case_opt=${opts[-l]:-}
-  if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == review \
-    && $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
-    local owner=$match[1] repo=$match[2] pr=$match[3]
-    name="review-$repo-pr$pr"
-    review_cwd="$HOME/github/$owner/$repo"
-    # The name has no owner: refuse a registered session for another
-    # checkout (e.g. alice/docs#1 vs bob/docs#1), which would resume the
-    # other review in the other repo.
-    local registered_dir
-    registered_dir=$(_z_reg_get "$name" dir 2>/dev/null)
-    if [[ -n $registered_dir && $registered_dir != $review_cwd ]]; then
-      print -u2 -r "zse: session '$name' already reviews a PR in $registered_dir."
-      print -u2 -r "     Run 'zse kill $name' to end that review before starting this one."
-      return 1
-    fi
-    if [[ ! -d $review_cwd/.git ]]; then
-      print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
-      return 1
-    fi
-  fi
+  local uc=${use_case_opt:-${ZSE_LAYOUT:-code}}
+  local has_hint=${+opts[-t]} hint_opt=${opts[-t]:-}
 
-  # Review-doc mode: the doc URL names the session. A GitHub PR URL becomes
-  # `review-doc-<repo>-pr<n>` in ~/github/<owner>/<repo>; a Notion URL becomes
-  # `review-doc-<title>-<id8>` (title from the URL, first 8 page-ID chars). The URL goes into the
-  # registry; the claude pane sends `/tktl-eng-delivery:review-doc <url>` on the first start.
-  local doc_url=""
-  if [[ ${use_case_opt:-${ZSE_LAYOUT:-code}} == review-doc && $name == http(s|)://* ]]; then
-    doc_url=$name
-    if [[ $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
-      local owner=$match[1] repo=$match[2] pr=$match[3]
-      name="review-doc-$repo-pr$pr"
-      review_cwd="$HOME/github/$owner/$repo"
+  local review_cwd="" url="" existing="" title="" hint=""
+  local -A meta # name keys of a new session
+
+  if [[ $name != http(s|)://* ]] && existing=$(_z_resolve "$name"); then
+    name=$existing
+
+  elif [[ ($uc == review || $uc == review-doc) \
+    && $name =~ '^https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)' ]]; then
+    # A GitHub PR URL: the session of that PR, started in ~/github/<owner>/<repo>.
+    local owner=$match[1] repo=$match[2] pr=$match[3] old
+    url=${name%%[?#]*}
+    review_cwd="$HOME/github/$owner/$repo"
+    if [[ $uc == review ]]; then old="review-$repo-pr$pr"; else old="review-doc-$repo-pr$pr"; fi
+    local n
+    for n in $(_z_reg_names); do
+      if [[ $(_z_reg_get "$n" use_case) == $uc && $(_z_reg_get "$n" pr) == $pr \
+        && $(_z_reg_get "$n" owner) == $owner && $(_z_reg_get "$n" repo) == $repo ]]; then
+        existing=$n
+        break
+      fi
+    done
+    if [[ -n $existing ]]; then
+      name=$existing
+    elif _z_reg_get "$old" use_case >/dev/null 2>&1 || [[ $(_z_session_state "$old") != none ]]; then
+      # A session from before the name schema. Its name has no owner: refuse
+      # one for another checkout (alice/docs#1 vs bob/docs#1), which would
+      # resume the other review in the other repo.
       local registered_dir
-      registered_dir=$(_z_reg_get "$name" dir 2>/dev/null)
+      registered_dir=$(_z_reg_get "$old" dir 2>/dev/null)
       if [[ -n $registered_dir && $registered_dir != $review_cwd ]]; then
-        print -u2 -r "zse: session '$name' already belongs to $registered_dir."
-        print -u2 -r "     Run 'zse kill $name' to end that review before starting this one."
+        print -u2 -r "zse: session '$old' already belongs to $registered_dir."
+        print -u2 -r "     Run 'zse kill $old' to end it before starting this one."
         return 1
       fi
+      name=$old
+    else
       if [[ ! -d $review_cwd/.git ]]; then
         print -u2 -r "zse: $review_cwd is not a git checkout. Clone $owner/$repo there first."
         return 1
       fi
-    else
-      name="review-doc-$(_z_doc_slug "$name")"
-      # The ID suffix makes names unique per page; still refuse to reuse a
-      # registered session that belongs to another page (or another URL when
-      # neither has an ID), because it would resume the other review.
-      local reg_url
-      reg_url=$(_z_reg_get "$name" url 2>/dev/null)
-      if [[ -n $reg_url ]]; then
-        local old_id new_id
-        old_id=$(_z_doc_page_id "$reg_url")
-        new_id=$(_z_doc_page_id "$doc_url")
-        if [[ ${old_id:-${reg_url%%[?#]*}} != ${new_id:-${doc_url%%[?#]*}} ]]; then
-          print -u2 -r "zse: session '$name' already reviews another doc: $reg_url"
-          print -u2 -r "     Run 'zse kill $name' to end that review, or start this one under another name."
-          return 1
+      if [[ $uc == review ]]; then
+        title=$(gh pr view "$pr" -R "$owner/$repo" --json title -q .title 2>/dev/null)
+        if ((has_hint)); then
+          hint=$(_z_hint_clean "$hint_opt")
+        else
+          [[ -n $title ]] && hint=$(_z_hint_ai "$title")
+          _z_hint_ask "$owner/$repo#$pr" "$title" "$hint"
+          hint=$REPLY
         fi
+        name=$(_z_name rev "$(_z_repo_short "$repo")-$pr" "$hint")
+      else
+        name=$(_z_name doc "$(_z_repo_short "$repo")-$pr")
       fi
+      meta=(names 2 owner "$owner" repo "$repo" pr "$pr" wt "pr-$pr" title "$title" hint "$hint")
+    fi
+
+  elif [[ $uc == review-doc && $name == http(s|)://* ]]; then
+    # A Notion URL: `doc-<title>-<id8>`. The ID suffix makes names unique per
+    # page; still refuse a registered session that belongs to another page
+    # (or another URL when neither has an ID), because it would resume the
+    # other review.
+    url=$name
+    local slug cand reg_url old_id new_id
+    slug=$(_z_doc_slug "$url")
+    for cand in "doc-$slug" "review-doc-$slug"; do
+      reg_url=$(_z_reg_get "$cand" url 2>/dev/null) || continue
+      old_id=$(_z_doc_page_id "$reg_url")
+      new_id=$(_z_doc_page_id "$url")
+      if [[ ${old_id:-${reg_url%%[?#]*}} != ${new_id:-${url%%[?#]*}} ]]; then
+        print -u2 -r "zse: session '$cand' already reviews another doc: $reg_url"
+        print -u2 -r "     Run 'zse kill $cand' to end that review, or start this one under another name."
+        return 1
+      fi
+      existing=$cand
+      break
+    done
+    if [[ -n $existing ]]; then
+      name=$existing
+    else
+      name="doc-$slug"
+      meta=(names 2 slug "$slug")
+    fi
+
+  elif [[ $uc == ticket && $name =~ '^[A-Za-z][A-Za-z0-9]*-[0-9]+$' ]]; then
+    local id=${name:u}
+    if ((has_hint)); then
+      hint=$(_z_hint_clean "$hint_opt")
+    else
+      _z_ticket_info "$id"
+      title=$REPLY
+      _z_hint_ask "$id" "$title" "$REPLY_HINT"
+      hint=$REPLY
+    fi
+    name=$(_z_name tkt "$id" "$hint")
+    meta=(names 2 ticket "$id" wt "$id" title "$title" hint "$hint")
+
+  elif [[ $uc == project || $uc == explore ]]; then
+    local slug=${${name#proj-}#exp-}
+    if [[ $uc == project ]]; then
+      name="proj-$slug"
+      meta=(names 2 slug "$slug")
+    else
+      name="exp-$slug"
+      meta=(names 2 slug "$slug" wt "$slug")
     fi
   fi
 
   if [[ $(_z_session_state "$name") == live ]]; then
     if [[ -n ${opts[-a]:-} ]]; then
-      local existing
-      existing=$(sed -n 's/^AWS_PROFILE=//p' "$(_z_aws_sidecar "$name")" 2>/dev/null)
-      print -u2 -r "zse: session '$name' already runs; -a ignored (session uses ${existing:-<none>})."
+      local running
+      running=$(sed -n 's/^AWS_PROFILE=//p' "$(_z_aws_sidecar "$name")" 2>/dev/null)
+      print -u2 -r "zse: session '$name' already runs; -a ignored (session uses ${running:-<none>})."
     fi
     _z_aws_warn "$name"
     _z_attach "$name"
@@ -407,33 +751,27 @@ _zse_start() {
     return 1
   fi
 
-  # Ticket / explore mode: pre-create the worktree on branch
-  # `$ZSE_BRANCH_USER/<ticket>` (ticket) or `explore/<slug>` (explore) instead
-  # of Claude Code's default `worktree-<name>`; `claude --worktree` reuses an
-  # existing worktree as-is. Skipped outside a git repo, when the worktree
-  # exists, or for ticket when ZSE_BRANCH_USER is empty.
-  local wt_prefix=""
-  case $use_case in
-    ticket) [[ -n ${ZSE_BRANCH_USER:-} ]] && wt_prefix="$ZSE_BRANCH_USER" ;;
-    explore) wt_prefix="explore" ;;
-  esac
-  if [[ -n $wt_prefix ]]; then
-    local repo_root
-    if repo_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
-      local worktree_dir="$repo_root/.claude/worktrees/$name"
-      if [[ ! -d $worktree_dir ]]; then
-        local branch="$wt_prefix/$name"
-        mkdir -p "$repo_root/.claude/worktrees"
-        if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
-          git -C "$repo_root" worktree add "$worktree_dir" "$branch" >/dev/null || return 1
-        else
-          git -C "$repo_root" worktree add -b "$branch" "$worktree_dir" >/dev/null || return 1
-        fi
-      fi
+  # Ticket / explore: create or reuse the worktree before claude starts
+  # (`claude --worktree` reuses it as-is). A new branch starts at the fetched
+  # origin default branch: ticket `<prefix>/<ID>` (`_z_ticket_worktree`),
+  # explore `explore/<slug>`. Skipped outside a git repo.
+  local root wt=${meta[wt]:-$(_z_worktree_name "$name")}
+  if [[ $use_case == (ticket|explore) ]] && root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
+    if [[ $use_case == ticket ]]; then
+      _z_ticket_worktree "$root" "$wt" || return 1
+    else
+      _z_branch_worktree "$root" "$wt" "explore/$wt" || return 1
     fi
   fi
 
-  [[ -n $doc_url ]] && _z_reg_write "$name" "$use_case" "$dir" "$aws" "$doc_url"
+  # The panes read the name keys at start (`zse-meta`): register them first.
+  if [[ -n $url ]] || ((${#meta})); then
+    _z_reg_write "$name" "$use_case" "$dir" "$aws" "$url"
+    local k
+    for k in ${(k)meta}; do
+      [[ -n ${meta[$k]} ]] && _z_reg_set "$name" "$k" "${meta[$k]}"
+    done
+  fi
   _z_launch "$name" "$use_case" "$dir" "$aws"
 }
 
@@ -478,14 +816,16 @@ _zse_ls() {
   done
 }
 
-# _z_target NAME_OR_EMPTY — the given name, or the current session.
+# _z_target NAME_OR_EMPTY — the session the given name refers to
+# (`_z_resolve`: also a ticket ID or a project / explore slug), or the
+# current session.
 _z_target() {
   local name=${1:-${ZELLIJ_SESSION_NAME:-}}
   if [[ -z $name ]]; then
     print -u2 -r "zse: no session name given and not inside a Zellij session."
     return 1
   fi
-  print -r -- "$name"
+  _z_resolve "$name" 2>/dev/null || print -r -- "$name"
 }
 
 # zse stop --all — stop every live session, registered or not (e.g. before
@@ -655,6 +995,152 @@ _zse_restart() {
   _zse_restore $todo
 }
 
+# _z_conv_id NAME DIR — the conversation ID zse-claude derives for a session
+# without a `conv` key (keep in sync with zseClaude in zellij.nix).
+_z_conv_id() {
+  local h
+  h=$(printf 'zse:%s:%s' "$1" "$2" | shasum -a 256 | cut -c1-32)
+  print -r -- "${h[1,8]}-${h[9,12]}-5${h[14,16]}-8${h[18,20]}-${h[21,32]}"
+}
+
+# zse migrate NAME... | --all [--force] — give sessions from before the name
+# schema a new name and the name keys (see _zse_start). The worktree, branch
+# and Claude conversation stay: `conv` keeps the conversation ID derived from
+# the old name. A running session is stopped first (asks; --force does not)
+# and restored under the new name; sessions with -a are not restored.
+_zse_migrate() {
+  emulate -L zsh
+  local force="" all=""
+  local -a names
+  while (($#)); do
+    case $1 in
+      --force) force=1 ;;
+      --all) all=1 ;;
+      *) names+=("$1") ;;
+    esac
+    shift
+  done
+  if [[ -n $all ]]; then
+    names=($(_z_reg_names))
+  elif ((!${#names})); then
+    print -u2 -r "zse: usage: zse migrate NAME... | --all [--force]"
+    return 1
+  fi
+
+  local n uc dir aws new title hint live repo pr owner conv cand d k reply
+  local -A meta
+  for n in $names; do
+    uc=$(_z_reg_get "$n" use_case) || { print -u2 -r "zse: '$n' is not registered — skipped."; continue; }
+    [[ -n $(_z_reg_get "$n" names) ]] && { [[ -z $all ]] && print -r "zse: '$n' already uses the name schema."; continue; }
+    dir=$(_z_reg_get "$n" dir)
+    aws=$(_z_reg_get "$n" aws_profile)
+    title="" hint="" meta=()
+    case $uc in
+      ticket)
+        if [[ ! $n =~ '^[A-Za-z][A-Za-z0-9]*-[0-9]+$' ]]; then
+          print -r "zse: '$n' is not a ticket ID — skipped."
+          continue
+        fi
+        _z_ticket_info "${n:u}"
+        title=$REPLY
+        _z_hint_ask "$n" "$title" "$REPLY_HINT"
+        hint=$REPLY
+        new=$(_z_name tkt "${n:u}" "$hint")
+        meta=(ticket "${n:u}" wt "$n" title "$title" hint "$hint")
+        ;;
+      review | review-doc)
+        if [[ $n =~ '^review(-doc)?-(.+)-pr([0-9]+)$' ]]; then
+          repo=$match[2] pr=$match[3] owner=${${dir:h}:t}
+          if [[ $uc == review ]]; then
+            title=$(gh pr view "$pr" -R "$owner/$repo" --json title -q .title 2>/dev/null)
+            [[ -n $title ]] && hint=$(_z_hint_ai "$title")
+            _z_hint_ask "$owner/$repo#$pr" "$title" "$hint"
+            hint=$REPLY
+            new=$(_z_name rev "$(_z_repo_short "$repo")-$pr" "$hint")
+            _z_reg_set "$n" url "https://github.com/$owner/$repo/pull/$pr"
+          else
+            new=$(_z_name doc "$(_z_repo_short "$repo")-$pr")
+          fi
+          meta=(owner "$owner" repo "$repo" pr "$pr" wt "pr-$pr" title "$title" hint "$hint")
+        elif [[ $uc == review-doc && $n == review-doc-* ]]; then
+          new="doc-${n#review-doc-}"
+          meta=(slug "${n#review-doc-}")
+        else
+          print -r "zse: '$n' has no PR or doc in its name — skipped."
+          continue
+        fi
+        ;;
+      project) new="proj-$n" meta=(slug "$n") ;;
+      explore) new="exp-$n" meta=(slug "$n" wt "$n") ;;
+      *)
+        [[ -z $all ]] && print -r "zse: '$n' ($uc) keeps its name."
+        continue
+        ;;
+    esac
+    if [[ $new == $n ]]; then
+      _z_reg_set "$n" names 2
+      continue
+    fi
+    if _z_reg_get "$new" use_case >/dev/null 2>&1 || [[ $(_z_session_state "$new") != none ]]; then
+      print -u2 -r "zse: '$new' exists already — '$n' skipped."
+      continue
+    fi
+
+    # The conversation zse-claude resumed under the old name: the ID from the
+    # registered dir, or from its physical path when that is the one with a
+    # transcript.
+    conv=$(_z_conv_id "$n" "$dir")
+    for d in "$dir" "${dir:A}"; do
+      cand=$(_z_conv_id "$n" "$d")
+      if [[ -n $(print -l "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$cand".jsonl(N)) ]]; then
+        conv=$cand
+        break
+      fi
+    done
+
+    live=""
+    if [[ $(_z_session_state "$n") == live ]]; then
+      if [[ -n ${ZELLIJ:-} && $n == "${ZELLIJ_SESSION_NAME:-}" ]]; then
+        print -u2 -r "zse: '$n' is the current session — skipped. Run 'zse migrate $n' from another session or outside Zellij."
+        continue
+      fi
+      if [[ -z $force ]]; then
+        if [[ ! -t 0 ]]; then
+          print -u2 -r "zse: '$n' is running — skipped (--force stops it)."
+          continue
+        fi
+        printf "zse: '%s' is running. Stop it, rename it to '%s' and restore it? [y/N] " "$n" "$new"
+        read -r reply
+        [[ $reply == [yY]* ]] || { print -r "zse: '$n' skipped."; continue; }
+      fi
+      zellij kill-session "$n" || continue
+      for _ in {1..20}; do
+        [[ $(_z_session_state "$n") == none ]] && break
+        sleep 0.25
+      done
+      live=1
+    fi
+    [[ $(_z_session_state "$n") == exited ]] && zellij delete-session "$n" >/dev/null 2>&1
+
+    mv "$(_z_reg_file "$n")" "$(_z_reg_file "$new")" || continue
+    [[ -e $ZSE_CACHE_DIR/$n.env ]] && mv "$ZSE_CACHE_DIR/$n.env" "$ZSE_CACHE_DIR/$new.env"
+    [[ -e $ZSE_CACHE_DIR/$n.welcomed ]] && mv "$ZSE_CACHE_DIR/$n.welcomed" "$ZSE_CACHE_DIR/$new.welcomed"
+    for k in ${(k)meta}; do
+      [[ -n ${meta[$k]} ]] && _z_reg_set "$new" "$k" "${meta[$k]}"
+    done
+    _z_reg_set "$new" conv "$conv"
+    _z_reg_set "$new" names 2
+    print -r "zse: '$n' → '$new'"
+    if [[ -n $live ]]; then
+      if [[ -n $aws ]]; then
+        print -r "zse: '$new' uses AWS profile $aws — start it yourself: zse $new"
+      else
+        _zse_restore "$new"
+      fi
+    fi
+  done
+}
+
 _zse_switch() {
   emulate -L zsh
   local name=${1:-}
@@ -662,6 +1148,7 @@ _zse_switch() {
     print -u2 -r "zse: usage: zse switch NAME"
     return 1
   fi
+  name=$(_z_resolve "$name" 2>/dev/null || print -r -- "$name")
   if [[ $(_z_session_state "$name") != live ]]; then
     if ! _z_reg_get "$name" use_case >/dev/null; then
       print -u2 -r "zse: no running or registered session '$name'."
@@ -684,6 +1171,7 @@ zse() {
     restore) shift; _zse_restore "$@" ;;
     restart) shift; _zse_restart "$@" ;;
     switch) shift; _zse_switch "$@" ;;
+    migrate) shift; _zse_migrate "$@" ;;
     -h | --help | help) _zse_help ;;
     --) shift; _zse_start "$@" ;;
     *) _zse_start "$@" ;;
@@ -728,6 +1216,7 @@ _zse() {
     'restore:start stopped sessions in the background'
     'restart:stop running sessions and start them again'
     'switch:switch to a session'
+    'migrate:give old-style sessions the new names'
     'help:show usage'
   )
   case ${words[2]:-} in
@@ -740,12 +1229,18 @@ _zse() {
       ((CURRENT >= 3)) && _zse_names
       return
       ;;
+    migrate)
+      ((CURRENT >= 3)) && compadd -- --all --force
+      ((CURRENT >= 3)) && _zse_names
+      return
+      ;;
     ls | help) return ;;
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
     '-l[layout / use case]:use case:(code project ticket review review-doc daily explore code-resume)' \
     '-a[AWS profile]:profile:' \
+    '-t[hint in the name]:hint:' \
     '*:session name:_zse_names'
 }
 

@@ -241,7 +241,8 @@ just backup-check        # verify backup integrity (10 % sample)
 │       ├── granted.nix    # Granted AWS credential manager
 │       ├── harmonic-dj.nix  # Harmonic DJ app derivation (serenity, evaluation)
 │       ├── zellij.nix     # Zellij layouts + config
-│       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch)
+│       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch/migrate)
+│       ├── zse_test.zsh   # unit checks for the zse name helpers (zsh home/modules/zse_test.zsh)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager
