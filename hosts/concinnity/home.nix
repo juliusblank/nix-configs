@@ -434,9 +434,22 @@ in
       pluginSync = pkgs.writeShellScript "claude-plugin-sync" ''
         set -u
         declared="$1"
+        # Activation runs with a minimal PATH. Claude Code needs git to refresh
+        # marketplaces and for git-subdir plugins; /usr/bin has the ssh that
+        # reaches the 1Password agent for the private taktile-skills clone.
+        export PATH="${pkgs.git}/bin:/usr/bin:/bin:$PATH"
         jq=${pkgs.jq}/bin/jq
         state="$HOME/.claude/plugins"
-        cli() { ${pkgs.coreutils}/bin/timeout 180 ${pkgs.claude-code}/bin/claude plugin "$@" </dev/null >/dev/null 2>&1; }
+        # `claude plugin` can exit 0 after a partial failure ("✘ Updated 4
+        # marketplaces, but not all"): treat a ✘ line as a failure too, and show
+        # the last lines of the output with the warning.
+        cli() {
+          out=$(${pkgs.coreutils}/bin/timeout 180 ${pkgs.claude-code}/bin/claude plugin "$@" </dev/null 2>&1)
+          rc=$?
+          case $out in *✘*) rc=1 ;; esac
+          [ "$rc" -eq 0 ] || printf '%s\n' "$out" | tail -n 2 | sed 's/^/  /' >&2
+          return "$rc"
+        }
         warn() { echo "claude-plugin-sync: warning: $*" >&2; }
 
         # Marketplaces: add the declared ones that Claude Code does not know yet.
@@ -451,7 +464,7 @@ in
         # Plugins: true → install or update, false → uninstall if installed.
         "$jq" -r '.enabledPlugins | to_entries[] | "\(.key) \(.value)"' "$declared" |
           while read -r plugin enabled; do
-            have=$("$jq" -r --arg p "$plugin" '.plugins | has($p)' "$state/installed_plugins.json" 2>/dev/null || echo false)
+            have=$("$jq" -r --arg p "$plugin" '[.plugins[$p][]? | select(.scope == "user")] | length > 0' "$state/installed_plugins.json" 2>/dev/null || echo false)
             if [ "$enabled" = true ]; then
               if [ "$have" = true ]; then
                 cli update "$plugin" || warn "update $plugin failed"
