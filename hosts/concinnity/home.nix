@@ -404,7 +404,10 @@ in
           };
           enabledPlugins = {
             "tktl-eng-data@taktile-skills" = true;
-            "tktl-eng-frontend@taktile-skills" = true;
+            # Off: since 0.19.0 its hooks run `node …/decide-ui.mjs` on every
+            # turn; `node` is not on the global PATH here, so each hook fails
+            # with exit 127 (SPEC roadmap #43). Turn on again for decide-ui work.
+            "tktl-eng-frontend@taktile-skills" = false;
             "tktl-eng-delivery@taktile-skills" = true;
             "tktl-general@taktile-skills" = true;
             # Moved to tktl-eng-delivery (taktile-org/taktile-skills#344). `false`,
