@@ -444,13 +444,98 @@ _z_cleanup_worktree() {
 
 # ----- Launch -----
 
-# Attach to a running session; inside Zellij, switch in place instead of
-# nesting a client.
-_z_attach() {
-  if [[ -n ${ZELLIJ:-} ]]; then
-    zellij action switch-session "$1"
+# ----- Terminal tint (Ghostty) -----
+#
+# The terminal background of a Zellij client follows the session:
+# ZSE_TERM_TINT_PCT % (default 5, 0 = off) of the session's shade mixed into
+# ZSE_TERM_BG (Ghostty 0x96f: #262427), set with OSC 11 on the client's tty.
+# Zellij does not pass OSC 11 from a pane on to the terminal, so zse writes
+# to the client's tty itself. ~/.cache/zse/clients/<tty> holds the session
+# that zse last put on that client; a switch inside Zellij tints the
+# clients of the current session (or the only client). OSC 111 resets the
+# background when the client ends. A switch with Zellij's own session
+# manager does not change the tint.
+typeset -g ZSE_TERM_BG=${ZSE_TERM_BG:-38;36;39}
+typeset -gi ZSE_TERM_TINT_PCT=${ZSE_TERM_TINT_PCT:-5}
+typeset -g ZSE_CLIENT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/clients"
+
+# _z_mix NAME USE_CASE PCT — "r;g;b": PCT % of the session's shade colour
+# (shade 1 when none is stored yet) mixed into ZSE_TERM_BG; empty without a
+# use case or an RGB value for the shade.
+_z_mix() {
+  emulate -L zsh
+  [[ -n $2 ]] || return 0
+  local sh rgb i
+  sh=$(_z_reg_get "$1" shade 2>/dev/null)
+  rgb=${ZSE_SHADE_RGB[$(_z_color_type "$2")-${sh:-1}]:-}
+  [[ -n $rgb ]] || return 0
+  local -a c=(${(s:;:)rgb}) b=(${(s:;:)ZSE_TERM_BG}) out
+  for i in 1 2 3; do out+=$((b[i] + (c[i] - b[i]) * $3 / 100)); done
+  print -r -- "${(j:;:)out}"
+}
+
+# _z_term_hex NAME [USE_CASE] — "rr/gg/bb" for OSC 11; empty when the tint
+# is off or the session has no shade colour.
+_z_term_hex() {
+  emulate -L zsh
+  ((ZSE_TERM_TINT_PCT > 0)) || return 0
+  local mix
+  mix=$(_z_mix "$1" "${2:-$(_z_reg_get "$1" use_case 2>/dev/null)}" "$ZSE_TERM_TINT_PCT")
+  [[ -n $mix ]] || return 0
+  printf '%02x/%02x/%02x\n' ${(s:;:)mix}
+}
+
+# _z_tty_tint TTY NAME — set (or, without a colour, reset) the background of
+# the terminal on TTY for session NAME, and remember NAME for that client.
+_z_tty_tint() {
+  emulate -L zsh
+  local tty=$1 hex
+  [[ -w $tty ]] || return 0
+  hex=$(_z_term_hex "$2")
+  if [[ -n $hex ]]; then
+    printf '\e]11;rgb:%s\e\\' "$hex" >"$tty" 2>/dev/null
   else
+    printf '\e]111\e\\' >"$tty" 2>/dev/null
+  fi
+  mkdir -p "$ZSE_CLIENT_DIR" && print -r -- "$2" >"$ZSE_CLIENT_DIR/${tty:t}"
+}
+
+# _z_tty_reset TTY — the theme's background again; forget the client.
+_z_tty_reset() {
+  [[ -w $1 ]] && printf '\e]111\e\\' >"$1" 2>/dev/null
+  rm -f "$ZSE_CLIENT_DIR/${1:t}"
+}
+
+# _z_client_ttys SESSION — the ttys of the Zellij clients that show
+# SESSION: the clients zse put on it, else the only Zellij client.
+_z_client_ttys() {
+  emulate -L zsh
+  local -a all mine
+  local t
+  all=(${(f)"$(ps -axo tty=,comm= 2>/dev/null | awk '$1 != "??" && $2 ~ /(^|\/)zellij$/ { print "/dev/" $1 }' | sort -u)"})
+  for t in $all; do
+    [[ -r $ZSE_CLIENT_DIR/${t:t} && $(<"$ZSE_CLIENT_DIR/${t:t}") == "$1" ]] && mine+=$t
+  done
+  if ((${#mine})); then
+    print -rl -- $mine
+  elif ((${#all} == 1)); then
+    print -r -- $all
+  fi
+}
+
+# _z_attach NAME — switch to NAME inside Zellij, else attach in this
+# terminal; the terminal background follows the session.
+_z_attach() {
+  local t
+  if [[ -n ${ZELLIJ:-} ]]; then
+    local -a ttys=($(_z_client_ttys "${ZELLIJ_SESSION_NAME:-}"))
+    zellij action switch-session "$1"
+    for t in $ttys; do _z_tty_tint "$t" "$1"; done
+  else
+    t=$(tty 2>/dev/null) || t=""
+    [[ -n $t ]] && _z_tty_tint "$t" "$1"
     zellij attach "$1"
+    [[ -n $t ]] && _z_tty_reset "$t"
   fi
 }
 
@@ -482,6 +567,13 @@ _z_launch() {
   local -a zcfg
   cfg="$ZSE_ZELLIJ_CONFIG_DIR/$(_z_color_type "$use_case")-$(_z_shade "$name" "$use_case").kdl"
   if [[ -r $cfg ]]; then zcfg=(--config "$cfg"); else cfg=""; fi
+  # A foreground client in this terminal: tint it now, reset it when the
+  # client ends.
+  local fg_tty=""
+  if [[ -z $bg ]]; then
+    fg_tty=$(tty 2>/dev/null) || fg_tty=""
+    [[ -n $fg_tty ]] && _z_tty_tint "$fg_tty" "$name"
+  fi
   (
     # -q: no chpwd hooks. direnv's hook would export the devshell's
     # `name=nix-shell-env` over our local `name`. The panes load the devshell
@@ -513,8 +605,9 @@ _z_launch() {
     else
       zellij $zcfg -s "$name" -n "$use_case"
     fi
-  ) || return
-  [[ -n $switch ]] && zellij action switch-session "$name"
+  ) || { [[ -n $fg_tty ]] && _z_tty_reset "$fg_tty"; return 1; }
+  [[ -n $fg_tty ]] && _z_tty_reset "$fg_tty"
+  [[ -n $switch ]] && _z_attach "$name"
   return 0
 }
 
@@ -666,8 +759,7 @@ typeset -ga ZSE_GROUPS=(review review-doc ticket project explore code daily othe
 typeset -gA ZSE_GROUP_LABEL=(review reviews review-doc 'doc reviews' ticket tickets
   project projects explore explorations code code daily daily other other)
 # Row background in the picker: ZSE_TINT_PCT % of the session's shade mixed
-# into the terminal background (Ghostty 0x96f: #262427).
-typeset -g ZSE_TERM_BG=${ZSE_TERM_BG:-38;36;39}
+# into ZSE_TERM_BG (see "Terminal tint").
 typeset -gi ZSE_TINT_PCT=${ZSE_TINT_PCT:-14}
 
 # _z_group USE_CASE — the picker group of a use case.
@@ -681,14 +773,9 @@ _z_group() {
 # (shade 1 when none is stored yet); empty without a use case or RGB.
 _z_tint() {
   emulate -L zsh
-  [[ -n $2 ]] || return 0
-  local sh rgb i
-  sh=$(_z_reg_get "$1" shade 2>/dev/null)
-  rgb=${ZSE_SHADE_RGB[$(_z_color_type "$2")-${sh:-1}]:-}
-  [[ -n $rgb ]] || return 0
-  local -a c=(${(s:;:)rgb}) b=(${(s:;:)ZSE_TERM_BG}) out
-  for i in 1 2 3; do out+=$((b[i] + (c[i] - b[i]) * ZSE_TINT_PCT / 100)); done
-  print -r -- "48;2;${(j:;:)out}"
+  local mix
+  mix=$(_z_mix "$1" "$2" "$ZSE_TINT_PCT")
+  [[ -n $mix ]] && print -r -- "48;2;$mix"
 }
 
 # _z_pick_width — the width of an fzf row: FZF_COLUMNS in a reload, else
