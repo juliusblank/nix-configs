@@ -1,6 +1,14 @@
 # zse-ci: a GitHub PR (gh pr view --json …) → the review status summary.
 # --arg me <login>. "Since my last review": after my latest review (its
 # commit) or my latest comment, whichever is newer.
+#
+# review_state (the picker, `zse ls` and the tab name show it):
+#   merged / closed  the PR is merged or closed
+#   new              I have not reviewed or commented yet, or there are new
+#                    commits or comments / reviews by others since then
+#   approved         my latest review approves, nothing new since
+#   submitted        my latest review comments or requests changes (or I
+#                    only commented), nothing new since
 
 def first_line: (. // "" | gsub("<!--[\\s\\S]*?-->"; "") | split("\n") | map(select(test("\\S"))) | .[0] // "" | .[0:90]);
 def outcome:
@@ -39,6 +47,16 @@ def outcome:
       | sort_by(.at)
     end
   ) as $new_others
+| ([$rv[] | select(.author.login == $me)] | sort_by(.submittedAt) | last | .state // "") as $my_review
+| (($new_commits | length) + ($new_others | length)) as $new
+| (
+    if .state == "MERGED" then "merged"
+    elif .state == "CLOSED" then "closed"
+    elif $base == null or $new > 0 then "new"
+    elif $my_review == "APPROVED" then "approved"
+    else "submitted"
+    end
+  ) as $review_state
 | ([(.statusCheckRollup // [])[] | {name: (.name // .context // "?"), o: outcome}]) as $ci
 | {
     title, state, draft: .isDraft, decision: (.reviewDecision // ""), mergeable: (.mergeable // ""),
@@ -54,5 +72,7 @@ def outcome:
     base: (if $base == null then null else ($base + {at: ($base.at[0:16] | sub("T"; " "))}) end),
     new_commits: [$new_commits[] | {oid: .oid[0:7], line: .messageHeadline[0:80]}],
     new_others: [$new_others[] | . + {at: (.at[0:16] | sub("T"; " "))}],
-    new: (($new_commits | length) + ($new_others | length))
+    new: $new,
+    review_state: $review_state,
+    my_review: ($my_review | ascii_downcase | gsub("_"; " "))
   }

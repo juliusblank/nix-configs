@@ -698,6 +698,48 @@ _z_pick_width() {
   print -r -- $(( ${w:-100} - 3 ))
 }
 
+# Review states from the `zse-ci` pane (zse-ci.jq), with the markers that
+# the pane also puts at the end of the tab name.
+typeset -gA ZSE_REVIEW_MARK=(new '✱' submitted '↩' approved '✔' closed '✗' merged '⇥')
+
+# _z_review NAME — read ~/.cache/zse/activity/NAME.pr: sets REPLY (state),
+# REPLY_LABEL, REPLY_SUMMARY and REPLY_AT (ISO UTC of the last poll).
+# Returns 1 when there is no state.
+_z_review() {
+  emulate -L zsh
+  local f="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$1.pr" k v
+  REPLY="" REPLY_LABEL="" REPLY_SUMMARY="" REPLY_AT=""
+  [[ -r $f ]] || return 1
+  while IFS== read -r k v; do
+    case $k in
+      state) REPLY=$v ;;
+      label) REPLY_LABEL=$v ;;
+      summary) REPLY_SUMMARY=$v ;;
+      at) REPLY_AT=$v ;;
+    esac
+  done <"$f"
+  # A file from before the states: only `new=` and `summary=`.
+  [[ -z $REPLY && -n $REPLY_SUMMARY ]] && REPLY=new
+  [[ -n $REPLY ]]
+}
+
+# _z_review_badge NAME FG RUNNING — the review state for a picker row:
+# `✱ <summary>` inverse in the session colour (needs attention), `↩ <how>`
+# dim, `✔ approved` green, `✗ closed` / `⇥ merged` grey. A stopped session
+# adds the age of the state (`· 2d`): zse-ci only runs in running sessions.
+_z_review_badge() {
+  emulate -L zsh
+  _z_review "$1" || return 0
+  local e=$'\e' text="${ZSE_REVIEW_MARK[$REPLY]:-?} ${${REPLY_SUMMARY:-$REPLY_LABEL}:-$REPLY}"
+  [[ $3 == running || -z $REPLY_AT ]] || text+=" · $(_z_age "$REPLY_AT")"
+  case $REPLY in
+    new) print -rn -- "${e}[1;7;${2}m ${text} ${e}[27;22;39m" ;;
+    submitted) print -rn -- "${e}[2m${text}${e}[22m" ;;
+    approved) print -rn -- "${e}[32m${text}${e}[39m" ;;
+    *) print -rn -- "${e}[90m${text}${e}[39m" ;;
+  esac
+}
+
 # _z_pick_lines — one tab-separated line per session for fzf: the name
 # (hidden, for the action), then the display: activity, type icon in the
 # type colour, name, state, age, new-on-PR badge, agents, title, on a
@@ -714,7 +756,7 @@ _z_pick_lines() {
   for l in ${(f)"$(zellij list-sessions --no-formatting --short 2>/dev/null)"}; do
     live[$l]=1
   done
-  local n uc st act sort badge agents title fg bg icon age started pr_file g
+  local n uc st act sort badge agents title fg bg icon age started g
   local head plain row
   local -i width=$(_z_pick_width) rest
   local -a rows
@@ -730,9 +772,13 @@ _z_pick_lines() {
       st=stopped act=""
       sort=5
     fi
-    badge=""
-    pr_file="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$n.pr"
-    [[ -r $pr_file ]] && badge="✱ $(sed -n 's/^summary=//p' "$pr_file")"
+    badge=$(_z_review_badge "$n" "$(_z_sgr "$n" "$uc")" "$st")
+    _z_review "$n" # REPLY for the sort (the badge runs in a subshell)
+    # Reviews that need attention first in their group, closed / merged last.
+    case $REPLY in
+      new) sort=0 ;;
+      closed | merged) sort=6 ;;
+    esac
     agents=${ZSE_AGENTS[$n]:-0}
     title=$(_z_reg_get "$n" title 2>/dev/null)
     [[ -z $title ]] && title=$(_z_reg_get "$n" url 2>/dev/null)
@@ -743,7 +789,7 @@ _z_pick_lines() {
     # Only foreground / weight resets inside the row: a full reset would
     # end the background before the padding.
     head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")"
-    [[ -n $badge ]] && head+="  ${e}[1;33m${badge}${e}[22;39m"
+    [[ -n $badge ]] && head+="  ${badge}"
     ((agents)) && head+="  [$agents agents]"
     plain=${head//$e\[[0-9;]#m/}
     rest=$((width - ${(m)#plain} - 2))
@@ -790,8 +836,10 @@ _z_pick_preview() {
   else
     print "not registered (started without zse)"
   fi
-  f="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$n.pr"
-  [[ -r $f ]] && { print; print -r -- "PR: ✱ $(sed -n 's/^summary=//p' "$f") since your last review"; }
+  if _z_review "$n"; then
+    print
+    print -r -- "review: ${ZSE_REVIEW_MARK[$REPLY]:-?} $REPLY${REPLY_LABEL:+ ($REPLY_LABEL)}${REPLY_SUMMARY:+ · $REPLY_SUMMARY since your last review}${REPLY_AT:+ · checked $(_z_age "$REPLY_AT") ago}"
+  fi
 }
 
 # zse pick — fzf over all sessions (Ctrl Space in Zellij); Enter switches
@@ -803,7 +851,7 @@ _zse_pick() {
   local choice skip='[ -n {1} ] || echo'
   choice=$(COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)} _z_pick_lines \
     | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse --cycle \
-    --header='Enter switch · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · ✱ new on PR' \
+    --header='Enter switch · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged' \
     --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
     --preview-window='down,40%,wrap' \
     --bind="result:transform:$skip down" \
@@ -868,7 +916,11 @@ usage:
 
   activity (ls, pick) comes from `claude agents --json`:
     ● busy   ◐ waiting for you   ○ idle   · no Claude / unknown
-  pick also shows ✱ when a review PR has news since your last review.
+  review state (ls, pick, tab name), from the review status pane:
+    ✱ new: not reviewed yet, or new commits / comments since your review
+    ↩ submitted (commented, changes requested)   ✔ approved
+    ✗ closed   ⇥ merged
+  pick lists reviews that need attention first in their group.
 
   colours: each type has a colour and four shades; a session gets the
   lowest free shade of its type (registry: shade) and a Zellij theme
@@ -1083,9 +1135,9 @@ _zse_ls() {
   done
 
   _z_activity_load
-  local fmt='%-40s %-12s %-10s %-16s %-4s %s\n'
-  printf "$fmt" NAME USE_CASE STATE ACTIVITY AWS DIR
-  local n uc dir aws state act
+  local fmt='%-40s %-12s %-10s %-16s %-14s %-4s %s\n'
+  printf "$fmt" NAME USE_CASE STATE ACTIVITY REVIEW AWS DIR
+  local n uc dir aws state act review
   for n in $(_z_reg_names); do
     uc=$(_z_reg_get "$n" use_case)
     dir=$(_z_reg_get "$n" dir)
@@ -1099,10 +1151,12 @@ _zse_ls() {
     fi
     act=""
     [[ $state == running ]] && act="${ZSE_ACT_ICON[${ZSE_ACT[$n]:-?}]} $(_z_activity_word "$n")"
+    review=""
+    _z_review "$n" && review="${ZSE_REVIEW_MARK[$REPLY]:-?} $REPLY"
     # The name in the session's colour, padded first (escapes have no width).
     local shown=${(r:40:)n}
     [[ -t 1 ]] && shown=$'\e['"$(_z_sgr "$n" "$uc")m$shown"$'\e[0m'
-    printf "%s ${fmt#%-40s }" "$shown" "$uc" "$state" "$act" "${aws:+yes}" "${dir/#$HOME/~}"
+    printf "%s ${fmt#%-40s }" "$shown" "$uc" "$state" "$act" "$review" "${aws:+yes}" "${dir/#$HOME/~}"
     unset "zstate[$n]"
   done
   # Sessions Zellij knows but the registry does not: started without zse,
@@ -1115,7 +1169,7 @@ _zse_ls() {
     fi
     act=""
     [[ $state == untracked ]] && act="${ZSE_ACT_ICON[${ZSE_ACT[$n]:-?}]} $(_z_activity_word "$n")"
-    printf "$fmt" "$n" "-" "$state" "$act" "" ""
+    printf "$fmt" "$n" "-" "$state" "$act" "" "" ""
   done
 }
 
@@ -1222,7 +1276,8 @@ _zse_kill() {
     fi
   fi
 
-  rm -f "$ZSE_CACHE_DIR/$name.env" "$ZSE_CACHE_DIR/$name.welcomed" "$ZSE_CACHE_DIR/$name.claude-pane" "$(_z_reg_file "$name")"
+  rm -f "$ZSE_CACHE_DIR/$name.env" "$ZSE_CACHE_DIR/$name.welcomed" "$ZSE_CACHE_DIR/$name.claude-pane" "$(_z_reg_file "$name")" \
+    "${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$name.pr"
   # --force kills a running session first; also removes a leftover exited one.
   if [[ $(_z_session_state "$name") != none ]]; then
     zellij delete-session --force "$name" >/dev/null
@@ -1448,6 +1503,8 @@ _zse_migrate() {
     [[ -e $ZSE_CACHE_DIR/$n.env ]] && mv "$ZSE_CACHE_DIR/$n.env" "$ZSE_CACHE_DIR/$new.env"
     [[ -e $ZSE_CACHE_DIR/$n.welcomed ]] && mv "$ZSE_CACHE_DIR/$n.welcomed" "$ZSE_CACHE_DIR/$new.welcomed"
     rm -f "$ZSE_CACHE_DIR/$n.claude-pane"
+    local act_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity"
+    [[ -e $act_dir/$n.pr ]] && mv "$act_dir/$n.pr" "$act_dir/$new.pr"
     for k in ${(k)meta}; do
       [[ -n ${meta[$k]} ]] && _z_reg_set "$new" "$k" "${meta[$k]}"
     done
