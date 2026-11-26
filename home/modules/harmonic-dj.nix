@@ -22,11 +22,11 @@ let
   */
   harmonicDj = pkgs.stdenvNoCC.mkDerivation rec {
     pname = "apu-harmonic-dj";
-    version = "1.2.9";
+    version = "1.3.7";
 
     src = pkgs.fetchurl {
       url = "https://apu.software/release/APU-HarmonicDJ-Installer-${version}.dmg";
-      hash = "sha256-nFwzrmYOQsLMmlJrPJfaKlQ2XjgaEahySEDzbMyL7ao=";
+      hash = "sha256-02elt+9t8oUGRC82X7pQC0KY8OSzUbFlZcZnJpAWREY=";
     };
 
     nativeBuildInputs = with pkgs; [
