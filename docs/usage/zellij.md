@@ -187,7 +187,16 @@ finds it again (by owner, repo and PR number). To review new pushes, run
 marketplace) handles PR checkout under
 `.claude/worktrees/pr-<n>`. An old-style `review-<repo>-pr<n>` session has no
 owner in its name: if it belongs to another checkout (same repo name, other
-owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not commit-first. Instead, the **review status pane (`zse-ci`)** under the shell answers "what is the status of the PR?" without asking Claude. Every 30 s (`ZSE_CI_INTERVAL`), from `gh` only (HTTPS, no SSH): the PR state, review decision, mergeable state, a CI summary (failing and running checks by name), and what is **new since your last review or comment**: commits after the commit you reviewed, and reviews and comments by others, with their first line. Something new is highlighted, the tab name gets ` ✱`, and `~/.cache/zse/activity/<session>.pr` holds the count (for the picker, roadmap #42). Your next review or comment clears it. Keys: `r` refreshes at once; `t` shows the status of the Linear ticket named in the PR title or branch (one `claude -p` call with Haiku through the Linear connector, about 10 s; on demand only); `q` quits (Enter restarts the pane). To have Claude look at new commits, run `/tktl-eng-delivery:review <PR URL>` again. `zse kill` in a review
+owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not commit-first. Instead, the **review status pane (`zse-ci`)** under the shell answers "what is the status of the PR?" without asking Claude. Every 30 s (`ZSE_CI_INTERVAL`), from `gh` only (HTTPS, no SSH): the PR state, review decision, mergeable state, a CI summary (failing and running checks by name), and what is **new since your last review or comment**: commits after the commit you reviewed, and reviews and comments by others, with their first line. Something new is highlighted. On every poll the pane writes the **review state** to `~/.cache/zse/activity/<session>.pr` (for `zse pick` and `zse ls`) and puts its marker at the end of the tab name:
+
+| State | When | Marker |
+|---|---|---|
+| new (needs attention) | you have not reviewed or commented yet, or there are new commits, or reviews / comments by others, since your last review or comment | `✱` |
+| submitted | your latest review comments or requests changes (or you only commented), nothing new since | `↩` |
+| approved | your latest review approves, nothing new since | `✔` |
+| closed / merged | the PR is closed or merged | `✗` / `⇥` |
+
+New commits after an approval make the state `new` again. The pane only runs in a running session: a stopped session keeps its last state, and the picker shows its age (`↩ commented · 2d`). `zse kill` removes the state file; `zse migrate` moves it. Keys: `r` refreshes at once; `t` shows the status of the Linear ticket named in the PR title or branch (one `claude -p` call with Haiku through the Linear connector, about 10 s; on demand only); `q` quits (Enter restarts the pane). To have Claude look at new commits, run `/tktl-eng-delivery:review <PR URL>` again. `zse kill` in a review
 session offers to remove `.claude/worktrees/pr-<n>`.
 
 ### review-doc
@@ -332,8 +341,11 @@ sessions: stop them with `zse stop --all` before you change it, and run
   why (`zse: skipped 'x': busy, 2 agents.`); `--force` stops them too.
 - **`zse pick`** — fzf over all registered and running sessions, one line
   each: activity, type icon in the type colour, name, state, age since the
-  last start, `✱` and a summary when a review PR has news since your last
-  review (from the `zse-ci` pane), background agents, title. Sessions are
+  last start, the review state (from the `zse-ci` pane: `✱ <what is new>`
+  inverse in the session colour, `↩ commented` / `↩ changes requested`
+  dim, `✔ approved` green, `✗ closed` / `⇥ merged` grey), background
+  agents, title. Reviews that need attention (`✱`) come first in their
+  group, closed and merged ones last. `zse ls` has a REVIEW column. Sessions are
   grouped by type, each group under a separator line (`reviews ───`):
   reviews, doc reviews, tickets, projects, explorations, code, daily, other
   (no registered use case). In a group, running sessions come first (busy,

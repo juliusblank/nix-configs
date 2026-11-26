@@ -8,9 +8,10 @@
 # Every $ZSE_CI_INTERVAL seconds (default 30), from `gh` only (HTTPS, no SSH,
 # no Claude): PR state, review decision, mergeable state, CI summary, and
 # what is new since my last review or comment (commits, reviews and comments
-# by others). Something new: highlighted here, ` ✱` on the tab name, and
-# ~/.cache/zse/activity/<session>.pr for the zse picker. My next review or
-# comment clears it.
+# by others). The review state (zse-ci.jq: new, submitted, approved, closed,
+# merged) goes to ~/.cache/zse/activity/<session>.pr on every poll, for the
+# zse picker and `zse ls`, and as a marker at the end of the tab name:
+# ✱ new · ↩ submitted · ✔ approved · ✗ closed · ⇥ merged.
 #
 # Keys: r refresh, t ticket status (Linear, through `claude -p`), q quit.
 
@@ -41,16 +42,32 @@ tab_id=$(zellij action list-panes --tab --json 2>/dev/null \
   | "$JQ" -r --arg id "${ZELLIJ_PANE_ID:-}" \
     '.[] | select((.is_plugin | not) and ((.id | tostring) == $id)) | .tab_id' | head -n 1)
 
-# set_badge on|off — add or remove " ✱" at the end of the tab name.
+# Tab-name markers per review state (the same in zse.zsh, ZSE_REVIEW_MARK).
+declare -A mark=([new]='✱' [submitted]='↩' [approved]='✔' [closed]='✗' [merged]='⇥')
+
+# set_badge STATE|off — put the state's marker at the end of the tab name
+# (" ✱"), replacing any marker from before.
 set_badge() {
   [[ -n $tab_id ]] || return 0
-  local name want
+  local name want m
   name=$(zellij action list-tabs --json 2>/dev/null \
     | "$JQ" -r --argjson id "$tab_id" '.[] | select(.tab_id == $id) | .name')
   [[ -n $name ]] || return 0
-  want=${name% ✱}
-  [[ $1 == on ]] && want="$want ✱"
+  want=$name
+  for m in "${mark[@]}"; do want=${want% "$m"}; done
+  [[ -n ${mark[$1]:-} ]] && want="$want ${mark[$1]}"
   [[ $want == "$name" ]] || zellij action rename-tab-by-id "$tab_id" "$want" >/dev/null 2>&1
+}
+
+# write_state STATE LABEL [SUMMARY] — the state file for the picker.
+write_state() {
+  {
+    printf 'state=%s\n' "$1"
+    printf 'label=%s\n' "$2"
+    [[ -n ${3:-} ]] && printf 'summary=%s\n' "$3"
+    printf 'at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  } >"$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+  set_badge "$1"
 }
 
 # ticket_status ID — one line from Linear, through `claude -p` (Haiku) with
@@ -83,13 +100,12 @@ render() {
   fi
   q() { printf '%s' "$s" | "$JQ" -r "$1"; }
 
-  local title state draft decision mergeable new
+  local title state draft decision mergeable
   title=$(q .title)
   state=$(q .state)
   draft=$(q .draft)
   decision=$(q '.decision | ascii_downcase | gsub("_"; " ")')
   mergeable=$(q '.mergeable | ascii_downcase')
-  new=$(q .new)
   branch=$(q .branch)
 
   clear
@@ -112,33 +128,43 @@ render() {
   ((pending)) && q '.ci.running[0:3][] | "    … " + .'
   printf '\n'
 
-  # Since my last review / comment
-  if [[ $(q '.base == null') == true ]]; then
-    printf '%sYou have not reviewed or commented yet.%s\n' "$dim" "$reset"
-    rm -f "$state_file"
-    set_badge off
-  elif ((new)); then
-    local nc no
-    nc=$(q '.new_commits | length')
-    no=$(q '.new_others | length')
-    printf '%s ✱ new since your %s (%s UTC): ' "$hl" "$(q .base.kind)" "$(q .base.at)"
-    local parts=()
-    ((nc)) && parts+=("$nc commit$( ((nc > 1)) && echo s)")
-    ((no)) && parts+=("$no by others")
-    printf '%s %s\n' "$(IFS=,; echo "${parts[*]}" | sed 's/,/, /g')" "$reset"
-    q '.new_commits[-5:][] | "  + " + .oid + " " + .line'
-    ((nc > 5)) && printf '  … %s more\n' "$((nc - 5))"
-    q '.new_others[-3:][] | "  @" + .author + " (" + .kind + ", " + .at + "): " + .line'
-    {
-      printf 'new=%s\n' "$new"
-      printf 'summary=%s\n' "$(IFS=,; echo "${parts[*]}" | sed 's/,/, /g')"
-    } >"$state_file"
-    set_badge on
-  else
-    printf '%s✓ nothing new since your %s (%s UTC)%s\n' "$green" "$(q .base.kind)" "$(q .base.at)" "$reset"
-    rm -f "$state_file"
-    set_badge off
-  fi
+  # Review state, and what is new since my last review / comment
+  local rstate my_review
+  rstate=$(q .review_state)
+  my_review=$(q .my_review)
+  case $rstate in
+    merged | closed)
+      printf '%s%s the PR is %s%s\n' "$dim" "${mark[$rstate]}" "$rstate" "$reset"
+      write_state "$rstate" "$rstate"
+      ;;
+    new)
+      if [[ $(q '.base == null') == true ]]; then
+        printf '%s ✱ not reviewed yet %s\n' "$hl" "$reset"
+        write_state new "not reviewed" "not reviewed"
+      else
+        local nc no summary
+        nc=$(q '.new_commits | length')
+        no=$(q '.new_others | length')
+        local parts=()
+        ((nc)) && parts+=("$nc commit$( ((nc > 1)) && echo s)")
+        ((no)) && parts+=("$no by others")
+        summary=$(IFS=,; echo "${parts[*]}" | sed 's/,/, /g')
+        printf '%s ✱ new since your %s (%s UTC): %s %s\n' "$hl" "$(q .base.kind)" "$(q .base.at)" "$summary" "$reset"
+        q '.new_commits[-5:][] | "  + " + .oid + " " + .line'
+        ((nc > 5)) && printf '  … %s more\n' "$((nc - 5))"
+        q '.new_others[-3:][] | "  @" + .author + " (" + .kind + ", " + .at + "): " + .line'
+        write_state new "new" "$summary"
+      fi
+      ;;
+    approved)
+      printf '%s✔ approved by you · nothing new since your %s (%s UTC)%s\n' "$green" "$(q .base.kind)" "$(q .base.at)" "$reset"
+      write_state approved approved
+      ;;
+    *)
+      printf '%s↩ submitted (%s) · nothing new since your %s (%s UTC)%s\n' "$dim" "${my_review:-comment}" "$(q .base.kind)" "$(q .base.at)" "$reset"
+      write_state submitted "${my_review:-commented}"
+      ;;
+  esac
 
   [[ -n $ticket_line ]] && printf '\n%s\n' "$ticket_line"
   printf '\n%s%s · every %ss · r refresh · t ticket · q quit%s\n' \
@@ -155,7 +181,7 @@ while :; do
   rc=$?
   ((rc != 0 && rc <= 128)) && sleep "$interval"
   case $key in
-    q) set_badge off; exit 0 ;;
+    q) set_badge off; exit 0 ;;  # the state file stays for the picker
     t)
       id=$(printf '%s %s' "$branch" "$(gh pr view "$pr" "${repo_args[@]}" --json title -q .title 2>/dev/null)" \
         | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -n 1)

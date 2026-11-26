@@ -130,6 +130,28 @@ check "pick sep label"    "${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}" "tickets ${(
 plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "pick row width"    "${(m)#plain}"                     80
 unfunction zellij
+
+# Review states (the zse-ci state file)
+export XDG_CACHE_HOME=$(mktemp -d)
+mkdir -p "$XDG_CACHE_HOME/zse/activity"
+printf 'state=submitted\nlabel=changes requested\nat=2026-11-01T10:00:00Z\n' >"$XDG_CACHE_HOME/zse/activity/rev-a.pr"
+_z_review rev-a
+check "review state"      "$REPLY"                           submitted
+check "review label"      "$REPLY_LABEL"                     "changes requested"
+check "review badge run"  "${$(_z_review_badge rev-a 32 running)//$'\e'\[[0-9;]#m/}" "↩ changes requested"
+check "review badge age"  "${${$(_z_review_badge rev-a 32 stopped)//$'\e'\[[0-9;]#m/}% · *}" "↩ changes requested"
+printf 'new=2\nsummary=2 commits\n' >"$XDG_CACHE_HOME/zse/activity/rev-b.pr"
+_z_review rev-b
+check "review old file"   "$REPLY/$REPLY_SUMMARY"            "new/2 commits"
+check "review none"       "$(_z_review rev-none || print none)" none
+zellij() { print -rl -- rev-a rev-b; }
+_z_reg_write rev-a review /tmp ""
+_z_reg_write rev-b review /tmp ""
+lines=("${(@f)$(FZF_COLUMNS=120 _z_pick_lines)}")
+picked=(${lines[@]%%$'\t'*})
+check "pick new first"    "${(j:,:)${(@M)picked:#rev-*}}"     "rev-b,rev-a"
+unfunction zellij
+rm -rf "$XDG_CACHE_HOME"; unset XDG_CACHE_HOME
 unfunction claude
 rm -rf "$ZSE_STATE_DIR"
 

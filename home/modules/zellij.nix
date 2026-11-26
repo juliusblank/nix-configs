@@ -698,9 +698,10 @@ let
     `zse-ci` — the review status pane of the `review` layout (roadmap #44):
     PR state, review decision, mergeable, CI, and what is new since my last
     review or comment, from `gh` only (HTTPS, no SSH, no Claude) every
-    `$ZSE_CI_INTERVAL` seconds (default 30). New items are highlighted, the
-    tab gets ` ✱`, and `~/.cache/zse/activity/<session>.pr` holds the count
-    for the zse picker. Keys: `r` refresh, `t` Linear ticket status
+    `$ZSE_CI_INTERVAL` seconds (default 30). New items are highlighted; the
+    review state (new, submitted, approved, closed, merged) goes to
+    `~/.cache/zse/activity/<session>.pr` for the zse picker and `zse ls`,
+    and as a marker (✱ ↩ ✔ ✗ ⇥) at the end of the tab name. Keys: `r` refresh, `t` Linear ticket status
     (`claude -p`, Haiku, on demand), `q` quit (Enter restarts the pane).
     Logic in ./zse-ci.sh and ./zse-ci.jq.
   */
