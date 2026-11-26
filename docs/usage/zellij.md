@@ -250,6 +250,7 @@ zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]
                                             start NAME, or attach if it runs
 zse ls                                      list registered and running sessions
 zse pick                                    pick a session with fzf (Ctrl Space)
+zse color [--all | NAME]                    set Claude's colour in running sessions
 zse stop [NAME | --all [--force]]           stop a session, keep it registered
 zse kill [NAME]                             end a session and clean up
 zse restore [NAME...]                       start stopped sessions in the background
@@ -345,6 +346,33 @@ sessions: stop them with `zse stop --all` before you change it, and run
     stay "busy".
   - Icons (display only, never in the name): ticket `◆`, project `▲`,
     review `✓`, review-doc `¶`, explore `✦`, code `›`, daily `☀`.
+- **`zse color [--all | NAME]`** — set Claude's prompt-bar colour
+  (`/color`) in running sessions whose conversation is older than the
+  colours. It types `/color <c>` into the claude pane only when that
+  Claude is idle, and says why it skips the others. Needs the pane ID that
+  `zse-claude` records at start: run it after `zse restart`. Once is
+  enough: the transcript keeps the colour.
+
+### Colours
+
+Each type has a colour, in four shades: ticket yellow, project orange,
+review green, review-doc teal, explore purple, code (and code-resume)
+blue, daily grey. A session gets the lowest shade that no other registered
+session of its type has (registry key `shade`), so two ticket sessions
+look different. The shade shows in:
+
+- **Zellij:** the selected tab and the session name in the compact bar
+  (theme `zse-<type>-<n>`). Zellij 0.45 ignores `options --theme` at
+  creation, so `zse` starts each session with a generated config,
+  `~/.config/zellij/zse/<type>-<n>.kdl` (the normal config with that theme).
+  A running session gets it at the next `zse restart`.
+- **`zse pick` and `zse ls`:** the icon and the name, in 24-bit colour.
+- **Claude's prompt bar:** `/color` has eight colours and no shades:
+  ticket `yellow`, project `orange`, review `green`, review-doc `cyan`,
+  explore `purple`, code `blue`; daily keeps the default. `zse-claude`
+  sends `/color <c>` as the first prompt of a new conversation; a layout's
+  own first prompt (review, review-doc, explore) follows once the pane
+  shows "Session color set to". `--resume` keeps the colour.
 - **`zse kill [NAME]`** — end the session. If the repo of its start
   directory has a `.claude/worktrees/<name>` worktree (review sessions:
   `pr-<n>`), it asks to remove it; it refuses when the worktree has
