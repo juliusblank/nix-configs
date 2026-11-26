@@ -3,6 +3,9 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
+    # Only for single packages the 26.05 branch cannot build yet (vscode, see
+    # hosts/serenity/configuration.nix). Remove with the 26.11 upgrade.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     nix-darwin = {
       url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";

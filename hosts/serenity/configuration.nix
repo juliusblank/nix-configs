@@ -88,19 +88,18 @@
     overlays = [
       inputs.claude-code.overlays.default
       inputs.nur.overlays.default
-      # VS Code 1.144 moved its bundled ripgrep to @vscode/ripgrep-universal; nixpkgs
-      # 26.05's generic.nix still patches the old path (NixOS/nixpkgs#584492, fixed on
-      # master). Remove once the fix is backported to the 26.05 branch.
-      (_final: prev: {
-        vscode = prev.vscode.overrideAttrs (old: {
-          postPatch =
-            builtins.replaceStrings
-              [ "Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg" ]
-              [
-                "Contents/Resources/app/node_modules.asar.unpacked/@vscode/ripgrep-universal/bin/darwin-arm64/rg"
-              ]
-              old.postPatch;
-        });
+      # VS Code from nixpkgs-unstable: 1.144+ moved its bundled ripgrep, and the 26.05
+      # build still patches the old path (NixOS/nixpkgs#584492; backport #589550 open).
+      # Back to the 26.05 package once the backport lands, or with the 26.11 upgrade.
+      # Imported (not legacyPackages) so allowUnfree applies.
+      (final: _prev: {
+        inherit
+          (import inputs.nixpkgs-unstable {
+            inherit (final.stdenv.hostPlatform) system;
+            config.allowUnfree = true;
+          })
+          vscode
+          ;
       })
     ];
   };
