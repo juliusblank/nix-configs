@@ -243,6 +243,7 @@ just backup-check        # verify backup integrity (10 % sample)
 │       ├── zellij.nix     # Zellij layouts + config
 │       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch/migrate)
 │       ├── zse_test.zsh   # unit checks for the zse name helpers (zsh home/modules/zse_test.zsh)
+│       ├── zse-ci.sh / .jq  # review status pane (gh: CI, new since my last review)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
 ├── hosts/
 │   ├── serenity/          # nix-darwin + home-manager

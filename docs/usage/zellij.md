@@ -187,10 +187,7 @@ finds it again (by owner, repo and PR number). To review new pushes, run
 marketplace) handles PR checkout under
 `.claude/worktrees/pr-<n>`. An old-style `review-<repo>-pr<n>` session has no
 owner in its name: if it belongs to another checkout (same repo name, other
-owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not
-commit-first. Instead, the **CI pane (`zse-ci`)** under the shell redraws
-`gh pr checks <n>` with the PR title every 30 s (`ZSE_CI_INTERVAL`), so new
-pushes show up; `gh` uses HTTPS, no SSH. `q` quits it. `zse kill` in a review
+owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not commit-first. Instead, the **review status pane (`zse-ci`)** under the shell answers "what is the status of the PR?" without asking Claude. Every 30 s (`ZSE_CI_INTERVAL`), from `gh` only (HTTPS, no SSH): the PR state, review decision, mergeable state, a CI summary (failing and running checks by name), and what is **new since your last review or comment**: commits after the commit you reviewed, and reviews and comments by others, with their first line. Something new is highlighted, the tab name gets ` ✱`, and `~/.cache/zse/activity/<session>.pr` holds the count (for the picker, roadmap #42). Your next review or comment clears it. Keys: `r` refreshes at once; `t` shows the status of the Linear ticket named in the PR title or branch (one `claude -p` call with Haiku through the Linear connector, about 10 s; on demand only); `q` quits (Enter restarts the pane). To have Claude look at new commits, run `/tktl-eng-delivery:review <PR URL>` again. `zse kill` in a review
 session offers to remove `.claude/worktrees/pr-<n>`.
 
 ### review-doc
