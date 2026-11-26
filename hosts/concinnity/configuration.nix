@@ -103,7 +103,9 @@
     # GUI apps are generally managed by IRU (company software distribution);
     # casks here are additive for tools IRU does not provide.
     casks = [
-      "aerospace"
+      # Fully qualified: brew bundle only applies `trusted: true` (set by nix-darwin) to
+      # full names, and Homebrew 6+ refuses casks from untrusted non-official taps.
+      "nikitabobko/tap/aerospace"
       "ghostty"
     ];
   };

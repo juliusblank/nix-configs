@@ -21,21 +21,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew/7d0038b5bb60568ec41f5f4ef5067cd221ca7c0d";
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
       flake = false;
     };
-    # Pinned to last known-good commit before postflight_steps was required by
-    # casks (orbstack, aerospace, etc.). The pinned nix-homebrew (7d0038b) bundles
-    # a Homebrew version that does not support postflight_steps.
-    # Unpin both when nix-homebrew is upgraded past this limitation.
     homebrew-cask = {
-      url = "github:homebrew/homebrew-cask/dfc9d2922825da57b63005ad9d9e3c822f05aa74";
+      url = "github:homebrew/homebrew-cask";
       flake = false;
     };
     homebrew-aerospace = {
-      url = "github:nikitabobko/homebrew-tap/db2dcd4d2fd7087457b3cc0baf597880ac4e35a0";
+      url = "github:nikitabobko/homebrew-tap";
       flake = false;
     };
   };
@@ -84,28 +80,20 @@
               };
             }
             nix-homebrew.darwinModules.nix-homebrew
-            (
-              { pkgs, ... }:
-              {
-                nix-homebrew = {
-                  enable = true;
-                  enableRosetta = true;
-                  user = "jbl";
-                  autoMigrate = true;
-                  taps = {
-                    "homebrew/homebrew-core" = inputs.homebrew-core;
-                    "homebrew/homebrew-cask" = inputs.homebrew-cask;
-                    "nikitabobko/homebrew-tap" = inputs.homebrew-aerospace;
-                    # Local cask overrides while homebrew-cask is pinned (SPEC roadmap #25).
-                    # nix-homebrew wants a package per tap, so the folder is copied into one.
-                    "juliusblank/homebrew-local" = pkgs.runCommandLocal "homebrew-local-tap" { } ''
-                      cp -r ${./homebrew/local-tap} $out
-                    '';
-                  };
-                  mutableTaps = false;
+            {
+              nix-homebrew = {
+                enable = true;
+                enableRosetta = true;
+                user = "jbl";
+                autoMigrate = true;
+                taps = {
+                  "homebrew/homebrew-core" = inputs.homebrew-core;
+                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+                  "nikitabobko/homebrew-tap" = inputs.homebrew-aerospace;
                 };
-              }
-            )
+                mutableTaps = false;
+              };
+            }
           ];
         };
 
