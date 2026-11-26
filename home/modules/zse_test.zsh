@@ -5,6 +5,7 @@
 emulate -L zsh
 typeset -gA ZSE_REPO_SHORT=(workspace-services ws taktile-infra infra claude_code_fleet fleet nix-configs nix)
 source "${0:A:h}/zse.zsh"
+zmodload zsh/datetime
 
 typeset -i fails=0
 check() {
@@ -63,6 +64,34 @@ check "resolve none"      "$(_z_resolve nothing || print none)" none
 check "worktree from reg" "$(_z_worktree_name tkt-PCS-1-x)"  PCS-1
 check "worktree old rev"  "$(_z_worktree_name review-taktile-infra-pr7569)" pr-7569
 check "worktree old tkt"  "$(_z_worktree_name PCS-15554)"    PCS-15554
+
+# Age
+check "age bad"           "$(_z_age nonsense)" -
+check "age min"           "$(_z_age "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 300)))")" 5m
+check "age days"          "$(_z_age "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 200000)))")" 2d
+
+# Activity from `claude agents --json` (stubbed)
+_z_reg_write proj-plat project /work/plat ""
+claude() {
+  print -r -- '[
+    {"name":"tkt-PCS-1-x","kind":"interactive","status":"busy","cwd":"/tmp"},
+    {"name":"proj-plat","kind":"interactive","status":"idle","waitingFor":"permission","cwd":"/work/plat"},
+    {"name":"","kind":"background","status":"busy","cwd":"/work/plat/.claude/worktrees/PCS-2"},
+    {"name":"","kind":"background","status":"idle","cwd":"/elsewhere"},
+    {"name":"code-x","kind":"interactive","status":"idle","cwd":"/tmp"}
+  ]'
+}
+_no_timeout() { shift; "$@"; }
+ZSE_TIMEOUT=_no_timeout
+_z_activity_load
+check "act busy"          "${ZSE_ACT[tkt-PCS-1-x]}"          busy
+check "act waiting"       "${ZSE_ACT[proj-plat]}"            waiting
+check "act agents"        "${ZSE_AGENTS[proj-plat]:-0}"      1
+check "act word"          "$(_z_activity_word proj-plat)"    "waiting, 1 agent"
+check "active busy"       "$(_z_is_active tkt-PCS-1-x && print 1)" 1
+check "inactive idle"     "$(_z_is_active code-x || print 0)" 0
+check "inactive unknown"  "$(_z_is_active nothing || print 0)" 0
+unfunction claude
 rm -rf "$ZSE_STATE_DIR"
 
 print

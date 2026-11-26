@@ -117,7 +117,8 @@ are plain zsh.
 For `review`, the claude pane auto-sends `/tktl-eng-delivery:review <PR URL>` on
 the first start (not on restore); the banner just reports what's running. The
 same holds for `explore` with `/explore status <slug>`. The tab is renamed to
-`[ticket] <ID> <hint>`, `[review] <repo> PR #<n> <hint>`, `[project] <slug>`, …. For `ticket` and
+`◆ <ID> <hint>`, `✓ <repo> PR #<n> <hint>`, `▲ <slug>`, `✦ <slug>`, `¶ <title>` (the icons of
+`zse pick`). For `ticket` and
 `project`, the user invokes the kickoff command manually from the
 banner's hint.
 
@@ -251,7 +252,8 @@ repo, so the layout does nothing elsewhere (work repos are not affected).
 zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]
                                             start NAME, or attach if it runs
 zse ls                                      list registered and running sessions
-zse stop [--all | NAME]                     stop a session, keep it registered
+zse pick                                    pick a session with fzf (Ctrl Space)
+zse stop [NAME | --all [--force]]           stop a session, keep it registered
 zse kill [NAME]                             end a session and clean up
 zse restore [NAME...]                       start stopped sessions in the background
 zse restart --all | NAME...                 stop running sessions, start them again
@@ -318,8 +320,8 @@ sessions: stop them with `zse stop --all` before you change it, and run
     `zse` switches to it (not with `-a`: start those outside Zellij).
   - An old EXITED session from before serialization was turned off is
     deleted first, so it does not come back with its old layout.
-- **`zse ls`** — every registered session with use case, state, AWS flag
-  and start directory. States: `running`, `stopped`, `orphan` (start
+- **`zse ls`** — every registered session with use case, state, activity
+  (running sessions), AWS flag and start directory. States: `running`, `stopped`, `orphan` (start
   directory is gone; `zse kill` it), plus `untracked` (a live Zellij
   session that zse did not start) and `old-exited` (a serialized session
   from before the registry).
@@ -327,7 +329,25 @@ sessions: stop them with `zse stop --all` before you change it, and run
   Registry entry, worktree and Claude conversation stay. Default NAME: the
   current session. `--all` stops every running session except the current
   one (use it before a deploy that changes the Zellij version or socket
-  dir; `zse restore` brings them back).
+  dir; `zse restore` brings them back). It skips a session whose Claude is
+  busy or waits for you, or that has background agents running, and says
+  why (`zse: skipped 'x': busy, 2 agents.`); `--force` stops them too.
+- **`zse pick`** — fzf over all registered and running sessions, one line
+  each: activity, type icon in the type colour, name, state, age since the
+  last start, `✱` and a summary when a review PR has news since your last
+  review (from the `zse-ci` pane), background agents, title. Running
+  sessions come first (busy, waiting, idle), then stopped ones; newest
+  first. Enter switches (`zse switch`: a stopped session starts first),
+  `Ctrl-R` reloads, the preview shows the registry keys and the worktree.
+  - Activity: `●` busy, `◐` waiting for you (a permission prompt or a
+    question), `○` idle, `·` no Claude or unknown. It comes from
+    `claude agents --json` (about 0.2 s), which lists every running Claude
+    session with its `--name` (zse sets it to the session name) and
+    state; background sessions below a `project` session's directory
+    count as its agents. No Claude Code hooks: a crashed session cannot
+    stay "busy".
+  - Icons (display only, never in the name): ticket `◆`, project `▲`,
+    review `✓`, review-doc `¶`, explore `✦`, code `›`, daily `☀`.
 - **`zse kill [NAME]`** — end the session. If the repo of its start
   directory has a `.claude/worktrees/<name>` worktree (review sessions:
   `pr-<n>`), it asks to remove it; it refuses when the worktree has
@@ -399,8 +419,9 @@ NAME`, `zsep [NAME]` → `zse -l code-resume [NAME]`.
 
 ### Switching sessions quickly
 
-1. **`Ctrl Space`** — a `shared` keybind that opens the Session Manager
-   picker in a floating pane. One keystroke from any mode.
+1. **`Ctrl Space`** — a `shared` keybind that opens `zse pick` in a
+   floating pane (it closes after the pick). One keystroke from any mode.
+   Zellij's own session manager stays on `Ctrl o` → `w`.
 2. **`zse switch <name>`** — in-place switch when you know the name;
    `<TAB>` completes it.
 3. **`Ctrl o d` → `zse <name>`** — detach, then attach again. Use it when

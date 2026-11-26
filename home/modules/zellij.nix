@@ -13,6 +13,33 @@ let
     "nix-configs" = "nix";
   };
 
+  /**
+    Sets what zse.zsh needs, then sources it: the repo short names and the
+    tool paths. `ZSE_SOURCE` is exported for the subshells of `zse pick`
+    (fzf preview and reload). Used by ~/.zshrc and by `zse-pick`.
+  */
+  zsePrelude = ''
+    typeset -gA ZSE_REPO_SHORT=(${
+      lib.concatStringsSep " " (
+        lib.mapAttrsToList (k: v: "${lib.escapeShellArg k} ${lib.escapeShellArg v}") zseRepoShort
+      )
+    })
+    typeset -gx ZSE_TIMEOUT=${pkgs.coreutils}/bin/timeout
+    typeset -gx ZSE_JQ=${pkgs.jq}/bin/jq
+    typeset -gx ZSE_SOURCE=${./zse.zsh}
+    source ${./zse.zsh}
+  '';
+
+  /**
+    `zse-pick` — the zse session picker (`zse pick`) as a command, for the
+    `Ctrl Space` binding: a floating pane that closes after the pick.
+  */
+  zsePick = pkgs.writeScriptBin "zse-pick" ''
+    #!${pkgs.zsh}/bin/zsh -f
+    ${zsePrelude}
+    _zse_pick "$@"
+  '';
+
   # ----- Session metadata -----
 
   /**
@@ -60,8 +87,8 @@ let
     [ -n "$name" ] || exit 0
 
     # Rename the current Zellij tab to a human-friendly label from the
-    # session's name keys (`zse-meta`): `[ticket] PCS-123 cache-ttl`,
-    # `[review] repo PR #<n> hint`. Run on every pane start — Zellij ignores
+    # session's name keys (`zse-meta`), with the use case's icon (the same as
+    # `zse pick`): `◆ PCS-123 cache-ttl`, `✓ repo PR #<n> hint`. Run on every pane start — Zellij ignores
     # a rename-tab call whose target already matches, so this is cheap and
     # idempotent.
     meta=${zseMeta}/bin/zse-meta
@@ -74,12 +101,12 @@ let
           repo=''${name#review-}
           repo=''${repo%-pr*}
         fi
-        label="[review] $repo PR #$pr''${hint:+ $hint}"
+        label="✓ $repo PR #$pr''${hint:+ $hint}"
         ;;
-      ticket) label="[ticket] $($meta ticket)''${hint:+ $hint}" ;;
-      project) label="[project] $($meta slug)" ;;
-      explore) label="[explore] $($meta slug)" ;;
-      review-doc) label="[review-doc] ''${name#*doc-}" ;;
+      ticket) label="◆ $($meta ticket)''${hint:+ $hint}" ;;
+      project) label="▲ $($meta slug)" ;;
+      explore) label="✦ $($meta slug)" ;;
+      review-doc) label="¶ ''${name#*doc-}" ;;
       *) label="" ;;
     esac
     # By tab ID, found from this pane's ID: `rename-tab` renames the focused tab
@@ -642,17 +669,18 @@ in
       zseEnv
       zseMeta
       zseShell
+      zsePick
     ];
 
     file = {
       # ----- Config -----
 
       # Flat KDL — same base as what `programs.zellij.settings` used to emit,
-      # plus a `shared` keybind that opens the Session Manager picker in one
-      # keystroke (`Ctrl Space`) instead of the three-step dance through
-      # Zellij's default session mode. `Ctrl Space` is unused by zsh at the
-      # prompt and by every other Zellij default binding, and reads as
-      # "activate the switcher".
+      # plus a `shared` keybind that opens the zse picker (`zse pick`: fzf
+      # with activity, icons and PR news) in a floating pane in one keystroke
+      # (`Ctrl Space`). `Ctrl Space` is unused by zsh at the prompt and by
+      # every other Zellij default binding. Zellij's own session manager
+      # stays on `Ctrl o` → `w`.
       ".config/zellij/config.kdl".text = ''
         copy_command "pbcopy"
         default_shell "zsh"
@@ -666,7 +694,14 @@ in
         session_serialization false
         keybinds {
             shared {
-                bind "Ctrl Space" { LaunchOrFocusPlugin "session-manager" { floating true; }; SwitchToMode "Normal"; }
+                bind "Ctrl Space" {
+                    Run "${zsePick}/bin/zse-pick" {
+                        floating true
+                        close_on_exit true
+                        name "zse pick"
+                    }
+                    SwitchToMode "Normal"
+                }
             }
         }
       '';
@@ -892,14 +927,7 @@ in
 
   # The zse CLI (zse / zse ls|stop|kill|restore|switch, deprecated zsek /
   # zss / zsep, completion) lives in ./zse.zsh — plain zsh, no Nix escaping.
-  # `ZSE_REPO_SHORT` (zseRepoShort) and `ZSE_TIMEOUT` are set before it.
-  programs.zsh.initContent = ''
-    typeset -gA ZSE_REPO_SHORT=(${
-      lib.concatStringsSep " " (
-        lib.mapAttrsToList (k: v: "${lib.escapeShellArg k} ${lib.escapeShellArg v}") zseRepoShort
-      )
-    })
-    typeset -g ZSE_TIMEOUT=${pkgs.coreutils}/bin/timeout
-    source ${./zse.zsh}
-  '';
+  # zsePrelude sets `ZSE_REPO_SHORT` (zseRepoShort) and the tool paths
+  # before it.
+  programs.zsh.initContent = zsePrelude;
 }
