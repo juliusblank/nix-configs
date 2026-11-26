@@ -98,7 +98,7 @@ in
     # Nix flake update reminder
     nixUpdateReminder = {
       enable = true;
-      repoPath = "${config.home.homeDirectory}/nix-configs";
+      repoPath = "${config.home.homeDirectory}/github/juliusblank/nix-configs";
     };
 
     # Harmonic DJ, evaluation phase (roadmap #32; docs/harmonic-dj.md)
