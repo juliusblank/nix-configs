@@ -408,6 +408,10 @@ in
             # turn; `node` is not on the global PATH here, so each hook fails
             # with exit 127 (SPEC roadmap #43). Turn on again for decide-ui work.
             "tktl-eng-frontend@taktile-skills" = false;
+            # The same plugin from claude.ai's org plugin sync (`@synced`,
+            # ~/.claude/plugins/synced): not in installed_plugins.json, so the
+            # sync loop below leaves it alone; `false` here disables it.
+            "tktl-eng-frontend@synced" = false;
             "tktl-eng-delivery@taktile-skills" = true;
             "tktl-general@taktile-skills" = true;
             # Moved to tktl-eng-delivery (taktile-org/taktile-skills#344). `false`,
@@ -425,6 +429,11 @@ in
             "git fetch *"
             "git pull *"
             "git push *"
+            # `git worktree add` checks out the repo's `.mcp.json`, which the
+            # sandbox does not let a command write (review sessions in
+            # taktile-infra: the first attempt failed, Claude retried
+            # unsandboxed after a prompt). Local writes inside the repo only.
+            "git worktree *"
           ];
         }
       );

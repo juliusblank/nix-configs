@@ -603,10 +603,18 @@ let
     esac
     if [[ -n $wt_name ]] && root=$(git rev-parse --show-toplevel 2>/dev/null); then
       wt="$root/.claude/worktrees/$wt_name"
-      if [[ ! -d $wt ]]; then
+      # Ready = a git worktree whose top level is $wt. The directory alone is
+      # not enough: `git worktree add` creates it before its `.git` file, and
+      # a failed (e.g. sandboxed) attempt can leave it empty while Claude
+      # retries.
+      wt_ready() {
+        [[ -e $wt/.git ]] &&
+          [[ $(git -C "$wt" rev-parse --show-toplevel 2>/dev/null) == "$(cd "$wt" 2>/dev/null && pwd -P)" ]]
+      }
+      if ! wt_ready; then
         echo "zse-shell: waiting for $wt (up to ''${wait_s}s, Enter skips) …"
         for ((i = 0; i < wait_s; i++)); do
-          [[ -d $wt ]] && break
+          wt_ready && break
           read -rs -t 1 && break
         done
       fi
