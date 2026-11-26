@@ -3,8 +3,9 @@
 # Sourced from ~/.zshrc by home/modules/zellij.nix. Docs: docs/usage/zellij.md.
 #
 #   zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]   start or attach
-#   zse ls                                      registry + live state
-#   zse stop [NAME]                             stop, keep registered
+#   zse ls                                      registry + live state + activity
+#   zse pick                                    fzf picker (Ctrl Space in Zellij)
+#   zse stop [NAME] | --all [--force]           stop, keep registered
 #   zse kill [NAME]                             end: worktree prompt, cleanup, unregister
 #   zse restore [NAME…]                         start stopped sessions in the background
 #   zse switch NAME                             switch to a session (start it if stopped)
@@ -536,6 +537,149 @@ _z_doc_slug() {
   fi
 }
 
+# ----- Activity: what each session's Claude is doing -----
+
+# _z_activity_load — fill the global maps from one `claude agents --json`
+# call (about 0.2 s): ZSE_ACT[session] = busy | waiting | idle | ? (the
+# interactive claude whose name is the session name; zse-claude sets
+# --name), ZSE_AGENTS[session] = number of background Claude sessions
+# running under a project session's start directory (its ticket
+# sub-sessions). No hooks: Claude reports its own state, so a crashed
+# session cannot stay "busy".
+_z_activity_load() {
+  emulate -L zsh
+  typeset -gA ZSE_ACT ZSE_AGENTS
+  ZSE_ACT=() ZSE_AGENTS=()
+  local json line name kind st cwd n dir
+  json=$(${ZSE_TIMEOUT:-timeout} 5 claude agents --json 2>/dev/null) || return 0
+  local -A rank=(busy 3 waiting 2 idle 1 '?' 0)
+  for line in ${(f)"$(print -r -- "$json" | ${ZSE_JQ:-jq} -r '.[] | [.name // "", .kind // "", (if .waitingFor then "waiting" else (.status // "?") end), .cwd // ""] | join("\u001f")' 2>/dev/null)"}; do
+    # \x1f, not a tab: read collapses a leading empty field (no name).
+    IFS=$'\x1f' read -r name kind st cwd <<<"$line"
+    [[ $st == (busy|waiting|idle) ]] || st='?'
+    if [[ $kind == background ]]; then
+      for n in $(_z_reg_names); do
+        [[ $(_z_reg_get "$n" use_case) == project ]] || continue
+        dir=$(_z_reg_get "$n" dir)
+        [[ -n $dir && $cwd == $dir* ]] && ((ZSE_AGENTS[$n]++))
+      done
+    elif [[ -n $name ]]; then
+      ((${rank[$st]} > ${rank[${ZSE_ACT[$name]:-?}]})) || [[ -z ${ZSE_ACT[$name]:-} ]] && ZSE_ACT[$name]=$st
+    fi
+  done
+}
+
+# _z_is_active NAME — true when the session's Claude is busy or waiting for
+# the user, or it has background agents running (after _z_activity_load).
+_z_is_active() {
+  [[ ${ZSE_ACT[$1]:-} == (busy|waiting) ]] || ((${ZSE_AGENTS[$1]:-0} > 0))
+}
+
+# _z_activity_word NAME — "busy, 2 agents" etc. for messages.
+_z_activity_word() {
+  local w=${ZSE_ACT[$1]:-?} a=${ZSE_AGENTS[$1]:-0}
+  ((a)) && w+=", $a agent$( ((a > 1)) && print s)"
+  print -r -- "$w"
+}
+
+# ----- Display: icons and colours per use case -----
+
+typeset -gA ZSE_ICON=(ticket '◆' project '▲' review '✓' review-doc '¶' explore '✦' code '›' code-resume '›' daily '☀')
+# ANSI 256 colours: ticket yellow, project orange, review green, review-doc
+# teal, explore purple, code blue, daily grey.
+typeset -gA ZSE_COLOR=(ticket 178 project 208 review 70 review-doc 37 explore 134 code 69 code-resume 69 daily 245)
+typeset -gA ZSE_ACT_ICON=(busy '●' waiting '◐' idle '○' '?' '·')
+
+# ----- Picker -----
+
+# _z_age ISO_UTC — "5m", "3h", "2d" since the time.
+_z_age() {
+  emulate -L zsh
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local t s
+  # strftime -r: no GNU / BSD `date` difference (Nix coreutils may come first).
+  TZ=UTC strftime -r -s t '%Y-%m-%dT%H:%M:%SZ' "$1" 2>/dev/null || { print -r -- "-"; return; }
+  s=$((EPOCHSECONDS - t))
+  if ((s < 3600)); then print -r -- "$((s / 60))m"
+  elif ((s < 86400)); then print -r -- "$((s / 3600))h"
+  else print -r -- "$((s / 86400))d"; fi
+}
+
+# _z_pick_lines — one tab-separated line per session for fzf: the name
+# (hidden, for the action), then the display: activity, type icon in the
+# type colour, name, state, age, new-on-PR badge, agents, title. Running
+# sessions first (busy, waiting, idle), then stopped ones; newest first.
+_z_pick_lines() {
+  emulate -L zsh
+  _z_activity_load
+  local -A live
+  local l
+  for l in ${(f)"$(zellij list-sessions --no-formatting --short 2>/dev/null)"}; do
+    live[$l]=1
+  done
+  local n uc st act sort badge agents title color icon age started pr_file
+  local -a rows
+  local -A order=(busy 1 waiting 2 idle 3 '?' 4)
+  local -a names=($(_z_reg_names) ${(k)live})
+  for n in ${(u)names}; do
+    uc=$(_z_reg_get "$n" use_case 2>/dev/null) || uc=""
+    if [[ -n ${live[$n]:-} ]]; then
+      st=running act=${ZSE_ACT[$n]:-?}
+      sort=${order[$act]}
+    else
+      st=stopped act=""
+      sort=5
+    fi
+    badge=""
+    pr_file="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$n.pr"
+    [[ -r $pr_file ]] && badge="✱ $(sed -n 's/^summary=//p' "$pr_file")"
+    agents=${ZSE_AGENTS[$n]:-0}
+    title=$(_z_reg_get "$n" title 2>/dev/null)
+    [[ -z $title ]] && title=$(_z_reg_get "$n" url 2>/dev/null)
+    color=${ZSE_COLOR[$uc]:-250} icon=${ZSE_ICON[$uc]:-·}
+    started=$(_z_reg_get "$n" last_started 2>/dev/null)
+    age=$(_z_age "$started")
+    rows+=("$sort ${started:-0}	$n	${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } "$'\e'"[38;5;${color}m${icon}"$'\e'"[0m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")  "$'\e'"[1;33m${badge}"$'\e'"[0m$( ((agents)) && print -n "  [$agents agents]")  "$'\e'"[2m${title[1,70]}"$'\e'"[0m")
+  done
+  # Rows are "group last_started<TAB>name<TAB>display": sort by group, then
+  # newest first; drop the sort key.
+  (($#rows)) || return 0
+  print -rl -- $rows | sort -k1,1n -k2,2r | cut -f2-
+}
+
+# _z_pick_preview NAME — details for the fzf preview.
+_z_pick_preview() {
+  emulate -L zsh
+  local n=$1 f
+  f=$(_z_reg_file "$n")
+  print -r -- "$n"
+  print
+  if [[ -r $f ]]; then
+    grep -E '^(use_case|dir|title|url|ticket|pr|wt|hint|aws_profile|created|last_started)=' "$f" | sed 's/=/: /'
+    local root wt
+    root=$(git -C "$(_z_reg_get "$n" dir)" rev-parse --show-toplevel 2>/dev/null)
+    wt=$(_z_worktree_name "$n")
+    [[ -n $root && -d $root/.claude/worktrees/$wt ]] && print -r -- "worktree: $root/.claude/worktrees/$wt"
+  else
+    print "not registered (started without zse)"
+  fi
+  f="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$n.pr"
+  [[ -r $f ]] && { print; print -r -- "PR: ✱ $(sed -n 's/^summary=//p' "$f") since your last review"; }
+}
+
+# zse pick — fzf over all sessions (Ctrl Space in Zellij); Enter switches
+# (a stopped session is restored first), Ctrl-R reloads.
+_zse_pick() {
+  emulate -L zsh
+  local choice
+  choice=$(_z_pick_lines | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse \
+    --header='Enter switch · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · ✱ new on PR' \
+    --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
+    --preview-window='down,40%,wrap' \
+    --bind="ctrl-r:reload(zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_lines')") || return 0
+  _zse_switch "${choice%%$'\t'*}"
+}
+
 # ----- Commands -----
 
 _zse_help() {
@@ -544,7 +688,8 @@ usage:
   zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]
                                              start NAME, or attach if it runs
   zse ls                                     list registered and running sessions
-  zse stop [--all | NAME]                    stop a session, keep it registered
+  zse pick                                   pick a session with fzf (Ctrl Space)
+  zse stop [NAME | --all [--force]]          stop a session, keep it registered
   zse kill [NAME]                            end a session and clean up
   zse restore [NAME...]                      start stopped sessions in the background
   zse restart --all | NAME...                stop running sessions, start them again
@@ -578,7 +723,13 @@ usage:
            then deletes the Zellij session.
 
   stop --all stops every running session except the current one, e.g.
-  before a deploy that changes Zellij; `zse restore` brings them back.
+  before a deploy that changes Zellij; `zse restore` brings them back. It
+  skips sessions whose Claude is busy or waits for you, or that have
+  background agents running; --force stops them too.
+
+  activity (ls, pick) comes from `claude agents --json`:
+    ● busy   ◐ waiting for you   ○ idle   · no Claude / unknown
+  pick also shows ✱ when a review PR has news since your last review.
 
   restore skips sessions that use -a (assume needs the YubiKey) and prints
   the command to start them.
@@ -787,9 +938,10 @@ _zse_ls() {
     fi
   done
 
-  local fmt='%-36s %-12s %-10s %-4s %s\n'
-  printf "$fmt" NAME USE_CASE STATE AWS DIR
-  local n uc dir aws state
+  _z_activity_load
+  local fmt='%-40s %-12s %-10s %-16s %-4s %s\n'
+  printf "$fmt" NAME USE_CASE STATE ACTIVITY AWS DIR
+  local n uc dir aws state act
   for n in $(_z_reg_names); do
     uc=$(_z_reg_get "$n" use_case)
     dir=$(_z_reg_get "$n" dir)
@@ -801,7 +953,9 @@ _zse_ls() {
     else
       state=stopped
     fi
-    printf "$fmt" "$n" "$uc" "$state" "${aws:+yes}" "${dir/#$HOME/~}"
+    act=""
+    [[ $state == running ]] && act="${ZSE_ACT_ICON[${ZSE_ACT[$n]:-?}]} $(_z_activity_word "$n")"
+    printf "$fmt" "$n" "$uc" "$state" "$act" "${aws:+yes}" "${dir/#$HOME/~}"
     unset "zstate[$n]"
   done
   # Sessions Zellij knows but the registry does not: started without zse,
@@ -812,7 +966,9 @@ _zse_ls() {
     else
       state=old-exited
     fi
-    printf "$fmt" "$n" "-" "$state" "" ""
+    act=""
+    [[ $state == untracked ]] && act="${ZSE_ACT_ICON[${ZSE_ACT[$n]:-?}]} $(_z_activity_word "$n")"
+    printf "$fmt" "$n" "-" "$state" "$act" "" ""
   done
 }
 
@@ -828,26 +984,40 @@ _z_target() {
   _z_resolve "$name" 2>/dev/null || print -r -- "$name"
 }
 
-# zse stop --all — stop every live session, registered or not (e.g. before
-# a deploy that changes the Zellij version or socket dir). Skips the current
-# session: stopping it would end this command too.
+# zse stop --all [--force] — stop every live session, registered or not
+# (e.g. before a deploy that changes the Zellij version or socket dir).
+# Skips the current session (stopping it would end this command too) and,
+# without --force, every session whose Claude is busy or waiting for you or
+# that has background agents running.
 _zse_stop_all() {
   emulate -L zsh
-  local n
+  local force=${1:-} n skipped=0
+  _z_activity_load
   for n in $(zellij list-sessions --no-formatting --short 2>/dev/null); do
     [[ $(_z_session_state "$n") == live ]] || continue
     if [[ -n ${ZELLIJ:-} && $n == "${ZELLIJ_SESSION_NAME:-}" ]]; then
       print -u2 -r "zse: '$n' is the current session — skipped. Run 'zse stop' in it, or 'zse stop --all' outside Zellij."
       continue
     fi
+    if [[ -z $force ]] && _z_is_active "$n"; then
+      print -u2 -r "zse: skipped '$n': $(_z_activity_word "$n")."
+      ((skipped++))
+      continue
+    fi
     _zse_stop "$n"
   done
+  ((skipped)) && print -u2 -r "zse: $skipped active session(s) kept running — 'zse stop --all --force' stops them too."
+  return 0
 }
 
 _zse_stop() {
   emulate -L zsh
-  if [[ ${1:-} == --all ]]; then
-    _zse_stop_all
+  if [[ ${1:-} == --all || ${1:-} == --force && ${2:-} == --all ]]; then
+    if [[ ${1:-} == --force || ${2:-} == --force ]]; then
+      _zse_stop_all --force
+    else
+      _zse_stop_all
+    fi
     return
   fi
   local name
@@ -1109,6 +1279,11 @@ _zse_migrate() {
           print -u2 -r "zse: '$n' is running — skipped (--force stops it)."
           continue
         fi
+        ((${+ZSE_ACT})) || _z_activity_load
+        if _z_is_active "$n"; then
+          print -u2 -r "zse: skipped '$n': $(_z_activity_word "$n") (--force stops it)."
+          continue
+        fi
         printf "zse: '%s' is running. Stop it, rename it to '%s' and restore it? [y/N] " "$n" "$new"
         read -r reply
         [[ $reply == [yY]* ]] || { print -r "zse: '$n' skipped."; continue; }
@@ -1172,6 +1347,7 @@ zse() {
     restart) shift; _zse_restart "$@" ;;
     switch) shift; _zse_switch "$@" ;;
     migrate) shift; _zse_migrate "$@" ;;
+    pick) shift; _zse_pick "$@" ;;
     -h | --help | help) _zse_help ;;
     --) shift; _zse_start "$@" ;;
     *) _zse_start "$@" ;;
@@ -1211,6 +1387,7 @@ _zse() {
   local -a verbs
   verbs=(
     'ls:list registered and running sessions'
+    'pick:pick a session with fzf'
     'stop:stop a session, keep it registered'
     'kill:end a session and clean up'
     'restore:start stopped sessions in the background'
@@ -1224,7 +1401,12 @@ _zse() {
       ((CURRENT >= 3)) && _zse_names
       return
       ;;
-    stop | restart)
+    stop)
+      ((CURRENT >= 3)) && compadd -- --all --force
+      ((CURRENT >= 3)) && _zse_names
+      return
+      ;;
+    restart)
       ((CURRENT == 3)) && compadd -- --all
       ((CURRENT >= 3)) && _zse_names
       return
@@ -1234,7 +1416,7 @@ _zse() {
       ((CURRENT >= 3)) && _zse_names
       return
       ;;
-    ls | help) return ;;
+    ls | pick | help) return ;;
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
