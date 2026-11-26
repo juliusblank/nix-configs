@@ -24,6 +24,14 @@ let
         lib.mapAttrsToList (k: v: "${lib.escapeShellArg k} ${lib.escapeShellArg v}") zseRepoShort
       )
     })
+    typeset -gA ZSE_SHADE_RGB=(${
+      lib.concatMapStringsSep " " (
+        sh: "${sh.type}-${toString sh.n} '${lib.concatMapStringsSep ";" toString sh.rgb}'"
+      ) zseShadeList
+    })
+    typeset -gA ZSE_CLAUDE_COLOR=(${
+      lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "${k} ${v}") zseClaudeColor)
+    })
     typeset -gx ZSE_TIMEOUT=${pkgs.coreutils}/bin/timeout
     typeset -gx ZSE_JQ=${pkgs.jq}/bin/jq
     typeset -gx ZSE_SOURCE=${./zse.zsh}
@@ -39,6 +47,383 @@ let
     ${zsePrelude}
     _zse_pick "$@"
   '';
+
+  # ----- Colours (roadmap #42 phase 3) -----
+
+  /**
+    Four shades per type (base, lighter, darker, lightest) as RGB. The
+    Zellij theme `zse-<type>-<n>` and the picker use them; `code-resume`
+    uses `code`.
+  */
+  zseShades = {
+    ticket = [
+      [
+        255
+        194
+        75
+      ]
+      [
+        255
+        215
+        128
+      ]
+      [
+        214
+        158
+        46
+      ]
+      [
+        255
+        235
+        180
+      ]
+    ];
+    project = [
+      [
+        255
+        140
+        50
+      ]
+      [
+        255
+        172
+        105
+      ]
+      [
+        214
+        110
+        30
+      ]
+      [
+        255
+        202
+        155
+      ]
+    ];
+    review = [
+      [
+        171
+        224
+        71
+      ]
+      [
+        200
+        240
+        120
+      ]
+      [
+        130
+        185
+        40
+      ]
+      [
+        222
+        250
+        170
+      ]
+    ];
+    review-doc = [
+      [
+        53
+        187
+        176
+      ]
+      [
+        100
+        215
+        205
+      ]
+      [
+        30
+        150
+        140
+      ]
+      [
+        150
+        235
+        225
+      ]
+    ];
+    explore = [
+      [
+        180
+        130
+        255
+      ]
+      [
+        205
+        170
+        255
+      ]
+      [
+        145
+        95
+        225
+      ]
+      [
+        225
+        200
+        255
+      ]
+    ];
+    code = [
+      [
+        81
+        165
+        250
+      ]
+      [
+        130
+        190
+        255
+      ]
+      [
+        50
+        130
+        215
+      ]
+      [
+        175
+        215
+        255
+      ]
+    ];
+    daily = [
+      [
+        170
+        170
+        170
+      ]
+      [
+        200
+        200
+        200
+      ]
+      [
+        140
+        140
+        140
+      ]
+      [
+        225
+        225
+        225
+      ]
+    ];
+  };
+
+  /**
+    Claude Code `/color` per use case (eight colours, no shades); daily
+    keeps the default. `zse-claude` sends it on a new conversation.
+  */
+  zseClaudeColor = {
+    ticket = "yellow";
+    project = "orange";
+    review = "green";
+    review-doc = "cyan";
+    explore = "purple";
+    code = "blue";
+  };
+
+  /**
+    All `{ type, n, rgb }` shades, n from 1.
+  */
+  zseShadeList = lib.concatLists (
+    lib.mapAttrsToList (
+      type: shades:
+      lib.imap1 (n: rgb: {
+        inherit type n rgb;
+      }) shades
+    ) zseShades
+  );
+
+  /**
+    The Zellij theme `name`, matched to the Ghostty "0x96f" theme, with the
+    accent `a` (`[ r g b ]`) on the selected tab, table titles and the
+    focused pane frame. Component format (Zellij 0.42+), not the legacy
+    palette: the legacy mapping draws the selected row of lists and tables
+    (session manager, plugin lists) as #434343 on #262427, which is hard to
+    see. Selected rows are dark text on 0x96f blue instead.
+  */
+  mkZellijTheme =
+    name: accent:
+    let
+      a = lib.concatMapStringsSep " " toString accent;
+    in
+    ''
+      themes {
+          ${name} {
+              text_unselected {
+                  base 255 255 255
+                  background 38 36 39
+                  emphasis_0 255 194 75
+                  emphasis_1 53 187 176
+                  emphasis_2 171 224 71
+                  emphasis_3 255 117 181
+              }
+              text_selected {
+                  base 255 255 255
+                  background 67 67 67
+                  emphasis_0 255 194 75
+                  emphasis_1 53 187 176
+                  emphasis_2 171 224 71
+                  emphasis_3 255 117 181
+              }
+              ribbon_selected {
+                  base 38 36 39
+                  background ${a}
+                  emphasis_0 255 39 64
+                  emphasis_1 255 194 75
+                  emphasis_2 255 117 181
+                  emphasis_3 81 165 250
+              }
+              ribbon_unselected {
+                  base 38 36 39
+                  background 255 255 255
+                  emphasis_0 255 39 64
+                  emphasis_1 255 255 255
+                  emphasis_2 81 165 250
+                  emphasis_3 255 117 181
+              }
+              table_title {
+                  base ${a}
+                  background 38 36 39
+                  emphasis_0 255 194 75
+                  emphasis_1 53 187 176
+                  emphasis_2 171 224 71
+                  emphasis_3 255 117 181
+              }
+              table_cell_selected {
+                  base 38 36 39
+                  background 81 165 250
+                  emphasis_0 38 36 39
+                  emphasis_1 38 36 39
+                  emphasis_2 38 36 39
+                  emphasis_3 38 36 39
+              }
+              table_cell_unselected {
+                  base 255 255 255
+                  background 38 36 39
+                  emphasis_0 255 194 75
+                  emphasis_1 53 187 176
+                  emphasis_2 171 224 71
+                  emphasis_3 255 117 181
+              }
+              list_selected {
+                  base 38 36 39
+                  background 81 165 250
+                  emphasis_0 38 36 39
+                  emphasis_1 38 36 39
+                  emphasis_2 38 36 39
+                  emphasis_3 38 36 39
+              }
+              list_unselected {
+                  base 255 255 255
+                  background 38 36 39
+                  emphasis_0 255 194 75
+                  emphasis_1 53 187 176
+                  emphasis_2 171 224 71
+                  emphasis_3 255 117 181
+              }
+              frame_selected {
+                  base ${a}
+                  background 38 36 39
+                  emphasis_0 255 194 75
+                  emphasis_1 53 187 176
+                  emphasis_2 255 117 181
+                  emphasis_3 38 36 39
+              }
+              frame_highlight {
+                  base 255 194 75
+                  background 38 36 39
+                  emphasis_0 255 117 181
+                  emphasis_1 255 194 75
+                  emphasis_2 255 194 75
+                  emphasis_3 255 194 75
+              }
+              exit_code_success {
+                  base 171 224 71
+                  background 38 36 39
+                  emphasis_0 53 187 176
+                  emphasis_1 67 67 67
+                  emphasis_2 255 117 181
+                  emphasis_3 81 165 250
+              }
+              exit_code_error {
+                  base 255 39 64
+                  background 38 36 39
+                  emphasis_0 255 194 75
+                  emphasis_1 38 36 39
+                  emphasis_2 38 36 39
+                  emphasis_3 38 36 39
+              }
+              multiplayer_user_colors {
+                  player_1 255 117 181
+                  player_2 81 165 250
+                  player_3 53 187 176
+                  player_4 255 194 75
+                  player_5 171 224 71
+                  player_6 255 39 64
+                  player_7 255 194 75
+                  player_8 255 255 255
+                  player_9 81 165 250
+                  player_10 53 187 176
+              }
+          }
+      }
+    '';
+
+  /**
+    config.kdl with the theme `theme`; `extra` is appended (a theme block).
+    Flat KDL — same base as what `programs.zellij.settings` used to emit,
+    plus a `shared` keybind that opens the zse picker (`zse pick`: fzf
+    with activity, icons and PR news) in a floating pane in one keystroke
+    (`Ctrl Space`). `Ctrl Space` is unused by zsh at the prompt and by
+    every other Zellij default binding. Zellij's own session manager stays
+    on `Ctrl o` → `w`.
+  */
+  mkZellijConfig = theme: extra: ''
+    copy_command "pbcopy"
+    default_shell "zsh"
+    pane_frames false
+    scroll_buffer_size 50000
+    theme "${theme}"
+    // No resurrection: an EXITED session would come back with its old
+    // saved layout. The zse registry (~/.local/state/zse/sessions)
+    // records the sessions; `zse restore` re-creates them from the
+    // current layout files.
+    session_serialization false
+    keybinds {
+        shared {
+            bind "Ctrl Space" {
+                Run "${zsePick}/bin/zse-pick" {
+                    floating true
+                    close_on_exit true
+                    name "zse pick"
+                }
+                SwitchToMode "Normal"
+            }
+        }
+    }
+    ${extra}
+  '';
+
+  /**
+    One config per shade, theme inline: `zse` starts a session with
+    `zellij --config ~/.config/zellij/zse/<type>-<n>.kdl`, because Zellij
+    0.45.1 ignores `options --theme` at creation.
+  */
+  zseShadeConfigs = lib.listToAttrs (
+    map (
+      sh:
+      let
+        theme = "zse-${sh.type}-${toString sh.n}";
+      in
+      lib.nameValuePair ".config/zellij/zse/${sh.type}-${toString sh.n}.kdl" {
+        text = mkZellijConfig theme (mkZellijTheme theme sh.rgb);
+      }
+    ) zseShadeList
+  );
 
   # ----- Session metadata -----
 
@@ -486,6 +871,15 @@ let
     `--first-prompt TEXT` (after `--own`) sends TEXT as the first user
     message only when the conversation is new. On resume it is dropped, so
     a stopped / restored `review` session does not run the review again.
+
+    Colour (#42 phase 3): a new conversation starts with `/color <c>`
+    (zseClaudeColor by `ZSE_USE_CASE`) as its first prompt; the transcript
+    keeps it, so a resume restores it. With `--first-prompt TEXT` as well, a
+    background job waits until the pane shows "Session color set to" and
+    then types TEXT and Enter (`zellij action write-chars` / `send-keys`);
+    it types nothing if the line does not appear within 10 min (e.g. the
+    folder-trust dialog is still open). The pane ID goes to
+    `~/.cache/zse/sessions/<name>.claude-pane` for `zse color`.
   */
   zseClaude = pkgs.writeShellScriptBin "zse-claude" ''
     set -euo pipefail
@@ -497,6 +891,15 @@ let
     fi
     shift
     first=()
+    case ''${ZSE_USE_CASE:-} in
+    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "  ${k}) color=${v} ;;") zseClaudeColor)}
+      *) color="" ;;
+    esac
+    if [[ -n ''${ZELLIJ_PANE_ID:-} ]]; then
+      cache="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
+      mkdir -p "$cache"
+      printf '%s\n' "$ZELLIJ_PANE_ID" >"$cache/$name.claude-pane"
+    fi
     if [[ ''${1:-} == --first-prompt ]]; then
       first=("''${2:?zse-claude: --first-prompt needs a text}")
       shift 2
@@ -514,6 +917,24 @@ let
     transcripts=("''${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$id".jsonl)
     if ((''${#transcripts[@]})); then
       exec claude "''${base[@]}" --resume "$id" "$@"
+    fi
+    if [[ -n $color ]]; then
+      if ((''${#first[@]})) && [[ -n ''${ZELLIJ_PANE_ID:-} ]]; then
+        (
+          pane=$ZELLIJ_PANE_ID
+          for _ in $(seq 1200); do
+            sleep 0.5
+            if zellij action dump-screen --pane-id "$pane" 2>/dev/null | grep -q 'Session color set to'; then
+              sleep 0.5
+              zellij action write-chars --pane-id "$pane" "''${first[0]}"
+              sleep 0.3
+              zellij action send-keys --pane-id "$pane" Enter
+              exit 0
+            fi
+          done
+        ) </dev/null >/dev/null 2>&1 &
+      fi
+      first=("/color $color")
     fi
     exec claude "''${base[@]}" --session-id "$id" "$@" "''${first[@]}"
   '';
@@ -664,36 +1085,8 @@ in
     file = {
       # ----- Config -----
 
-      # Flat KDL — same base as what `programs.zellij.settings` used to emit,
-      # plus a `shared` keybind that opens the zse picker (`zse pick`: fzf
-      # with activity, icons and PR news) in a floating pane in one keystroke
-      # (`Ctrl Space`). `Ctrl Space` is unused by zsh at the prompt and by
-      # every other Zellij default binding. Zellij's own session manager
-      # stays on `Ctrl o` → `w`.
-      ".config/zellij/config.kdl".text = ''
-        copy_command "pbcopy"
-        default_shell "zsh"
-        pane_frames false
-        scroll_buffer_size 50000
-        theme "ghostty-0x96f"
-        // No resurrection: an EXITED session would come back with its old
-        // saved layout. The zse registry (~/.local/state/zse/sessions)
-        // records the sessions; `zse restore` re-creates them from the
-        // current layout files.
-        session_serialization false
-        keybinds {
-            shared {
-                bind "Ctrl Space" {
-                    Run "${zsePick}/bin/zse-pick" {
-                        floating true
-                        close_on_exit true
-                        name "zse pick"
-                    }
-                    SwitchToMode "Normal"
-                }
-            }
-        }
-      '';
+      # The default config (sessions without a shade); see mkZellijConfig.
+      ".config/zellij/config.kdl".text = mkZellijConfig "ghostty-0x96f" "";
 
       # tig: periodic refresh, so the git pane follows Claude's edits and
       # commits without a manual `R`. Local `git status` only (no fetch).
@@ -783,135 +1176,15 @@ in
 
       # ----- Theme -----
 
-      # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix).
-      # Shipped as a separate theme file so the `theme` line in config.kdl
-      # above just needs to name it. Component format (Zellij 0.42+), not the
-      # legacy palette: the legacy mapping draws the selected row of lists and
-      # tables (session manager, plugin lists) as #434343 on #262427, which is
-      # hard to see. Selected rows are dark text on 0x96f blue instead.
-      ".config/zellij/themes/ghostty-0x96f.kdl".text = ''
-        themes {
-            ghostty-0x96f {
-                text_unselected {
-                    base 255 255 255
-                    background 38 36 39
-                    emphasis_0 255 194 75
-                    emphasis_1 53 187 176
-                    emphasis_2 171 224 71
-                    emphasis_3 255 117 181
-                }
-                text_selected {
-                    base 255 255 255
-                    background 67 67 67
-                    emphasis_0 255 194 75
-                    emphasis_1 53 187 176
-                    emphasis_2 171 224 71
-                    emphasis_3 255 117 181
-                }
-                ribbon_selected {
-                    base 38 36 39
-                    background 171 224 71
-                    emphasis_0 255 39 64
-                    emphasis_1 255 194 75
-                    emphasis_2 255 117 181
-                    emphasis_3 81 165 250
-                }
-                ribbon_unselected {
-                    base 38 36 39
-                    background 255 255 255
-                    emphasis_0 255 39 64
-                    emphasis_1 255 255 255
-                    emphasis_2 81 165 250
-                    emphasis_3 255 117 181
-                }
-                table_title {
-                    base 171 224 71
-                    background 38 36 39
-                    emphasis_0 255 194 75
-                    emphasis_1 53 187 176
-                    emphasis_2 171 224 71
-                    emphasis_3 255 117 181
-                }
-                table_cell_selected {
-                    base 38 36 39
-                    background 81 165 250
-                    emphasis_0 38 36 39
-                    emphasis_1 38 36 39
-                    emphasis_2 38 36 39
-                    emphasis_3 38 36 39
-                }
-                table_cell_unselected {
-                    base 255 255 255
-                    background 38 36 39
-                    emphasis_0 255 194 75
-                    emphasis_1 53 187 176
-                    emphasis_2 171 224 71
-                    emphasis_3 255 117 181
-                }
-                list_selected {
-                    base 38 36 39
-                    background 81 165 250
-                    emphasis_0 38 36 39
-                    emphasis_1 38 36 39
-                    emphasis_2 38 36 39
-                    emphasis_3 38 36 39
-                }
-                list_unselected {
-                    base 255 255 255
-                    background 38 36 39
-                    emphasis_0 255 194 75
-                    emphasis_1 53 187 176
-                    emphasis_2 171 224 71
-                    emphasis_3 255 117 181
-                }
-                frame_selected {
-                    base 171 224 71
-                    background 38 36 39
-                    emphasis_0 255 194 75
-                    emphasis_1 53 187 176
-                    emphasis_2 255 117 181
-                    emphasis_3 38 36 39
-                }
-                frame_highlight {
-                    base 255 194 75
-                    background 38 36 39
-                    emphasis_0 255 117 181
-                    emphasis_1 255 194 75
-                    emphasis_2 255 194 75
-                    emphasis_3 255 194 75
-                }
-                exit_code_success {
-                    base 171 224 71
-                    background 38 36 39
-                    emphasis_0 53 187 176
-                    emphasis_1 67 67 67
-                    emphasis_2 255 117 181
-                    emphasis_3 81 165 250
-                }
-                exit_code_error {
-                    base 255 39 64
-                    background 38 36 39
-                    emphasis_0 255 194 75
-                    emphasis_1 38 36 39
-                    emphasis_2 38 36 39
-                    emphasis_3 38 36 39
-                }
-                multiplayer_user_colors {
-                    player_1 255 117 181
-                    player_2 81 165 250
-                    player_3 53 187 176
-                    player_4 255 194 75
-                    player_5 171 224 71
-                    player_6 255 39 64
-                    player_7 255 194 75
-                    player_8 255 255 255
-                    player_9 81 165 250
-                    player_10 53 187 176
-                }
-            }
-        }
-      '';
-    };
+      # Zellij theme matched to the Ghostty "0x96f" theme (see home/ghostty.nix
+      # and mkZellijTheme), as a theme file so config.kdl just names it.
+      ".config/zellij/themes/ghostty-0x96f.kdl".text = mkZellijTheme "ghostty-0x96f" [
+        171
+        224
+        71
+      ];
+    }
+    // zseShadeConfigs;
   };
 
   # The zse CLI (zse / zse ls|stop|kill|restore|switch, deprecated zsek /

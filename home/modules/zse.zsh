@@ -5,6 +5,7 @@
 #   zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]   start or attach
 #   zse ls                                      registry + live state + activity
 #   zse pick                                    fzf picker (Ctrl Space in Zellij)
+#   zse color [--all | NAME]                    Claude /color for running sessions
 #   zse stop [NAME] | --all [--force]           stop, keep registered
 #   zse kill [NAME]                             end: worktree prompt, cleanup, unregister
 #   zse restore [NAME…]                         start stopped sessions in the background
@@ -20,6 +21,11 @@ typeset -g ZSE_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
 # Repo short names for session names; filled by home/modules/zellij.nix
 # before this file is sourced.
 (( ${+ZSE_REPO_SHORT} )) || typeset -gA ZSE_REPO_SHORT
+# Colours (#42 phase 3), also from zellij.nix: RGB per "<type>-<shade>",
+# Claude /color per use case, and the generated per-shade Zellij configs.
+(( ${+ZSE_SHADE_RGB} )) || typeset -gA ZSE_SHADE_RGB
+(( ${+ZSE_CLAUDE_COLOR} )) || typeset -gA ZSE_CLAUDE_COLOR
+typeset -g ZSE_ZELLIJ_CONFIG_DIR="${ZSE_ZELLIJ_CONFIG_DIR:-$HOME/.config/zellij/zse}"
 
 # ----- Zellij state -----
 
@@ -470,6 +476,12 @@ _z_launch() {
     zellij delete-session "$name" >/dev/null 2>&1
   fi
   _z_reg_write "$name" "$use_case" "$dir" "$aws"
+  # The session's theme (#42 phase 3): Zellij ignores `options --theme`, so
+  # start it with the shade's generated config.
+  local cfg
+  local -a zcfg
+  cfg="$ZSE_ZELLIJ_CONFIG_DIR/$(_z_color_type "$use_case")-$(_z_shade "$name" "$use_case").kdl"
+  if [[ -r $cfg ]]; then zcfg=(--config "$cfg"); else cfg=""; fi
   (
     # -q: no chpwd hooks. direnv's hook would export the devshell's
     # `name=nix-shell-env` over our local `name`. The panes load the devshell
@@ -484,7 +496,7 @@ _z_launch() {
       CLAUDE_CODE_SESSION_ATTENDED CLAUDE_CODE_BRIDGE_SESSION_ID \
       CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN
     if [[ -n $bg ]]; then
-      zellij attach --create-background "$name" options --default-layout "$use_case"
+      zellij $zcfg attach --create-background "$name" options --default-layout "$use_case"
     elif [[ -n $aws ]]; then
       local sidecar
       sidecar=$(_z_aws_sidecar "$name")
@@ -495,10 +507,11 @@ _z_launch() {
       assume "$aws" -- zsh -c '
         printf "AWS_PROFILE=%s\nAWS_SESSION_EXPIRATION=%s\n" \
           "$AWS_PROFILE" "$AWS_SESSION_EXPIRATION" > "$1"
-        exec zellij -s "$2" -n "$3"
-      ' zse-aws "$sidecar" "$name" "$use_case"
+        cfg=(); [[ -n $4 ]] && cfg=(--config "$4")
+        exec zellij "${cfg[@]}" -s "$2" -n "$3"
+      ' zse-aws "$sidecar" "$name" "$use_case" "$cfg"
     else
-      zellij -s "$name" -n "$use_case"
+      zellij $zcfg -s "$name" -n "$use_case"
     fi
   ) || return
   [[ -n $switch ]] && zellij action switch-session "$name"
@@ -590,6 +603,48 @@ typeset -gA ZSE_ICON=(ticket '◆' project '▲' review '✓' review-doc '¶' ex
 typeset -gA ZSE_COLOR=(ticket 178 project 208 review 70 review-doc 37 explore 134 code 69 code-resume 69 daily 245)
 typeset -gA ZSE_ACT_ICON=(busy '●' waiting '◐' idle '○' '?' '·')
 
+# _z_color_type USE_CASE — the colour type: code-resume shares code.
+_z_color_type() { print -r -- "${${1:-code}/#code-resume/code}"; }
+
+# _z_shade NAME USE_CASE — the session's shade (1–4): the registry's
+# `shade`, else the lowest one no other registered session of the colour
+# type has (all four taken: cycle by count), stored in the registry.
+_z_shade() {
+  emulate -L zsh
+  local name=$1 type n sh i
+  sh=$(_z_reg_get "$name" shade 2>/dev/null)
+  if [[ -z $sh ]]; then
+    type=$(_z_color_type "$2")
+    local -A used
+    local -i count=0
+    for n in $(_z_reg_names); do
+      [[ $n == "$name" ]] && continue
+      [[ $(_z_color_type "$(_z_reg_get "$n" use_case)") == "$type" ]] || continue
+      ((count++))
+      i=$(_z_reg_get "$n" shade 2>/dev/null) && [[ -n $i ]] && used[$i]=1
+    done
+    for i in 1 2 3 4; do
+      [[ -z ${used[$i]:-} ]] && { sh=$i; break; }
+    done
+    [[ -z $sh ]] && sh=$((count % 4 + 1))
+    _z_reg_set "$name" shade "$sh"
+  fi
+  print -r -- "$sh"
+}
+
+# _z_sgr NAME USE_CASE — SGR foreground for the session: its shade as
+# 24-bit colour, else the type's 256 colour.
+_z_sgr() {
+  local sh rgb
+  sh=$(_z_reg_get "$1" shade 2>/dev/null)
+  rgb=${ZSE_SHADE_RGB[$(_z_color_type "$2")-$sh]:-}
+  if [[ -n $sh && -n $rgb ]]; then
+    print -r -- "38;2;$rgb"
+  else
+    print -r -- "38;5;${ZSE_COLOR[$2]:-250}"
+  fi
+}
+
 # ----- Picker -----
 
 # _z_age ISO_UTC — "5m", "3h", "2d" since the time.
@@ -636,10 +691,10 @@ _z_pick_lines() {
     agents=${ZSE_AGENTS[$n]:-0}
     title=$(_z_reg_get "$n" title 2>/dev/null)
     [[ -z $title ]] && title=$(_z_reg_get "$n" url 2>/dev/null)
-    color=${ZSE_COLOR[$uc]:-250} icon=${ZSE_ICON[$uc]:-·}
+    color=$(_z_sgr "$n" "$uc") icon=${ZSE_ICON[$uc]:-·}
     started=$(_z_reg_get "$n" last_started 2>/dev/null)
     age=$(_z_age "$started")
-    rows+=("$sort ${started:-0}	$n	${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } "$'\e'"[38;5;${color}m${icon}"$'\e'"[0m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")  "$'\e'"[1;33m${badge}"$'\e'"[0m$( ((agents)) && print -n "  [$agents agents]")  "$'\e'"[2m${title[1,70]}"$'\e'"[0m")
+    rows+=("$sort ${started:-0}	$n	${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } "$'\e'"[${color}m${icon}"$'\e'"[0m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")  "$'\e'"[1;33m${badge}"$'\e'"[0m$( ((agents)) && print -n "  [$agents agents]")  "$'\e'"[2m${title[1,70]}"$'\e'"[0m")
   done
   # Rows are "group last_started<TAB>name<TAB>display": sort by group, then
   # newest first; drop the sort key.
@@ -689,6 +744,7 @@ usage:
                                              start NAME, or attach if it runs
   zse ls                                     list registered and running sessions
   zse pick                                   pick a session with fzf (Ctrl Space)
+  zse color [--all | NAME]                   set Claude's colour in running sessions
   zse stop [NAME | --all [--force]]          stop a session, keep it registered
   zse kill [NAME]                            end a session and clean up
   zse restore [NAME...]                      start stopped sessions in the background
@@ -730,6 +786,11 @@ usage:
   activity (ls, pick) comes from `claude agents --json`:
     ● busy   ◐ waiting for you   ○ idle   · no Claude / unknown
   pick also shows ✱ when a review PR has news since your last review.
+
+  colours: each type has a colour and four shades; a session gets the
+  lowest free shade of its type (registry: shade) and a Zellij theme
+  with it from the next start. A new conversation starts with Claude's
+  /color for the type; `zse color` sets it in older ones (idle only).
 
   restore skips sessions that use -a (assume needs the YubiKey) and prints
   the command to start them.
@@ -955,7 +1016,10 @@ _zse_ls() {
     fi
     act=""
     [[ $state == running ]] && act="${ZSE_ACT_ICON[${ZSE_ACT[$n]:-?}]} $(_z_activity_word "$n")"
-    printf "$fmt" "$n" "$uc" "$state" "$act" "${aws:+yes}" "${dir/#$HOME/~}"
+    # The name in the session's colour, padded first (escapes have no width).
+    local shown=${(r:40:)n}
+    [[ -t 1 ]] && shown=$'\e['"$(_z_sgr "$n" "$uc")m$shown"$'\e[0m'
+    printf "%s ${fmt#%-40s }" "$shown" "$uc" "$state" "$act" "${aws:+yes}" "${dir/#$HOME/~}"
     unset "zstate[$n]"
   done
   # Sessions Zellij knows but the registry does not: started without zse,
@@ -1075,7 +1139,7 @@ _zse_kill() {
     fi
   fi
 
-  rm -f "$ZSE_CACHE_DIR/$name.env" "$ZSE_CACHE_DIR/$name.welcomed" "$(_z_reg_file "$name")"
+  rm -f "$ZSE_CACHE_DIR/$name.env" "$ZSE_CACHE_DIR/$name.welcomed" "$ZSE_CACHE_DIR/$name.claude-pane" "$(_z_reg_file "$name")"
   # --force kills a running session first; also removes a leftover exited one.
   if [[ $(_z_session_state "$name") != none ]]; then
     zellij delete-session --force "$name" >/dev/null
@@ -1300,6 +1364,7 @@ _zse_migrate() {
     mv "$(_z_reg_file "$n")" "$(_z_reg_file "$new")" || continue
     [[ -e $ZSE_CACHE_DIR/$n.env ]] && mv "$ZSE_CACHE_DIR/$n.env" "$ZSE_CACHE_DIR/$new.env"
     [[ -e $ZSE_CACHE_DIR/$n.welcomed ]] && mv "$ZSE_CACHE_DIR/$n.welcomed" "$ZSE_CACHE_DIR/$new.welcomed"
+    rm -f "$ZSE_CACHE_DIR/$n.claude-pane"
     for k in ${(k)meta}; do
       [[ -n ${meta[$k]} ]] && _z_reg_set "$new" "$k" "${meta[$k]}"
     done
@@ -1314,6 +1379,44 @@ _zse_migrate() {
       fi
     fi
   done
+}
+
+# zse color [--all | NAME] — set Claude's prompt-bar colour (`/color`) in
+# running sessions whose conversation started before #42 phase 3 (new ones
+# get it from zse-claude). Types `/color <c>` into the claude pane (ID from
+# zse-claude) only when that Claude is idle; others are skipped with the
+# reason. The transcript keeps the colour, so once is enough.
+_zse_color() {
+  emulate -L zsh
+  local -a targets
+  if [[ ${1:-} == --all ]]; then
+    targets=($(_z_reg_names))
+  else
+    targets=("$(_z_target "${1:-}")") || return 1
+  fi
+  _z_activity_load
+  local n uc c pid
+  for n in $targets; do
+    [[ $(_z_session_state "$n") == live ]] || { [[ ${1:-} == --all ]] || print -u2 -r "zse: '$n' is not running."; continue; }
+    uc=$(_z_reg_get "$n" use_case 2>/dev/null)
+    c=${ZSE_CLAUDE_COLOR[$uc]:-}
+    [[ -n $c ]] || { [[ ${1:-} == --all ]] || print -u2 -r "zse: '$n' ($uc) has no Claude colour."; continue; }
+    pid=""
+    [[ -r $ZSE_CACHE_DIR/$n.claude-pane ]] && pid=$(<"$ZSE_CACHE_DIR/$n.claude-pane")
+    if [[ -z $pid ]]; then
+      print -u2 -r "zse: skipped '$n': no claude pane ID — 'zse restart $n' (it then gets the colour on its next new conversation, or run 'zse color $n' after)."
+      continue
+    fi
+    if [[ ${ZSE_ACT[$n]:-} != idle ]]; then
+      print -u2 -r "zse: skipped '$n': Claude is $(_z_activity_word "$n")."
+      continue
+    fi
+    zellij --session "$n" action write-chars --pane-id "$pid" "/color $c" &&
+      sleep 0.3 &&
+      zellij --session "$n" action send-keys --pane-id "$pid" Enter &&
+      print -r "zse: '$n' → $c"
+  done
+  return 0
 }
 
 _zse_switch() {
@@ -1348,6 +1451,7 @@ zse() {
     switch) shift; _zse_switch "$@" ;;
     migrate) shift; _zse_migrate "$@" ;;
     pick) shift; _zse_pick "$@" ;;
+    color) shift; _zse_color "$@" ;;
     -h | --help | help) _zse_help ;;
     --) shift; _zse_start "$@" ;;
     *) _zse_start "$@" ;;
@@ -1388,6 +1492,7 @@ _zse() {
   verbs=(
     'ls:list registered and running sessions'
     'pick:pick a session with fzf'
+    'color:set Claude colour in running sessions'
     'stop:stop a session, keep it registered'
     'kill:end a session and clean up'
     'restore:start stopped sessions in the background'
@@ -1397,6 +1502,11 @@ _zse() {
     'help:show usage'
   )
   case ${words[2]:-} in
+    color)
+      ((CURRENT == 3)) && compadd -- --all
+      ((CURRENT >= 3)) && _zse_names
+      return
+      ;;
     kill | switch | restore)
       ((CURRENT >= 3)) && _zse_names
       return

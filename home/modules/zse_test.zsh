@@ -65,6 +65,27 @@ check "worktree from reg" "$(_z_worktree_name tkt-PCS-1-x)"  PCS-1
 check "worktree old rev"  "$(_z_worktree_name review-taktile-infra-pr7569)" pr-7569
 check "worktree old tkt"  "$(_z_worktree_name PCS-15554)"    PCS-15554
 
+# Shades: lowest free per colour type, stored; code-resume shares code
+_z_reg_write tkt-a ticket /tmp ""
+_z_reg_write tkt-b ticket /tmp ""
+check "shade first"       "$(_z_shade tkt-a ticket)"         1
+check "shade stored"      "$(_z_reg_get tkt-a shade)"        1
+check "shade next"        "$(_z_shade tkt-b ticket)"         2
+check "shade kept"        "$(_z_shade tkt-a ticket)"         1
+_z_reg_set tkt-a shade ""
+sed -i.bak '/^shade=$/d' "$ZSE_STATE_DIR/tkt-a"; rm -f "$ZSE_STATE_DIR/tkt-a.bak"
+_z_reg_write tkt-c ticket /tmp ""
+check "shade fills gap"   "$(_z_shade tkt-c ticket)"         1
+check "shade other type"  "$(_z_shade proj-plat project)"    1
+_z_reg_write code-x code /tmp ""
+_z_reg_write code-y code-resume /tmp ""
+_z_shade code-x code >/dev/null
+check "shade code-resume" "$(_z_shade code-y code-resume)"   2
+ZSE_SHADE_RGB=(ticket-1 '255;194;75')
+check "sgr rgb"           "$(_z_sgr tkt-c ticket)"           "38;2;255;194;75"
+check "sgr fallback"      "$(_z_sgr code-x code)"            "38;5;69"
+rm -f "$ZSE_STATE_DIR"/(tkt-[abc]|code-[xy])
+
 # Age
 check "age bad"           "$(_z_age nonsense)" -
 check "age min"           "$(_z_age "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 300)))")" 5m
