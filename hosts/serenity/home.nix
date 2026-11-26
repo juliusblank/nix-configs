@@ -40,6 +40,7 @@ in
     ../../home/modules/aws.nix
     ../../home/modules/harmonic-dj.nix
     ../../home/modules/backup.nix
+    ../../home/modules/nix-update-reminder.nix
   ];
 
   home = {
@@ -93,6 +94,12 @@ in
   custom = {
     # Granted for AWS credential management
     granted.enable = true;
+
+    # Nix flake update reminder
+    nixUpdateReminder = {
+      enable = true;
+      repoPath = "${config.home.homeDirectory}/github/juliusblank/nix-configs";
+    };
 
     # Harmonic DJ, evaluation phase (roadmap #32; docs/harmonic-dj.md)
     harmonicDj.enable = true;
