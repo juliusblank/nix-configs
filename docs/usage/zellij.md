@@ -6,20 +6,43 @@ picked by use case.
 
 ## Use cases and layouts
 
-Zellij session name = Claude workflow name = worktree name (project slug,
-ticket ID, exploration slug, or `review-<repo>-pr<n>` from a PR URL). Ticket
-branches are `$ZSE_BRANCH_USER/<id>`, explore branches `explore/<slug>`, not the
-bare session name.
+Session names follow `<type>-<repo>-<id>-<hint>` (ASCII, at most 40 chars):
+
+| Use case | Session name | Worktree | Branch |
+|---|---|---|---|
+| ticket | `tkt-<ID>-<hint>` | `.claude/worktrees/<ID>` | `<prefix>/<ID>` |
+| review | `rev-<repo>-<n>-<hint>` | `.claude/worktrees/pr-<n>` | the PR's |
+| review-doc | `doc-<title>-<id8>` (Notion) / `doc-<repo>-<n>` (PR) | PR: `pr-<n>` | — |
+| project | `proj-<slug>` | — (repo root) | — |
+| explore | `exp-<slug>` | `.claude/worktrees/<slug>` | `explore/<slug>` |
+| code, daily | `<dir name>` | — | — |
+
+`<repo>` is a short name: a map in `home/modules/zellij.nix` (`zseRepoShort`:
+`workspace-services` → `ws`, `taktile-infra` → `infra`, …), else a rule
+(drop `taktile-`, initials for 3+ parts, else the first 8 chars). The **hint**
+is up to 3 short words that remind you what the session is about. For a new
+ticket, `zse` reads the Linear title (one `claude -p` call with Haiku through
+the Linear connector, about 10 s); for a review, the PR title (`gh`) and asks
+Haiku for the hint. In a terminal it shows the title and lets you edit the
+hint (Enter accepts, empty = none); `-t HINT` skips both. Without Claude, a
+rule makes the hint from the title.
+
+The name is only a label. What a session is about lives in the registry as
+**name keys** (`ticket`, `pr`, `owner`, `repo`, `slug`, `wt`, `url`, `title`,
+`hint`, `conv`); the panes read them with `zse-meta KEY`. Sessions from before
+the name schema (`PCS-123`, `review-<repo>-pr<n>`, `review-doc-…`, bare slugs)
+keep working: `zse-meta` falls back to the old name parsing. `zse migrate`
+gives them the new names.
 
 | Use case | Layout file | Pane shape | Claude command |
 |---|---|---|---|
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (claude · (shell · (git \| agents status))) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents --cwd <repo>` |
-| **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree $ZELLIJ_SESSION_NAME` |
-| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME"` (review on first start; own conversation) |
-| **review-doc** | `review-doc.kdl` | claude · shell · compact bar (no tig, no CI) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review-doc <url>"` (URL from the zse registry via `zse-doc-url`; review on first start; own conversation) |
+| **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree <ID>` (`zse-meta wt`) |
+| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review <PR URL>"` (`zse-meta url`; review on first start; own conversation) |
+| **review-doc** | `review-doc.kdl` | claude · shell · compact bar (no tig, no CI) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review-doc <url>"` (`zse-meta url`; review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
-| **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status $ZELLIJ_SESSION_NAME" --worktree $ZELLIJ_SESSION_NAME` |
+| **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status <slug>" --worktree <slug>` |
 
 Every interactive claude pane runs `zse-claude` (installed by the
 module), which adds `--remote-control "$ZELLIJ_SESSION_NAME"` (the session
@@ -28,8 +51,8 @@ under the same name the Zellij session has locally) and `--name
 "$ZELLIJ_SESSION_NAME"` (prompt box, `/resume` picker, terminal title).
 
 `zse-claude --own` gives each Zellij session **its own conversation**: the
-conversation ID is a UUID derived from the session name and the pane's
-start directory. If a transcript with that ID exists, the pane resumes it
+conversation ID is the registry's `conv` (set by `zse migrate`), else a UUID
+derived from the session name and the pane's start directory. If a transcript with that ID exists, the pane resumes it
 (`--resume <id>`); otherwise it starts a fresh conversation under that ID
 (`--session-id <id>`). This replaces `claude --continue`, which resumes
 the most recent conversation **in the directory** — so a new `project`
@@ -63,9 +86,15 @@ nix-direnv) and then runs the command. Command panes do not run the zsh
 direnv hook, and the Zellij server env does not decide which devshell a pane
 gets. Shell panes run the hook as usual.
 
-`ticket` and `review` reference `$ZELLIJ_SESSION_NAME`, an env var Zellij
-sets per pane at session creation. Each ticket / review session sees its
-own name without the layout files needing to be rendered per session.
+The layouts are shared by all sessions of a use case: each pane reads its
+session's keys at start (`zse-meta`, from `$ZELLIJ_SESSION_NAME`, which Zellij
+sets per pane), so no layout file is rendered per session.
+
+**Shell pane (`zse-shell`).** In `ticket`, `explore` and `review` sessions the
+shell pane moves into the session's worktree (it waits up to 30 s, for review
+180 s while `/tktl-eng-delivery:review` checks the PR out; Enter skips) and
+checks it: a red warning names the directory and branch when it is not in the
+worktree.
 
 ## Welcome banners
 
@@ -85,9 +114,10 @@ banner on resume. `zse kill` deletes the sentinel so a reused session name
 re-welcomes. `code` and `code-resume` have no banner — those shell panes
 are plain zsh.
 
-For `review`, the claude pane auto-sends `/tktl-eng-delivery:review $NAME` on
+For `review`, the claude pane auto-sends `/tktl-eng-delivery:review <PR URL>` on
 the first start (not on restore); the banner just reports what's running. The
-same holds for `explore` with `/explore status $NAME`. For `ticket` and
+same holds for `explore` with `/explore status <slug>`. The tab is renamed to
+`[ticket] <ID> <hint>`, `[review] <repo> PR #<n> <hint>`, `[project] <slug>`, …. For `ticket` and
 `project`, the user invokes the kickoff command manually from the
 banner's hint.
 
@@ -131,31 +161,31 @@ The compact bar renders in both tabs via `default_tab_template` and shows
 
 ### ticket
 
-A single standalone ticket (bug fix, ops task). On fresh `zse -l ticket
-<id>`, before Zellij launches, `zse` creates the worktree at
-`.claude/worktrees/<id>` on branch `$ZSE_BRANCH_USER/<id>` (e.g.
-`juliusblank/PCS-14446`) when a `$ZSE_BRANCH_USER` is set — matching the
-Taktile PR-branch convention from the first commit, so there's no need to
-rename Claude Code's default `worktree-<id>` after the fact. The claude
-pane then runs `zse-claude --own --worktree $ZELLIJ_SESSION_NAME`, which
-reuses the pre-created worktree as-is and resumes the ticket's own
-conversation after a pane restart. If `ZSE_BRANCH_USER` is empty or cwd isn't
-a git repo, `zse` falls back silently to Claude Code's default naming.
-Second `zse -l ticket <id>` with the same id is a no-op on worktree
-creation and simply attaches a fresh claude in the same directory.
+A single standalone ticket (bug fix, ops task). `zse -l ticket <ID>` names
+the session `tkt-<ID>-<hint>` and, before Zellij launches, creates the
+worktree `.claude/worktrees/<ID>` with the `tktl-eng-delivery` plugin's
+`scripts/worktree.sh`: it fetches origin, starts a new branch
+`<delivery.branchPrefix>/<ID>` (e.g. `juliusblank/PCS-14446`) at
+`origin/<default>` (never at the main checkout's HEAD), checks the result, and
+warns about foreign commits on a reused branch. Without the plugin, `zse` does
+the same itself on `$ZSE_BRANCH_USER/<ID>`. A failed fetch stops the start
+(no stale base). The claude pane runs `zse-claude --own --worktree <ID>`,
+which reuses the worktree and resumes the ticket's own conversation. Later,
+`zse <ID>` (or `zse -l ticket <ID>`) finds the session by its ticket ID.
 
 ### review
 
 A short-lived PR review with its own conversation (`--own`). On the first
-start the pane opens with `/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME` as its first
+start the pane opens with `/tktl-eng-delivery:review <PR URL>` as its first
 user message (`--first-prompt`); after `zse stop` / `zse restore` it resumes
-the conversation and does not run the review again. `$ZELLIJ_SESSION_NAME`
-is `review-<repo>-pr<n>` (from `zse -l review <PR URL>`). To review new
-pushes, run `/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME` again in the session. The
+the conversation and does not run the review again. The session is
+`rev-<repo>-<n>-<hint>` (from `zse -l review <PR URL>`); the same URL later
+finds it again (by owner, repo and PR number). To review new pushes, run
+`/tktl-eng-delivery:review <PR URL>` again in the session. The
 `review` command (plugin `tktl-eng-delivery` from the `taktile-skills`
 marketplace) handles PR checkout under
-`.claude/worktrees/pr-<n>`. The session name has no owner: if a registered
-`review-<repo>-pr<n>` session belongs to another checkout (same repo name, other
+`.claude/worktrees/pr-<n>`. An old-style `review-<repo>-pr<n>` session has no
+owner in its name: if it belongs to another checkout (same repo name, other
 owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not
 commit-first. Instead, the **CI pane (`zse-ci`)** under the shell redraws
 `gh pr checks <n>` with the PR title every 30 s (`ZSE_CI_INTERVAL`), so new
@@ -166,7 +196,7 @@ session offers to remove `.claude/worktrees/pr-<n>`.
 
 A design doc review (ADR or PEP) with its own conversation. `zse -l review-doc
 <URL>` takes a Notion page URL or a GitHub PR URL. A Notion URL names the
-session `review-doc-<title>-<id8>` (the page title from the URL, lower case, at
+session `doc-<title>-<id8>` (the page title from the URL, lower case, at
 most 34 chars, so the Zellij socket path stays within the macOS limit, plus the
 first 8 chars of the page ID, so pages with the same
 title do not share a session; only the ID part when the URL has no title) and
@@ -174,10 +204,10 @@ starts it in the current directory. If a registered session with that name
 belongs to another page, or (for a PR URL) to another checkout, `zse` stops with
 an error instead of resuming the other review. `review` and `review-doc`
 sessions for the same PR share the `pr-<n>` worktree; `zse kill` keeps it while
-the other session is still registered. A PR URL names it `review-doc-<repo>-pr<n>` and starts it in
+the other session is still registered. A PR URL names it `doc-<repo>-<n>` and starts it in
 `~/github/<owner>/<repo>`, as for `review`. `zse` keeps the URL in the session
 registry (`url=`); on the first start the claude pane sends `/tktl-eng-delivery:review-doc <url>`
-(`zse-doc-url` reads it back), and a restored session resumes without a new
+(`zse-meta url` reads it back), and a restored session resumes without a new
 review. `/tktl-eng-delivery:review-doc` (`tktl-eng-delivery`) ranks the findings by severity and
 then interviews you for each one: you write the comment, or start from a
 generated draft, or skip. Nothing is posted without your OK. The tab reads
@@ -200,8 +230,9 @@ drops to zsh.
 For private explorations in `nix-configs` (`docs/SPEC.md` → *Explorations*):
 goal-first topics worked in short iterations with the `/explore` repo skill
 (`new · iterate · status · close`). Start one with `zse -l explore <slug>`
-from the `nix-configs` checkout. `zse` pre-creates the worktree
-`.claude/worktrees/<slug>` on branch `explore/<slug>` (reused if it exists);
+from the `nix-configs` checkout; the session is `exp-<slug>`. `zse` pre-creates the worktree
+`.claude/worktrees/<slug>` on branch `explore/<slug>` from the fetched
+`origin/<default>` (reused if it exists);
 that branch is the exploration's PR branch. The claude pane works in the
 worktree with its own conversation and sends `/explore status <slug>` on the
 first start, so a new session opens with the goal, the current iteration, the
@@ -217,13 +248,15 @@ repo, so the layout does nothing elsewhere (work repos are not affected).
 ## CLI — `zse`
 
 ```
-zse [-l USE_CASE] [-a AWS_PROFILE] [NAME]   start NAME, or attach if it runs
+zse [-l USE_CASE] [-a AWS_PROFILE] [-t HINT] [NAME]
+                                            start NAME, or attach if it runs
 zse ls                                      list registered and running sessions
 zse stop [--all | NAME]                     stop a session, keep it registered
 zse kill [NAME]                             end a session and clean up
 zse restore [NAME...]                       start stopped sessions in the background
 zse restart --all | NAME...                 stop running sessions, start them again
 zse switch NAME                             switch to NAME (start it if stopped)
+zse migrate NAME... | --all [--force]       give old-style sessions the new names
 zse help
 ```
 
@@ -243,6 +276,11 @@ SPEC row 31). Instead, `zse` keeps a registry, one file per session:
     aws_profile=
     created=2026-10-16T09:00:00Z
     last_started=2026-10-16T11:00:00Z
+    names=2                      # name keys, for sessions with the new names:
+    ticket=PCS-123
+    wt=PCS-123
+    title=Fix cache TTL for entity reads
+    hint=cache-ttl
 ```
 
 `zse` writes it on every start; `zse kill` removes it. A session always
@@ -260,7 +298,8 @@ CLAUDE_CODE_CHILD_SESSION marker").
 Zellij's own sockets live in `~/.cache/zj` (`ZELLIJ_SOCKET_DIR`, set in
 `home/modules/zellij.nix`). The default `$TMPDIR` path is so long on macOS
 that Zellij 0.45 limits session names to 24 characters, too short for
-`review-<repo>-pr<n>`. A client with a different `ZELLIJ_SOCKET_DIR` (or
+`rev-<repo>-<n>-<hint>` (the short dir allows about 55; zse keeps names at
+40). A client with a different `ZELLIJ_SOCKET_DIR` (or
 an old shell that has not picked up the variable) does not see the
 sessions: stop them with `zse stop --all` before you change it, and run
 `zse restore` from a new terminal after.
@@ -313,6 +352,19 @@ sessions: stop them with `zse stop --all` before you change it, and run
 - **`zse switch NAME`** — switch to NAME; restore it first if it is
   stopped. Inside Zellij it switches in place (`zellij action
   switch-session`), outside it attaches.
+- **`zse migrate NAME... | --all [--force]`** — give sessions from before the
+  name schema their new names: `PCS-123` → `tkt-PCS-123-<hint>`,
+  `review-<repo>-pr<n>` → `rev-<repo>-<n>-<hint>`, `review-doc-…` → `doc-…`,
+  project `<slug>` → `proj-<slug>`, explore `<slug>` → `exp-<slug>` (hints as
+  for a new session). The worktree and branch stay, and `conv` keeps the
+  conversation ID of the old name, so Claude resumes the same conversation.
+  The registry file, AWS side-car and welcome sentinel are renamed. A running
+  session is stopped (it asks; `--force` does not), renamed and restored;
+  sessions with an AWS profile are not restored. Lost, as with `zse restart`:
+  scrollback and pane state.
+
+`stop`, `kill`, `switch` and `zse NAME` also accept a ticket ID or a project
+/ explore slug for a session with the new names (`zse kill PCS-123`).
 
 Options and names:
 
@@ -325,16 +377,17 @@ Options and names:
   outlives them, panes silently use stale creds: on attach, `zse` reads a
   side-car at `~/.cache/zse/sessions/<name>.env` and warns when
   `AWS_SESSION_EXPIRATION` is within 15 min or past.
+- `-t HINT` — the hint in a new session's name; skips Claude and the
+  prompt. `-t ''` means no hint.
 - `NAME` — default: `basename $PWD` (`zellij-<pid>` in a devshell that
-  exports `name=nix-shell-env`). For `ticket`, the ticket ID; for `explore`,
-  the exploration slug; for
+  exports `name=nix-shell-env`). For `ticket`, the ticket ID; for `project`
+  and `explore`, the slug; for
   `review`, a GitHub PR URL (`https://github.com/<owner>/<repo>/pull/<n>`):
-  `zse` names the session `review-<repo>-pr<n>` and starts it in the
+  `zse` names the session `rev-<repo>-<n>-<hint>` and starts it in the
   local checkout at `~/github/<owner>/<repo>`, so the worktree lands in
   the right repo. The URL form is for drive-by reviews without a ticket.
   For `review-doc`, a Notion page URL or a GitHub PR URL (see
   [review-doc](#review-doc)).
-  `ticket` / `review` layouts read the name from `$ZELLIJ_SESSION_NAME`.
 
 zsh completion: verbs, `-l` use cases, and session names (running and
 registered) for the positional NAME and for `stop` / `kill` / `restore` /

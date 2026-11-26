@@ -1,6 +1,47 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 let
+  /**
+    Short repo names for zse session names (`rev-<short>-<n>-…`). Repos
+    without an entry get a rule in `_z_repo_short` (zse.zsh): drop
+    `taktile-`, initials for 3+ parts, else the first 8 chars.
+  */
+  zseRepoShort = {
+    "workspace-services" = "ws";
+    "taktile-infra" = "infra";
+    "claude_code_fleet" = "fleet";
+    "nix-configs" = "nix";
+  };
+
+  # ----- Session metadata -----
+
+  /**
+    `zse-meta KEY` — one name key of the current Zellij session from the zse
+    registry (`~/.local/state/zse/sessions/<name>`, written by `zse`):
+    `ticket`, `pr`, `owner`, `repo`, `slug`, `wt`, `title`, `hint`, `url`,
+    `conv`. Sessions from before the name schema have no keys; for them the
+    key comes from the session name as before: `wt` is `pr-<n>` for
+    `review-<repo>-pr<n>`, else the name; `pr` the `-pr<n>` number; `ticket`
+    / `slug` / `url` the name. `conv` has no fallback (zse-claude derives it).
+  */
+  zseMeta = pkgs.writeShellScriptBin "zse-meta" ''
+    set -uo pipefail
+    key=''${1:?usage: zse-meta KEY}
+    name=''${ZELLIJ_SESSION_NAME:?zse-meta: run inside a Zellij session}
+    f="''${XDG_STATE_HOME:-$HOME/.local/state}/zse/sessions/$name"
+    val=$(sed -n "s/^$key=//p" "$f" 2>/dev/null | head -n 1)
+    if [[ -z $val && -z $(sed -n 's/^names=//p' "$f" 2>/dev/null) ]]; then
+      case $key in
+        wt)
+          if [[ $name =~ ^review-.+-pr([0-9]+)$ ]]; then val=pr-''${BASH_REMATCH[1]}; else val=$name; fi
+          ;;
+        pr) [[ $name =~ -pr([0-9]+)$ ]] && val=''${BASH_REMATCH[1]} ;;
+        ticket | slug | url) val=$name ;;
+      esac
+    fi
+    printf '%s\n' "$val"
+  '';
+
   # ----- Welcome banner script -----
 
   /**
@@ -18,39 +59,30 @@ let
     [ -n "$use_case" ] || exit 0
     [ -n "$name" ] || exit 0
 
-    # Rename the current Zellij tab to a human-friendly label where we can
-    # derive one from the session name. Review sessions carry
-    # `review-<repo>-pr<n>`; map that back to `[review] <repo> PR #<n>`.
-    # Ticket / project sessions already look clean, so just prefix the tag.
-    # Run on every pane start — Zellij ignores a rename-tab call whose
-    # target already matches, so this is cheap and idempotent.
+    # Rename the current Zellij tab to a human-friendly label from the
+    # session's name keys (`zse-meta`): `[ticket] PCS-123 cache-ttl`,
+    # `[review] repo PR #<n> hint`. Run on every pane start — Zellij ignores
+    # a rename-tab call whose target already matches, so this is cheap and
+    # idempotent.
+    meta=${zseMeta}/bin/zse-meta
+    hint=$($meta hint)
     case "$use_case" in
       review)
-        case "$name" in
-          review-*-pr*)
-            repo=''${name#review-}
-            repo=''${repo%-pr*}
-            pr=''${name##*-pr}
-            zellij action rename-tab "[review] $repo PR #$pr" 2>/dev/null || true
-            ;;
-          *)
-            zellij action rename-tab "[review] $name" 2>/dev/null || true
-            ;;
-        esac
+        repo=$($meta repo)
+        pr=$($meta pr)
+        if [ -z "$repo" ]; then
+          repo=''${name#review-}
+          repo=''${repo%-pr*}
+        fi
+        label="[review] $repo PR #$pr''${hint:+ $hint}"
         ;;
-      ticket)
-        zellij action rename-tab "[ticket] $name" 2>/dev/null || true
-        ;;
-      project)
-        zellij action rename-tab "[project] $name" 2>/dev/null || true
-        ;;
-      explore)
-        zellij action rename-tab "[explore] $name" 2>/dev/null || true
-        ;;
-      review-doc)
-        zellij action rename-tab "[review-doc] ''${name#review-doc-}" 2>/dev/null || true
-        ;;
+      ticket) label="[ticket] $($meta ticket)''${hint:+ $hint}" ;;
+      project) label="[project] $($meta slug)" ;;
+      explore) label="[explore] $($meta slug)" ;;
+      review-doc) label="[review-doc] ''${name#*doc-}" ;;
+      *) label="" ;;
     esac
+    [ -n "$label" ] && { zellij action rename-tab "$label" 2>/dev/null || true; }
 
     dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
     sentinel="$dir/$name.welcomed"
@@ -65,7 +97,7 @@ let
     ┃  TICKET   ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /tktl-eng-delivery:ticket-start %s — prime ticket context (tktl-eng-delivery)\n' "$name"
+        printf '→ /tktl-eng-delivery:ticket-start %s — prime ticket context (tktl-eng-delivery)\n' "$($meta ticket)"
         ;;
       project)
         cat <<'ART'
@@ -73,7 +105,7 @@ let
     ┃  PROJECT  ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /tktl-eng-delivery:project-start %s — bootstrap master session (tktl-eng-delivery)\n' "$name"
+        printf '→ /tktl-eng-delivery:project-start %s — bootstrap master session (tktl-eng-delivery)\n' "$($meta slug)"
         ;;
       review)
         cat <<'ART'
@@ -81,7 +113,7 @@ let
     ┃  REVIEW   ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /tktl-eng-delivery:review %s is auto-sent in the claude pane (tktl-eng-delivery)\n' "$name"
+        printf '→ /tktl-eng-delivery:review %s is auto-sent in the claude pane (tktl-eng-delivery)\n' "$($meta url)"
         ;;
       explore)
         cat <<'ART'
@@ -89,7 +121,7 @@ let
     ┃  EXPLORE  ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /explore status %s is auto-sent in the claude pane (repo skill)\n' "$name"
+        printf '→ /explore status %s is auto-sent in the claude pane (repo skill)\n' "$($meta slug)"
         ;;
       review-doc)
         cat <<'ART'
@@ -122,10 +154,52 @@ let
   '';
 
   /**
-    Shell pane. When `useCase` is non-null (ticket / project / review), the
-    pane runs `zse-welcome <useCase>` on first open to show a 3-line banner
-    + one-line hint, then execs zsh. For `code` / `code-resume` the pane is
-    plain zsh — no welcome, no indirection.
+    `zse-shell USE_CASE` — the shell pane of the ticket / project / review /
+    review-doc / explore layouts. Shows the one-time welcome, then moves into
+    the session's worktree before it execs zsh: every pane starts in the
+    session's start directory (the main checkout), and a KDL `cwd` cannot
+    read the registry, so the pane does the `cd` itself.
+    - ticket / explore: `.claude/worktrees/<wt>` (zse pre-creates it; waits
+      up to 30 s for `claude --worktree` when it does not);
+    - review: `.claude/worktrees/pr-<n>`, which `/tktl-eng-delivery:review`
+      creates after the start (waits up to 180 s; Enter skips).
+    Self-check: `git rev-parse --show-toplevel` must be the worktree. If not,
+    a red warning names the directory and branch the shell is really in.
+  */
+  zseShell = pkgs.writeShellScriptBin "zse-shell" ''
+    set -uo pipefail
+    use_case=''${1:-}
+    ${zseWelcome}/bin/zse-welcome "$use_case" || true
+    wt_name="" wait_s=0
+    case $use_case in
+      ticket | explore) wt_name=$(${zseMeta}/bin/zse-meta wt) wait_s=30 ;;
+      review) wt_name=$(${zseMeta}/bin/zse-meta wt) wait_s=180 ;;
+    esac
+    if [[ -n $wt_name ]] && root=$(git rev-parse --show-toplevel 2>/dev/null); then
+      wt="$root/.claude/worktrees/$wt_name"
+      if [[ ! -d $wt ]]; then
+        echo "zse-shell: waiting for $wt (up to ''${wait_s}s, Enter skips) …"
+        for ((i = 0; i < wait_s; i++)); do
+          [[ -d $wt ]] && break
+          read -rs -t 1 && break
+        done
+      fi
+      if [[ -d $wt ]] && cd "$wt" && [[ $(git rev-parse --show-toplevel 2>/dev/null) == "$(cd "$wt" && pwd -P)" ]]; then
+        echo "zse-shell: ✓ in worktree $wt ($(git branch --show-current 2>/dev/null || true))"
+      else
+        printf '\033[1;31m%s\n%s\033[0m\n' \
+          "zse-shell: ✗ NOT in the worktree $wt." \
+          "This shell is in $PWD on branch $(git branch --show-current 2>/dev/null). Edits here do not reach the session's worktree."
+      fi
+    fi
+    exec zsh
+  '';
+
+  /**
+    Shell pane. When `useCase` is non-null (ticket / project / review /
+    review-doc / explore), the pane runs `zse-shell <useCase>`: one-time
+    welcome banner, `cd` into the session's worktree, then zsh. For `code` /
+    `code-resume` the pane is plain zsh — no welcome, no indirection.
   */
   mkShellPane =
     useCase:
@@ -134,8 +208,8 @@ let
     else
       ''
         pane name="shell" {
-            command "zsh"
-            args "-ic" "zse-welcome ${useCase}; exec zsh"
+            command "${zseShell}/bin/zse-shell"
+            args "${useCase}"
         }
       '';
 
@@ -154,7 +228,8 @@ let
 
   /**
     `zse-git [USE_CASE]` — the git pane. For `ticket` it waits (up to 30 s)
-    for the session's worktree at `.claude/worktrees/<id>`, then shows only
+    for the session's worktree at `.claude/worktrees/<wt>` (`zse-meta wt`,
+    the ticket ID), then shows only
     the ticket's commits: `tig <origin default branch>..HEAD` (origin, so a
     stale local `main` does not skew it). Every other use case shows
     `tig status` at the pane's directory. Refresh comes from tig's periodic
@@ -164,7 +239,7 @@ let
   zseGit = pkgs.writeShellScriptBin "zse-git" ''
     set -uo pipefail
     if [[ ''${1:-} == ticket ]]; then
-      name=''${ZELLIJ_SESSION_NAME:?zse-git: run inside a Zellij session}
+      name=$(${zseMeta}/bin/zse-meta wt)
       root=$(git rev-parse --show-toplevel 2>/dev/null) || exec tig status
       wt="$root/.claude/worktrees/$name"
       for _ in $(seq 1 30); do
@@ -172,8 +247,8 @@ let
         sleep 1
       done
       if [[ ! -d $wt ]]; then
-        echo "zse-git: $wt not found after 30 s; showing repo status instead"
-        sleep 2
+        printf '\033[1;31m%s\033[0m\n' "zse-git: ✗ $wt not found after 30 s; showing the MAIN checkout's status instead"
+        sleep 3
         exec tig status
       fi
       cd "$wt" || exit 1
@@ -184,20 +259,19 @@ let
   '';
 
   /**
-    `zse-ci` — the CI pane of the `review` layout. Reads the PR number from
-    the `review-<repo>-pr<n>` session name and redraws `gh pr checks <n>`
+    `zse-ci` — the CI pane of the `review` layout. Reads the PR number
+    (`zse-meta pr`) and redraws `gh pr checks <n>`
     with the PR title every `$ZSE_CI_INTERVAL` seconds (default 30), so new
     pushes show up too. `gh` talks HTTPS with its own token — no SSH. `q`
     quits; the command pane then waits for Enter to restart it.
   */
   zseCi = pkgs.writeShellScriptBin "zse-ci" ''
     set -uo pipefail
-    name=''${ZELLIJ_SESSION_NAME:-}
-    if [[ ! $name =~ -pr([0-9]+)$ ]]; then
-      echo "zse-ci: no PR number in session name '$name'"
+    pr=$(${zseMeta}/bin/zse-meta pr)
+    if [[ -z $pr ]]; then
+      echo "zse-ci: no PR number for session '$ZELLIJ_SESSION_NAME'"
       exec zsh
     fi
-    pr=''${BASH_REMATCH[1]}
     interval=''${ZSE_CI_INTERVAL:-30}
     while :; do
       title=$(gh pr view "$pr" --json title,state --jq '.title + "  [" + .state + "]"' 2>&1)
@@ -221,11 +295,12 @@ let
   */
   zseExplore = pkgs.writeShellScriptBin "zse-explore" ''
     set -uo pipefail
-    name=''${ZELLIJ_SESSION_NAME:-}
+    name=$(${zseMeta}/bin/zse-meta slug)
+    wt=$(${zseMeta}/bin/zse-meta wt)
     interval=''${ZSE_EXPLORE_INTERVAL:-10}
     while :; do
       file=""
-      for root in "$PWD/.claude/worktrees/$name" "$PWD"; do
+      for root in "$PWD/.claude/worktrees/$wt" "$PWD"; do
         if [[ -f $root/docs/explorations/$name.md ]]; then
           file=$root/docs/explorations/$name.md
           break
@@ -365,8 +440,9 @@ let
     and `--name "$ZELLIJ_SESSION_NAME"` (shown in the prompt box, `/resume`
     picker and terminal title).
 
-    `--own` gives the Zellij session its own conversation. The ID is a UUID
-    derived from the session name and the pane's start directory, so it is
+    `--own` gives the Zellij session its own conversation. The ID is the
+    registry's `conv` (set by `zse migrate`), else a UUID derived from the
+    session name and the pane's start directory, so it is
     stable across pane restarts and `zse stop` / `zse restore`. If a transcript
     with that ID exists, resume it; otherwise start a fresh conversation
     under that ID. `claude --continue` is not used: it resumes the most
@@ -394,8 +470,13 @@ let
       shift 2
     fi
 
-    h=$(printf 'zse:%s:%s' "$name" "$PWD" | shasum -a 256 | cut -c1-32)
-    id="''${h:0:8}-''${h:8:4}-5''${h:13:3}-8''${h:17:3}-''${h:20:12}"
+    # Keep in sync with `_z_conv_id` in zse.zsh. `zse migrate` stores the
+    # old name's ID as `conv`, so a renamed session resumes its conversation.
+    id=$(${zseMeta}/bin/zse-meta conv)
+    if [[ -z $id ]]; then
+      h=$(printf 'zse:%s:%s' "$name" "$PWD" | shasum -a 256 | cut -c1-32)
+      id="''${h:0:8}-''${h:8:4}-5''${h:13:3}-8''${h:17:3}-''${h:20:12}"
+    fi
 
     shopt -s nullglob
     transcripts=("''${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$id".jsonl)
@@ -439,34 +520,24 @@ let
       }
     '';
 
-  /**
-    `zse-doc-url` — prints the doc URL of a `review-doc` session from the zse
-    registry (`url=` in `~/.local/state/zse/sessions/<name>`, written by
-    `zse -l review-doc <url>`), else the session name. The `review-doc` claude
-    pane sends `/tktl-eng-delivery:review-doc <url>` as its first prompt.
-  */
-  zseDocUrl = pkgs.writeShellScriptBin "zse-doc-url" ''
-    name="''${ZELLIJ_SESSION_NAME:?zse-doc-url: run inside a Zellij session}"
-    f="''${XDG_STATE_HOME:-$HOME/.local/state}/zse/sessions/$name"
-    url=$(sed -n 's/^url=//p' "$f" 2>/dev/null)
-    printf '%s\n' "''${url:-$name}"
-  '';
-
   codeClaudePane = mkClaudePane "code" "--own";
   codeResumeClaudePane = mkClaudePane "code" "--resume";
   projectClaudePane = mkClaudePane "project" "--own";
   dailyClaudePane = mkClaudePane "daily" "--own";
-  ticketClaudePane = mkClaudePane "ticket" ''--own --worktree \"$ZELLIJ_SESSION_NAME\"'';
+  # Ticket: the worktree is the ticket ID (`zse-meta wt`), not the session name.
+  ticketClaudePane = mkClaudePane "ticket" ''--own --worktree \"$(${zseMeta}/bin/zse-meta wt)\"'';
   # Explicit namespace (`/tktl-eng-delivery:review`) over the shorthand (`/review`) so
   # the command stays unambiguous: other plugins have their own `review`.
   # `--first-prompt`: the review runs on the first start only; a restored
   # session resumes its conversation.
-  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/tktl-eng-delivery:review $ZELLIJ_SESSION_NAME\"'';
+  # The PR URL from the registry (`zse-meta url`; old-style sessions: the
+  # `review-<repo>-pr<n>` name, which the command also accepts).
+  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/tktl-eng-delivery:review $(${zseMeta}/bin/zse-meta url)\"'';
   # Review-doc: `/tktl-eng-delivery:review-doc <url>` on the first start, URL from the registry.
-  reviewDocClaudePane = mkClaudePane "review-doc" ''--own --first-prompt \"/tktl-eng-delivery:review-doc $(${zseDocUrl}/bin/zse-doc-url)\"'';
+  reviewDocClaudePane = mkClaudePane "review-doc" ''--own --first-prompt \"/tktl-eng-delivery:review-doc $(${zseMeta}/bin/zse-meta url)\"'';
   # Explore: own conversation in the slug's worktree; `/explore status` on the
   # first start only, so every new session opens with goal, iteration and budget.
-  exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $ZELLIJ_SESSION_NAME\" --worktree \"$ZELLIJ_SESSION_NAME\"'';
+  exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $(${zseMeta}/bin/zse-meta slug)\" --worktree \"$(${zseMeta}/bin/zse-meta wt)\"'';
 
   /**
     Task-list pane for the `daily` layout. Runs the repo's own
@@ -494,26 +565,28 @@ in
   #              `claude agents --cwd <repo>`. Status via
   #              `default_tab_template`. Master shell shows a one-time
   #              `/tktl-eng-delivery:project-start` welcome banner.
-  #   ticket   — `claude --worktree $ZELLIJ_SESSION_NAME` · shell · tig.
-  #              Session name is the ticket ID; worktree is created / reused
-  #              at `.claude/worktrees/<id>`. Shell shows a one-time
-  #              `/tktl-eng-delivery:ticket-start` welcome banner.
-  #   review   — `zse-claude --own --first-prompt "/tktl-eng-delivery:review $NAME"` ·
-  #              shell · CI pane (`zse-ci`, no tig). Session name is
-  #              `review-<repo>-pr<n>`, parsed from a PR URL. The review
-  #              command auto-fires on the first start only; a restored
-  #              session resumes. The shell shows a one-time banner.
+  #   ticket   — `claude --worktree <ID>` · shell · tig. Session name
+  #              `tkt-<ID>-<hint>`; worktree `.claude/worktrees/<ID>` from
+  #              the delivery plugin's `worktree.sh` (zse's own fallback).
+  #              Shell shows a one-time `/tktl-eng-delivery:ticket-start` banner.
+  #   review   — `zse-claude --own --first-prompt "/tktl-eng-delivery:review <PR URL>"` ·
+  #              shell · CI pane (`zse-ci`, no tig). Session name
+  #              `rev-<repo>-<n>-<hint>` from a PR URL. The review command
+  #              auto-fires on the first start only; a restored session
+  #              resumes. The shell shows a one-time banner.
   #   review-doc — `zse-claude --own --first-prompt "/tktl-eng-delivery:review-doc <url>"` ·
-  #              shell (no tig, no CI). Session name `review-doc-<title>-<id8>` from a
-  #              Notion URL, or `review-doc-<repo>-pr<n>` from a PR URL; the URL
-  #              is kept in the zse registry (`zse-doc-url`). The command
+  #              shell (no tig, no CI). Session name `doc-<title>-<id8>` from a
+  #              Notion URL, or `doc-<repo>-<n>` from a PR URL. The command
   #              interviews the user for each comment (tktl-eng-delivery).
   #   daily    — claude (own conversation) · tasks pane (`scripts/tasks-pane` from
   #              the daily-tasks repo: fzf over open tasks, tick in place).
   #   explore  — private explorations (docs/SPEC.md → Explorations). Session
-  #              name is the slug; worktree `.claude/worktrees/<slug>` on
+  #              name `exp-<slug>`; worktree `.claude/worktrees/<slug>` on
   #              branch `explore/<slug>`. claude (`/explore status <slug>` on
   #              the first start) · shell · exploration pane (`zse-explore`).
+  #
+  # Name keys (ticket, PR, slug, worktree, URL, …) live in the zse registry;
+  # panes read them with `zse-meta` (old-style names: parsed from the name).
   #
   # Welcome banners are a one-shot per session — a sentinel at
   # `~/.cache/zse/sessions/<name>.welcomed` suppresses the banner on resume.
@@ -551,6 +624,8 @@ in
       zseExplore
       zseAgents
       zseEnv
+      zseMeta
+      zseShell
     ];
 
     file = {
@@ -801,7 +876,14 @@ in
 
   # The zse CLI (zse / zse ls|stop|kill|restore|switch, deprecated zsek /
   # zss / zsep, completion) lives in ./zse.zsh — plain zsh, no Nix escaping.
+  # `ZSE_REPO_SHORT` (zseRepoShort) and `ZSE_TIMEOUT` are set before it.
   programs.zsh.initContent = ''
+    typeset -gA ZSE_REPO_SHORT=(${
+      lib.concatStringsSep " " (
+        lib.mapAttrsToList (k: v: "${lib.escapeShellArg k} ${lib.escapeShellArg v}") zseRepoShort
+      )
+    })
+    typeset -g ZSE_TIMEOUT=${pkgs.coreutils}/bin/timeout
     source ${./zse.zsh}
   '';
 }

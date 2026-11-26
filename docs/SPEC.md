@@ -80,7 +80,55 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 39 | Design doc review — `/review:doc` and zse `review-doc` | Done (jbl-taktile/claude-skills#11, #12, #177, #180) — a second command in `jbl-personal/review` (`review/commands/doc.md`, rules in `review/doc-rules.md`) reviews an ADR or PEP from a Notion URL or a PR with the doc as `.md`. Rules come from (1) six exemplary docs that Claudius picks (three ADRs, three PEPs; ranked by quality and by how often humans reference them as good examples), (2) the common traits I analyse, and (3) an interview with the user, merged with the base checks (problem, alternatives, decision, consequences, risks, rollout, open questions). Findings come in order of severity / priority; for each one the command interviews the user and asks them to write the comment prose, with a generated, editable text as the alternative, or skip. Nothing is posted without the user's OK: Notion comments or suggested edits (never direct edits on other people's pages), GitHub review comments for `.md` docs. nix-configs: zse use case `review-doc` (`zse -l review-doc <URL>` → session `review-doc-<slug>`, first prompt `/review:doc <URL>`, claude + shell, no tig, no CI pane); no plugin change, `review` is already enabled (row 28). See `docs/usage/zellij.md`. |
 | 40 | Clear-writing skill for prose (deslop) | In progress — `deslop` (taktile-org/metadev#745 by James Broadhead, based on zonderlabs.com/slop; preferred over cursor's `unslop`, whose em-dash / colon bans and manual-only invocation do not fit). **Interim:** a copy of #745 @ `aeba86e` in `~/.claude/skills/deslop` (personal skill, not managed by Nix); James is asked to move it to taktile-skills `tktl-eng`; an upstream-watch issue checks weekly. When it ships: change every `deslop` reference to `tktl-eng:deslop` and delete the copy. **Precedence:** genre rules first — `tktl-eng:tktl-eng-blog-voice` for blog posts, `/review:doc` doc-rules for design docs — then deslop for every sentence they do not cover. Resolved conflicts: blog kicker and dry asides (blog-voice rules 6, 10) stay; the house CTA is exempt; blog-voice rule 9 is the only banned-word list for blogs (the Vale `TaktileBlog` style in #156 follows it); contractions are fine in blogs, STE without them stays for chat / PR / commit prose; design docs keep method and alternatives. **References:** `design-docs` drafts, `linear-pm` tickets, `/review:doc` generated comment text and an optional clarity check (nit), global `CLAUDE.md` (Slack, Notion, PR prose); later the zse `blog` first prompt (#156) and the personal `blog-writer` skill (overlaps with blog-voice; keep, merge or retire). |
 | 41 | Delivery plugins (`project`, `ticket`, `review`) in taktile-skills | Done (#212, #214; jbl-taktile/claude-skills#23) — moved from `jbl-personal` to `tktl-eng-delivery@taktile-skills` (taktile-org/taktile-skills#344): one plugin, commands `/tktl-eng-delivery:project-start`, `:ticket-start`, `:review`, `:review-doc`; hooks key off `DELIVERY_SESSION` (zse sets it, #208). `hosts/concinnity/home.nix` enables it and disables the three `jbl-personal` plugins; the zse layouts send the new commands. Each deploy installs and updates the plugins (`claude-plugin-sync`, see the Claude Code plugins row). |
+| 42 | zse: session names, activity, picker, colours | In progress — phase 1 (names, `zse-meta`, `zse migrate`; with C1: ticket worktrees via the delivery plugin's `worktree.sh`, shell pane in the worktree) in #215. Spec in *zse sessions: names, activity, picker, colours* below. Phase 1: name schema `<type>-<repo>-<id>-<hint>` with AI hints, `zse migrate`; phase 2: activity state from Claude Code hooks, `zse pick` on `Ctrl Space`, `zse stop --all` skips active sessions (`--force`); phase 3: theme per type and shade. |
 | 43 | Plugin hooks that need `node` fail outside a Node devshell | Done (local only) — `tktl-eng-frontend@taktile-skills = false` in `hosts/concinnity/home.nix`; the next deploy uninstalls it (`claude-plugin-sync`). No upstream change: the devshell-only toolchain is specific to this setup (taktile-org/taktile-skills#347 closed). Finding: every turn ended with "Ran 2 stop hooks … Stop hook error: … exit 127"; the second Stop hook is `tktl-eng-frontend` 0.19.0 (`node "${CLAUDE_PLUGIN_ROOT}/hooks/decide-ui.mjs" stop`, also on SessionStart, PreToolUse, PostToolUse; 0.2.0 had no hooks), and `node` is not on the global PATH, so the shell returns 127 before the script can exit 0 outside decide-ui. For decide-ui work: set it to `true` and work in a shell with `node`. |
+
+### zse sessions: names, activity, picker, colours (roadmap #42)
+
+**Goal:** see at a glance what each Zellij session is, what it is about and whether it is working, and do not stop a working session by accident.
+
+**Constraint:** the session name is fixed for the life of a session (`$ZELLIJ_SESSION_NAME` is set per pane at start) and must stay under ~55 bytes (socket path, `ZELLIJ_SOCKET_DIR`). Today it is also the key for the worktree, the branch, the conversation UUID and the ticket ID that `/tktl-eng-delivery:ticket-start` reads from the worktree name.
+
+**Phase 1 — names.**
+
+- Schema `<type>-<repo>-<id>-<hint>`, ASCII only, at most ~40 chars:
+
+  | Use case | Today | New |
+  |---|---|---|
+  | ticket | `PCS-15554` | `tkt-PCS-15554-cache-ttl` |
+  | review | `review-workspace-services-pr20650` | `rev-ws-20650-retry-backoff` |
+  | review-doc | `review-doc-<title>-<id8>` / `review-doc-<repo>-pr<n>` | `doc-<title>-<id8>` / `doc-<repo>-<n>` |
+  | project | `<slug>` | `proj-<slug>` |
+  | explore | `<slug>` | `exp-<slug>` |
+  | code, daily | `<repo>` | unchanged |
+
+- **Repo short names:** one map in Nix (for example `workspace-services` → `ws`, `taktile-infra` → `infra`, `claude_code_fleet` → `fleet`, `nix-configs` → `nix`); without an entry: drop a `taktile-` prefix, initials for 3+ parts, else the first 8 chars.
+- **Hint:** at most 3 words of at most 8 chars, lower case, `-` joined.
+  - review: PR title (`gh pr view`), hint from `claude -p --model haiku`;
+  - ticket: one `claude -p --model haiku` call reads the Linear title through the Linear connector (only `get_issue` allowed) and returns the hint; 30 s timeout;
+  - review-doc: rule-based from the Notion URL title, no AI;
+  - project, explore: none (the slug is the user's).
+  - In a terminal, zse asks before it creates the session: `Hint for <id> "<title>": [<suggestion>]`, editable (`vared`); Enter accepts, empty means no hint. `-t <hint>` skips AI and prompt. Without a terminal (background start, called from Claude, `zse restore`) the suggestion is used.
+  - Fallback when `claude` fails or times out: drop stop words and `feat:` / `[XYZ]` prefixes, keep the first 3 words.
+- **Decouple name and keys:** the registry also stores `ticket_id` / `pr`, `worktree` and `conversation_id`. Worktree and branch stay `<ticket-id>` / `$ZSE_BRANCH_USER/<ticket-id>` (review: `pr-<n>`); `claude --worktree`, `zse kill`, the welcome banner, the CI pane and the review first prompt read the registry instead of parsing the name. Existing sessions keep their names until migrated; the old parsing stays as a fallback for them.
+- **`zse migrate NAME | --all`** (opt-in, never automatic): for each old-style session, build the new name and ask for the hint (same flow as a start); write the keys to the registry, including `conversation_id` computed from the old name and directory as today, so Claude resumes the same conversation; rename the registry file, the AWS side-car and the welcome sentinel. A running session is stopped first, with the phase 2 activity guard once it exists (`--force` overrides), and restored under the new name; sessions with an AWS profile are migrated but not restored (start them with `zse <name>`, as in `zse restart --all`). Worktree and branch do not change. Lost, as with `zse restart`: scrollback and pane state.
+
+**Phase 2 — activity, picker, stop guard.**
+
+- **State:** Claude Code hooks, declared in the `claudePlugins` settings merge, active only when `$ZELLIJ_SESSION_NAME` is set, write `~/.cache/zse/activity/<session>`: `UserPromptSubmit` / `PreToolUse` → `busy`, `Notification` → `waiting` (needs the user), `Stop` → `idle`, `SubagentStart` / `SubagentStop` → count of running sub-agents. Background sessions under the session's directory come from `claude agents --json` (as `zse-agents`). A state older than 30 min without a hook event counts as `stale` (shown, not treated as active).
+- **`zse pick`:** fzf in a floating pane on `Ctrl Space` (the built-in session manager stays on `Ctrl o` → `w`). One line per registered or live session: activity (`●` busy, `◐` waiting, `○` idle), type icon in the type colour and shade, name, hint title, state (running / stopped), age, agent count. Enter switches (`zse switch`, restores a stopped session); preview: `zse ls`-style details.
+- **Icons (display only, never in the name):** ticket `◆`, project `▲`, review `✓`, review-doc `¶`, explore `✦`, code `›`, daily `☀`. Also used as the tab-name prefix instead of `[ticket]` etc.
+- **`zse stop --all`:** skips every session that is `busy` or `waiting` or has running agents, with one warning line each (`skipped tkt-PCS-123-…: busy, 2 agents — use --force`); `--force` stops them too. `zse kill` is unchanged.
+
+**Phase 3 — colours.**
+
+- Type colours: ticket yellow, project orange, review green, review-doc teal, explore purple, code / daily blue / grey.
+- Per session a Zellij theme `zse-<type>-<n>`, generated in Nix from `ghostty-0x96f`; only the accents change (focused pane frame, tab ribbon, session name in the compact bar). Shade `n` (1–4, then cycling) is the lowest free index of the type, stored in the registry; set with `options --theme` at creation. A running session gets its theme at the next `zse restart`.
+- The built-in session manager draws every session in the current session's theme; the colours show inside a session and in `zse pick` (ANSI).
+
+**Tests (each phase):** `just check`, `just build concinnity`; zsh unit-style checks (`zsh home/modules/zse_test.zsh`) for name building, repo map, hint fallback and length limit (fixture titles); manual: start one session per use case, resume, `zse kill` (worktree prompt), `zse restore`, old-name sessions still work, `zse migrate` of a stopped and a running session resumes the same conversation; phase 2: busy / waiting / idle transitions, `zse stop --all` with and without `--force`; phase 3: colours on light and dark backgrounds.
+
+**Docs:** `docs/usage/zellij.md` per phase.
 
 ## Hosts
 
