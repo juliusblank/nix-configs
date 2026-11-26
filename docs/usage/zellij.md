@@ -366,6 +366,12 @@ sessions: stop them with `zse stop --all` before you change it, and run
     stay "busy".
   - Icons (display only, never in the name): ticket `◆`, project `▲`,
     review `✓`, review-doc `¶`, explore `✦`, code `›`, daily `☀`.
+- **Terminal tint** — in Ghostty, the terminal background follows the
+  session you look at: `ZSE_TERM_TINT_PCT` % (default 5, `0` turns it
+  off) of the session's shade, mixed into `ZSE_TERM_BG`. zse sets it when
+  it attaches or switches (`zse <name>`, `zse switch`, Enter in
+  `zse pick`) and resets it when the client ends. A switch with Zellij's
+  own session manager (`Ctrl o` → `w`) keeps the old tint.
 - **`zse color [--all | NAME]`** — set Claude's prompt-bar colour
   (`/color`) in running sessions whose conversation is older than the
   colours. It types `/color <c>` into the claude pane only when that

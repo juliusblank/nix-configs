@@ -87,6 +87,24 @@ check "sgr fallback"      "$(_z_sgr code-x code)"            "38;5;69"
 check "tint mix"          "$(ZSE_TINT_PCT=50 _z_tint tkt-c ticket)" "48;2;146;115;57"
 check "tint no shade rgb" "$(_z_tint code-x code)"           ""
 check "tint no use case"  "$(_z_tint loose '')"              ""
+check "term hex"          "$(ZSE_TERM_TINT_PCT=50 _z_term_hex tkt-c ticket)" "92/73/39"
+check "term hex off"      "$(ZSE_TERM_TINT_PCT=0 _z_term_hex tkt-c ticket)" ""
+check "term hex no rgb"   "$(_z_term_hex code-x code)"       ""
+# Client map: the tint writes OSC 11 and remembers the session per tty
+ZSE_CLIENT_DIR=$(mktemp -d)
+fake_tty=$(mktemp -d)/ttys001; : >"$fake_tty"
+ZSE_TERM_TINT_PCT=50 _z_tty_tint "$fake_tty" tkt-c
+check "tty tint osc"      "$(<"$fake_tty")"                  $'\e]11;rgb:92/73/39\e\\'
+check "tty tint map"      "$(<"$ZSE_CLIENT_DIR/ttys001")"    tkt-c
+ps() { print -rl -- 'ttys001 zellij' 'ttys002 /nix/store/x/bin/zellij' '?? zellij' 'ttys003 zsh'; }
+check "clients mapped"    "$(_z_client_ttys tkt-c)"          /dev/ttys001
+check "clients unmapped"  "$(_z_client_ttys other | wc -l | tr -d ' ')" 0
+ps() { print -rl -- 'ttys004 zellij'; }
+check "clients only one"  "$(_z_client_ttys other)"          /dev/ttys004
+unfunction ps
+_z_tty_reset "$fake_tty"
+check "tty reset map"     "$([[ -e $ZSE_CLIENT_DIR/ttys001 ]] && print kept || print gone)" gone
+rm -rf "$ZSE_CLIENT_DIR" "${fake_tty:h}"
 check "group review"      "$(_z_group review)"               review
 check "group code-resume" "$(_z_group code-resume)"          code
 check "group none"        "$(_z_group '')"                   other
