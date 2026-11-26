@@ -82,7 +82,21 @@ let
       review-doc) label="[review-doc] ''${name#*doc-}" ;;
       *) label="" ;;
     esac
-    [ -n "$label" ] && { zellij action rename-tab "$label" 2>/dev/null || true; }
+    # By tab ID, found from this pane's ID: `rename-tab` renames the focused tab
+    # of a client, and a session created in the background (`zse restore`,
+    # `zse migrate`, a start from inside Zellij) has no client yet, so it did
+    # nothing there.
+    if [ -n "$label" ]; then
+      tab=$(zellij action list-panes --tab --json 2>/dev/null \
+        | ${pkgs.jq}/bin/jq -r --arg id "''${ZELLIJ_PANE_ID:-}" \
+          '.[] | select((.is_plugin | not) and ((.id | tostring) == $id)) | .tab_id' \
+        | head -n 1)
+      if [ -n "$tab" ]; then
+        zellij action rename-tab-by-id "$tab" "$label" 2>/dev/null || true
+      else
+        zellij action rename-tab "$label" 2>/dev/null || true
+      fi
+    fi
 
     dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zse/sessions"
     sentinel="$dir/$name.welcomed"
@@ -185,7 +199,9 @@ let
         done
       fi
       if [[ -d $wt ]] && cd "$wt" && [[ $(git rev-parse --show-toplevel 2>/dev/null) == "$(cd "$wt" && pwd -P)" ]]; then
-        echo "zse-shell: ✓ in worktree $wt ($(git branch --show-current 2>/dev/null || true))"
+        branch=$(git branch --show-current 2>/dev/null)
+        [[ -n $branch ]] || branch="detached $(git rev-parse --short HEAD 2>/dev/null)"
+        echo "zse-shell: ✓ in worktree $wt ($branch)"
       else
         printf '\033[1;31m%s\n%s\033[0m\n' \
           "zse-shell: ✗ NOT in the worktree $wt." \
