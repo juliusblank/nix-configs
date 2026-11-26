@@ -113,6 +113,32 @@ check "active busy"       "$(_z_is_active tkt-PCS-1-x && print 1)" 1
 check "inactive idle"     "$(_z_is_active code-x || print 0)" 0
 check "inactive unknown"  "$(_z_is_active nothing || print 0)" 0
 unfunction claude
+
+# Blog: name, keys, start directory and worktree branch (launch, worktree
+# and Zellij state stubbed); a ticket ID does not resolve to the ticket
+# session of the same ID
+blog_repo=$(mktemp -d)
+git -C "$blog_repo" init -q
+_z_launch() { print -r -- "launch $1 $2 $3"; }
+_z_branch_worktree() { print -r -- "wt $2 $3"; }
+_z_session_state() { print none; }
+_z_reg_write tkt-PCS-42-x ticket /tmp ""
+_z_reg_set tkt-PCS-42-x ticket PCS-42
+out=("${(@f)$(ZSE_BLOG_REPO=$blog_repo _zse_start -l blog pcs-42)}")
+check "blog wt branch"    "${out[1]}"                        "wt PCS-42 blog/PCS-42"
+check "blog launch"       "${out[-1]}"                       "launch blog-PCS-42 blog $blog_repo"
+check "blog keys ticket"  "$(_z_reg_get blog-PCS-42 slug) $(_z_reg_get blog-PCS-42 ticket) $(_z_reg_get blog-PCS-42 wt)" "PCS-42 PCS-42 PCS-42"
+out=("${(@f)$(ZSE_BLOG_REPO=$blog_repo _zse_start -l blog my-post)}")
+check "blog launch slug"  "${out[-1]}"                       "launch blog-my-post blog $blog_repo"
+check "blog no ticket"    "$(_z_reg_get blog-my-post ticket 2>/dev/null)" ""
+check "blog resolve"      "$(_z_resolve my-post)"            blog-my-post
+check "ticket resolve"    "$(_z_resolve PCS-42)"             tkt-PCS-42-x
+check "blog bad slug"     "$(ZSE_BLOG_REPO=$blog_repo _zse_start -l blog 'My Post' 2>/dev/null || print refused)" refused
+check "blog no name"      "$(ZSE_BLOG_REPO=$blog_repo _zse_start -l blog 2>/dev/null || print refused)" refused
+check "blog no repo"      "$(ZSE_BLOG_REPO=/nonexistent _zse_start -l blog other 2>/dev/null || print refused)" refused
+_z_shade blog-PCS-42 blog >/dev/null
+check "blog shade"        "$(_z_shade blog-my-post blog)"    2
+rm -rf "$blog_repo"
 rm -rf "$ZSE_STATE_DIR"
 
 print
