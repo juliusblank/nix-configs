@@ -302,30 +302,19 @@ let
   '';
 
   /**
-    `zse-ci` — the CI pane of the `review` layout. Reads the PR number
-    (`zse-meta pr`) and redraws `gh pr checks <n>`
-    with the PR title every `$ZSE_CI_INTERVAL` seconds (default 30), so new
-    pushes show up too. `gh` talks HTTPS with its own token — no SSH. `q`
-    quits; the command pane then waits for Enter to restart it.
+    `zse-ci` — the review status pane of the `review` layout (roadmap #44):
+    PR state, review decision, mergeable, CI, and what is new since my last
+    review or comment, from `gh` only (HTTPS, no SSH, no Claude) every
+    `$ZSE_CI_INTERVAL` seconds (default 30). New items are highlighted, the
+    tab gets ` ✱`, and `~/.cache/zse/activity/<session>.pr` holds the count
+    for the zse picker. Keys: `r` refresh, `t` Linear ticket status
+    (`claude -p`, Haiku, on demand), `q` quit (Enter restarts the pane).
+    Logic in ./zse-ci.sh and ./zse-ci.jq.
   */
   zseCi = pkgs.writeShellScriptBin "zse-ci" ''
-    set -uo pipefail
-    pr=$(${zseMeta}/bin/zse-meta pr)
-    if [[ -z $pr ]]; then
-      echo "zse-ci: no PR number for session '$ZELLIJ_SESSION_NAME'"
-      exec zsh
-    fi
-    interval=''${ZSE_CI_INTERVAL:-30}
-    while :; do
-      title=$(gh pr view "$pr" --json title,state --jq '.title + "  [" + .state + "]"' 2>&1)
-      checks=$(gh pr checks "$pr" 2>&1)
-      clear
-      printf 'PR #%s  %s\n%s · every %ss · q quits\n\n%s\n' \
-        "$pr" "$title" "$(date '+%H:%M:%S')" "$interval" "$checks"
-      if read -rsn1 -t "$interval" key && [[ $key == q ]]; then
-        exit 0
-      fi
-    done
+    export ZSE_META=${zseMeta}/bin/zse-meta ZSE_CI_JQ=${./zse-ci.jq} \
+      JQ=${pkgs.jq}/bin/jq TIMEOUT=${pkgs.coreutils}/bin/timeout
+    exec ${pkgs.bash}/bin/bash ${./zse-ci.sh} "$@"
   '';
 
   /**
