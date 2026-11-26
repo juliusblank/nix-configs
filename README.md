@@ -242,6 +242,7 @@ just backup-check        # verify backup integrity (10 % sample)
 │       ├── harmonic-dj.nix  # Harmonic DJ app derivation (serenity, evaluation)
 │       ├── zellij.nix     # Zellij layouts + config
 │       ├── zse.zsh        # zse session CLI (ls/stop/kill/restore/switch/migrate)
+│       ├── prose.nix      # Vale TaktileBlog style + Neovim Markdown prose mode
 │       ├── zse_test.zsh   # unit checks for the zse name helpers (zsh home/modules/zse_test.zsh)
 │       ├── zse-ci.sh / .jq  # review status pane (gh: CI, new since my last review)
 │       └── extra-allowed-signers.nix  # per-host SSH allowed_signers
@@ -264,7 +265,7 @@ just backup-check        # verify backup integrity (10 % sample)
     └── usage/
         ├── nix-system.md
         ├── infra.md       # OpenTofu day-to-day workflow
-        ├── zellij.md      # Claude Code session layouts (zse, incl. explore)
+        ├── zellij.md      # Claude Code session layouts (zse, incl. explore, blog)
         ├── upstream-watch.md  # reminders for upstream fixes (issues + daily workflow)
         └── concinnity-after-deploy.md  # post-deploy checklist (work Mac)
 ```

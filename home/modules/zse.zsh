@@ -109,18 +109,18 @@ _z_find() {
 
 # _z_resolve NAME — the session NAME refers to: NAME itself when it runs or is
 # registered, else the registered session whose ticket ID is NAME, else
-# `proj-NAME` / `exp-NAME`. Fails when there is none.
+# `proj-NAME` / `exp-NAME` / `blog-NAME`. Fails when there is none.
 _z_resolve() {
   local n=$1 m
   if [[ $(_z_session_state "$n") != none ]] || _z_reg_get "$n" use_case >/dev/null 2>&1; then
     print -r -- "$n"
     return 0
   fi
-  if m=$(_z_find ticket "${n:u}"); then
+  if m=$(_z_find ticket "${n:u}" ticket); then
     print -r -- "$m"
     return 0
   fi
-  for m in "proj-$n" "exp-$n"; do
+  for m in "proj-$n" "exp-$n" "blog-$n"; do
     if _z_reg_get "$m" use_case >/dev/null 2>&1; then
       print -r -- "$m"
       return 0
@@ -435,8 +435,9 @@ _z_cleanup_worktree() {
     git worktree unlock "$worktree" 2>/dev/null
     git worktree remove "$worktree" || exit 1
     git worktree prune 2>/dev/null
-    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>` or
-    # `explore/<name>` branch stays (it holds the work, usually a PR).
+    # Only Claude's default branch; a `$ZSE_BRANCH_USER/<name>`,
+    # `explore/<name>` or `blog/<name>` branch stays (it holds the work,
+    # usually a PR).
     git branch -D "worktree-$wt_name" >/dev/null 2>&1 || true
   ) || return 1
   print -r "zse: removed worktree $worktree"
@@ -597,10 +598,10 @@ _z_activity_word() {
 
 # ----- Display: icons and colours per use case -----
 
-typeset -gA ZSE_ICON=(ticket '◆' project '▲' review '✓' review-doc '¶' explore '✦' code '›' code-resume '›' daily '☀')
+typeset -gA ZSE_ICON=(ticket '◆' project '▲' review '✓' review-doc '¶' explore '✦' blog '✎' code '›' code-resume '›' daily '☀')
 # ANSI 256 colours: ticket yellow, project orange, review green, review-doc
-# teal, explore purple, code blue, daily grey.
-typeset -gA ZSE_COLOR=(ticket 178 project 208 review 70 review-doc 37 explore 134 code 69 code-resume 69 daily 245)
+# teal, explore purple, blog pink, code blue, daily grey.
+typeset -gA ZSE_COLOR=(ticket 178 project 208 review 70 review-doc 37 explore 134 blog 205 code 69 code-resume 69 daily 245)
 typeset -gA ZSE_ACT_ICON=(busy '●' waiting '◐' idle '○' '?' '·')
 
 # _z_color_type USE_CASE — the colour type: code-resume shares code.
@@ -753,11 +754,13 @@ usage:
   zse migrate NAME... | --all [--force]      give old-style sessions the new names
 
   USE_CASE   code (default, or $ZSE_LAYOUT), project, ticket, review,
-             review-doc, daily, explore, code-resume. A registered session
-             keeps its use case.
+             review-doc, daily, explore, blog, code-resume. A registered
+             session keeps its use case.
   NAME       default: the current directory name; for `ticket`, the ticket ID;
              for `project` / `explore`, the slug; for `review`, a GitHub PR
-             URL; for `review-doc`, a Notion URL or a GitHub PR URL.
+             URL; for `review-doc`, a Notion URL or a GitHub PR URL; for
+             `blog` (required), a ticket ID or a slug: the session starts in
+             $ZSE_BLOG_REPO (~/github/taktile-org/engineering-blog).
              An existing session can also be named by its ticket ID or slug.
              stop / kill default to the current session.
   HINT       up to 3 short words in the name. Without -t, zse suggests one
@@ -766,8 +769,10 @@ usage:
 
   names      ticket tkt-<ID>-<hint>        review  rev-<repo>-<n>-<hint>
              project proj-<slug>           review-doc doc-<title>-<id8> / doc-<repo>-<n>
-             explore exp-<slug>            code, daily: unchanged
-             Worktree and branch keep the ticket ID / pr-<n> / slug.
+             explore exp-<slug>            blog    blog-<ID | slug>
+             code, daily: unchanged
+             Worktree and branch keep the ticket ID / pr-<n> / slug
+             (blog: branch blog/<ID | slug>).
 
   stop vs kill
     stop   Only stops the Zellij session. Its registry entry, worktree and
@@ -815,6 +820,7 @@ EOF
 #   review-doc  doc-<title>-<id8> (Notion URL) / doc-<repo>-<n> (PR URL)
 #   project     proj-<slug>
 #   explore     exp-<slug>
+#   blog        blog-<ID | slug>         in $ZSE_BLOG_REPO; no hint
 # In a terminal zse shows the title and lets you edit the hint first;
 # -t HINT skips Claude and the prompt (-t '' = no hint).
 _zse_start() {
@@ -830,10 +836,35 @@ _zse_start() {
   local uc=${use_case_opt:-${ZSE_LAYOUT:-code}}
   local has_hint=${+opts[-t]} hint_opt=${opts[-t]:-}
 
-  local review_cwd="" url="" existing="" title="" hint=""
+  local review_cwd="" blog_cwd="" url="" existing="" title="" hint=""
   local -A meta # name keys of a new session
 
-  if [[ $name != http(s|)://* ]] && existing=$(_z_resolve "$name"); then
+  if [[ $uc == blog ]] && ((! $#)); then
+    print -u2 -r "zse: usage: zse -l blog <TICKET-ID | slug>"
+    return 1
+
+  elif [[ $uc == blog && $name != blog-* ]]; then
+    # Blog: `blog-<ID | slug>` in the engineering-blog checkout, wherever
+    # zse runs. Checked before `_z_resolve`, which would find a ticket
+    # session for the same ticket ID.
+    local slug=$name ticket=""
+    if [[ $slug =~ '^[A-Za-z][A-Za-z0-9]*-[0-9]+$' ]]; then
+      slug=${slug:u} ticket=${slug:u}
+    elif [[ ! $slug =~ '^[a-z0-9][a-z0-9-]*$' ]]; then
+      print -u2 -r "zse: blog slug '$slug': use lower case letters, digits and '-'."
+      return 1
+    fi
+    name="blog-$slug"
+    if ! _z_reg_get "$name" use_case >/dev/null 2>&1; then
+      blog_cwd=${ZSE_BLOG_REPO:-$HOME/github/taktile-org/engineering-blog}
+      if [[ ! -d $blog_cwd/.git ]]; then
+        print -u2 -r "zse: $blog_cwd is not a git checkout. Clone taktile-org/engineering-blog there or set ZSE_BLOG_REPO."
+        return 1
+      fi
+      meta=(names 2 slug "$slug" wt "$slug" ticket "$ticket")
+    fi
+
+  elif [[ $name != http(s|)://* ]] && existing=$(_z_resolve "$name"); then
     name=$existing
 
   elif [[ ($uc == review || $uc == review-doc) \
@@ -957,23 +988,23 @@ _zse_start() {
   fi
   local use_case=${use_case_opt:-${reg_uc:-${ZSE_LAYOUT:-code}}}
   local aws=${opts[-a]:-$reg_aws}
-  local dir=${review_cwd:-${reg_dir:-$PWD}}
+  local dir=${review_cwd:-${blog_cwd:-${reg_dir:-$PWD}}}
   if [[ ! -d $dir ]]; then
     print -u2 -r "zse: start directory $dir of '$name' no longer exists. Run 'zse kill $name', then start it again."
     return 1
   fi
 
-  # Ticket / explore: create or reuse the worktree before claude starts
-  # (`claude --worktree` reuses it as-is). A new branch starts at the fetched
-  # origin default branch: ticket `<prefix>/<ID>` (`_z_ticket_worktree`),
-  # explore `explore/<slug>`. Skipped outside a git repo.
+  # Ticket / explore / blog: create or reuse the worktree before claude
+  # starts (`claude --worktree` reuses it as-is). A new branch starts at the
+  # fetched origin default branch: ticket `<prefix>/<ID>`
+  # (`_z_ticket_worktree`), explore `explore/<slug>`, blog `blog/<slug>`.
+  # Skipped outside a git repo.
   local root wt=${meta[wt]:-$(_z_worktree_name "$name")}
-  if [[ $use_case == (ticket|explore) ]] && root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
-    if [[ $use_case == ticket ]]; then
-      _z_ticket_worktree "$root" "$wt" || return 1
-    else
-      _z_branch_worktree "$root" "$wt" "explore/$wt" || return 1
-    fi
+  if [[ $use_case == (ticket|explore|blog) ]] && root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
+    case $use_case in
+      ticket) _z_ticket_worktree "$root" "$wt" || return 1 ;;
+      *) _z_branch_worktree "$root" "$wt" "$use_case/$wt" || return 1 ;;
+    esac
   fi
 
   # The panes read the name keys at start (`zse-meta`): register them first.
@@ -1037,7 +1068,7 @@ _zse_ls() {
 }
 
 # _z_target NAME_OR_EMPTY — the session the given name refers to
-# (`_z_resolve`: also a ticket ID or a project / explore slug), or the
+# (`_z_resolve`: also a ticket ID or a project / explore / blog slug), or the
 # current session.
 _z_target() {
   local name=${1:-${ZELLIJ_SESSION_NAME:-}}
@@ -1530,7 +1561,7 @@ _zse() {
   esac
   ((CURRENT == 2)) && _describe -t verbs 'zse command' verbs
   _arguments \
-    '-l[layout / use case]:use case:(code project ticket review review-doc daily explore code-resume)' \
+    '-l[layout / use case]:use case:(code project ticket review review-doc daily explore blog code-resume)' \
     '-a[AWS profile]:profile:' \
     '-t[hint in the name]:hint:' \
     '*:session name:_zse_names'

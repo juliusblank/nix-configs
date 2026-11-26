@@ -188,6 +188,28 @@ let
         255
       ]
     ];
+    blog = [
+      [
+        240
+        110
+        170
+      ]
+      [
+        255
+        150
+        200
+      ]
+      [
+        205
+        75
+        140
+      ]
+      [
+        255
+        190
+        220
+      ]
+    ];
     daily = [
       [
         170
@@ -222,6 +244,7 @@ let
     review = "green";
     review-doc = "cyan";
     explore = "purple";
+    blog = "pink";
     code = "blue";
   };
 
@@ -457,8 +480,8 @@ let
   # ----- Welcome banner script -----
 
   /**
-    Prints a one-time welcome in a `ticket` / `project` / `review` / `review-doc` / `explore`
-    shell pane.
+    Prints a one-time welcome in a `ticket` / `project` / `review` / `review-doc` / `explore` /
+    `blog` shell pane.
     First invocation per Zellij session writes a sentinel at
     `~/.cache/zse/sessions/<name>.welcomed`; subsequent attaches skip the
     banner. `zse kill` deletes the sentinel along with the AWS side-car.
@@ -491,6 +514,7 @@ let
       ticket) label="◆ $($meta ticket)''${hint:+ $hint}" ;;
       project) label="▲ $($meta slug)" ;;
       explore) label="✦ $($meta slug)" ;;
+      blog) label="✎ $($meta slug)" ;;
       review-doc) label="¶ ''${name#*doc-}" ;;
       *) label="" ;;
     esac
@@ -549,6 +573,14 @@ let
     ART
         printf '→ /explore status %s is auto-sent in the claude pane (repo skill)\n' "$($meta slug)"
         ;;
+      blog)
+        cat <<'ART'
+    ┏━━━━━━━━━━━┓
+    ┃   BLOG    ┃
+    ┗━━━━━━━━━━━┛
+    ART
+        printf '→ the writing brief is auto-sent in the claude pane; the draft opens in the "edit" tab (tktl-eng-blog-voice)\n'
+        ;;
       review-doc)
         cat <<'ART'
     ┏━━━━━━━━━━━━━━┓
@@ -581,11 +613,11 @@ let
 
   /**
     `zse-shell USE_CASE` — the shell pane of the ticket / project / review /
-    review-doc / explore layouts. Shows the one-time welcome, then moves into
+    review-doc / explore / blog layouts. Shows the one-time welcome, then moves into
     the session's worktree before it execs zsh: every pane starts in the
     session's start directory (the main checkout), and a KDL `cwd` cannot
     read the registry, so the pane does the `cd` itself.
-    - ticket / explore: `.claude/worktrees/<wt>` (zse pre-creates it; waits
+    - ticket / explore / blog: `.claude/worktrees/<wt>` (zse pre-creates it; waits
       up to 30 s for `claude --worktree` when it does not);
     - review: `.claude/worktrees/pr-<n>`, which `/tktl-eng-delivery:review`
       creates after the start (waits up to 180 s; Enter skips).
@@ -598,7 +630,7 @@ let
     ${zseWelcome}/bin/zse-welcome "$use_case" || true
     wt_name="" wait_s=0
     case $use_case in
-      ticket | explore) wt_name=$(${zseMeta}/bin/zse-meta wt) wait_s=30 ;;
+      ticket | explore | blog) wt_name=$(${zseMeta}/bin/zse-meta wt) wait_s=30 ;;
       review) wt_name=$(${zseMeta}/bin/zse-meta wt) wait_s=180 ;;
     esac
     if [[ -n $wt_name ]] && root=$(git rev-parse --show-toplevel 2>/dev/null); then
@@ -633,7 +665,7 @@ let
 
   /**
     Shell pane. When `useCase` is non-null (ticket / project / review /
-    review-doc / explore), the pane runs `zse-shell <useCase>`: one-time
+    review-doc / explore / blog), the pane runs `zse-shell <useCase>`: one-time
     welcome banner, `cd` into the session's worktree, then zsh. For `code` /
     `code-resume` the pane is plain zsh — no welcome, no indirection.
   */
@@ -744,6 +776,121 @@ let
         exit 0
       fi
     done
+  '';
+
+  /**
+    `zse-blog prompt|view|render|edit|draft` — helper of the `blog` layout
+    (roadmap #46). The session is `blog-<ID | slug>`; its name keys
+    (`zse-meta`) give the slug, the ticket ID (when there is one) and the
+    worktree `.claude/worktrees/<wt>` under the pane's directory (the
+    engineering-blog checkout). The draft is the newest `drafts/*.md` that is
+    new or changed against origin's default branch, so Claude picks the slug.
+
+      prompt   first message of the claude pane: ticket or topic, then the
+               `tktl-eng:tktl-eng-blog-voice` workflow and the repo's format rules
+      view     draft view: `watchexec` runs `render` on every save in drafts/
+      render   `glow` of the draft, then a status line: words, reading time,
+               Vale hits (TaktileBlog, home/modules/prose.nix) and whether
+               `scripts/md-to-sanity.py` converts the draft
+      edit     waits for the draft, then opens it in Neovim with ZenMode
+      draft    prints the draft path (empty if there is none yet)
+  */
+  zseBlog = pkgs.writeShellScriptBin "zse-blog" ''
+    set -uo pipefail
+    name=''${ZELLIJ_SESSION_NAME:?zse-blog: run inside a Zellij session}
+    meta=${zseMeta}/bin/zse-meta
+    slug=$($meta slug)
+    ticket=$($meta ticket)
+    root=''${ZSE_BLOG_ROOT:-$PWD}
+    wt=$root/.claude/worktrees/$($meta wt)
+    vale_config=$HOME/.config/vale/taktile-blog/.vale.ini
+
+    draft() {
+      cd "$wt" 2>/dev/null || return 0
+      local base f
+      base=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
+      { git diff --name-only "$base" -- 'drafts/*.md' 2>/dev/null
+        git ls-files --others --exclude-standard -- 'drafts/*.md'
+      } | sort -u | while read -r f; do
+        [[ -f $f ]] && printf '%s %s\n' "$(${pkgs.coreutils}/bin/stat -c %Y "$f")" "$wt/$f"
+      done | sort -rn | head -n 1 | cut -d' ' -f2-
+    }
+
+    prompt() {
+      local start
+      if [[ -n $ticket ]]; then
+        start="Read the Linear ticket $ticket: topic, audience, material and constraints. Its description may hold a post brief from an earlier session."
+      else
+        start="There is no ticket. Ask me for the topic, the audience and the one point the post makes, or for a post brief from an earlier session."
+      fi
+      cat <<EOF
+    Blog session $name: one Engineering blog post, written in this worktree (branch blog/$slug).
+    1. $start
+    2. Read AGENTS.md and the header of scripts/md-to-sanity.py. The draft may use only what the converter supports: paragraphs, "## " headings, images as ![alt](/blog/<slug>/<file>), inline code and <a href="..."> links. No lists, tables, emphasis, code blocks or Markdown links.
+    3. Use the skill tktl-eng:tktl-eng-blog-voice (not blog-writer): choose the register and the archetype, propose an outline, and wait for my OK.
+    4. Write the draft to drafts/<slug>.md (<slug>: short kebab-case, it becomes the URL), with frontmatter title, description, pubDate ('Mon DD YYYY'), heroImage, tags: ['Engineering'], authors. Then review it with the skill's checklist.
+    The draft view next to you shows the Vale (TaktileBlog) hits and whether md-to-sanity converts the file: fix both. I also edit the file in the "edit" tab, so read the file again before every change.
+    When I say the draft is ready: commit, push and open a PR in engineering-blog. With a ticket, add the PR link as a comment on it. Do not publish to Sanity.
+    EOF
+    }
+
+    render() {
+      local f words hits vale sanity assets out cols
+      f=$(draft)
+      if [[ -z $f ]]; then
+        echo "No draft yet. Claude writes it to drafts/<slug>.md."
+        return 0
+      fi
+      cols=$(tput cols 2>/dev/null || echo 80)
+      ${pkgs.glow}/bin/glow -s dark -w "$cols" "$f"
+      words=$(awk 'NR == 1 && $0 != "---" { fm = 2 } fm < 2 && $0 == "---" { fm++; next } fm >= 2' "$f" | wc -w | tr -d ' ')
+      # --no-exit: alerts exit 0, so a non-zero exit is a Vale runtime error.
+      if hits=$(${pkgs.vale}/bin/vale --config="$vale_config" --output=line --no-exit "$f" 2>&1); then
+        vale=$(printf '%s' "$hits" | grep -c .)
+      else
+        vale=error
+      fi
+      # md-to-sanity needs an asset id per image; any id does for this check.
+      assets=$(mktemp)
+      printf '{"hero": "x"%s}\n' "$(grep -oE '\]\(/blog/[^/]+/[^)]+\)' "$f" \
+        | sed -E 's@.*/([^/)]+)\)$@, "\1": "x"@' | tr -d '\n')" > "$assets"
+      if out=$(${pkgs.python3}/bin/python3 "$wt/scripts/md-to-sanity.py" "$f" "$assets" 2>&1 >/dev/null); then
+        sanity=ok
+      else
+        sanity="FAILS: $(printf '%s' "$out" | head -n 2 | tr '\n' ' ')"
+      fi
+      rm -f "$assets"
+      printf '\n%s\n' "$(printf '%*s' "$cols" "" | tr ' ' '-')"
+      [[ -n $hits ]] && printf '%s\n' "$hits" | sed "s@^$wt/@@"
+      printf '%s · %s words · ~%s min · vale: %s · md-to-sanity: %s · %s\n' \
+        "''${f#"$wt"/}" "$words" "$(( (words + 199) / 200 ))" \
+        "$vale" "$sanity" "$(date '+%H:%M:%S')"
+    }
+
+    case ''${1:-} in
+      prompt) prompt ;;
+      draft) draft ;;
+      render) render ;;
+      view)
+        cd "$wt" 2>/dev/null || { echo "zse-blog: no worktree at $wt"; exec zsh; }
+        export ZSE_BLOG_ROOT=$root
+        exec ${pkgs.watchexec}/bin/watchexec --watch drafts --exts md --clear --quiet \
+          --shell=none -- "$0" render
+        ;;
+      edit)
+        until f=$(draft) && [[ -n $f ]]; do
+          clear
+          echo "Waiting for the draft in drafts/ (Claude writes it after the outline) ..."
+          sleep 3
+        done
+        cd "$wt" || exit 1
+        exec nvim -c ZenMode "$f"
+        ;;
+      *)
+        echo "usage: zse-blog prompt|view|render|edit|draft" >&2
+        exit 2
+        ;;
+    esac
   '';
 
   /**
@@ -999,6 +1146,9 @@ let
   # Explore: own conversation in the slug's worktree; `/explore status` on the
   # first start only, so every new session opens with goal, iteration and budget.
   exploreClaudePane = mkClaudePane "explore" ''--own --first-prompt \"/explore status $(${zseMeta}/bin/zse-meta slug)\" --worktree \"$(${zseMeta}/bin/zse-meta wt)\"'';
+  # Blog: own conversation in the post's worktree; the first start gets the
+  # writing brief from `zse-blog prompt` (ticket or topic, blog-voice skill).
+  blogClaudePane = mkClaudePane "blog" ''--own --first-prompt \"$(${zseBlog}/bin/zse-blog prompt)\" --worktree \"$(${zseMeta}/bin/zse-meta wt)\"'';
 
   /**
     Task-list pane for the `daily` layout. Runs the repo's own
@@ -1045,6 +1195,11 @@ in
   #              name `exp-<slug>`; worktree `.claude/worktrees/<slug>` on
   #              branch `explore/<slug>`. claude (`/explore status <slug>` on
   #              the first start) · shell · exploration pane (`zse-explore`).
+  #   blog     — Engineering blog posts (roadmap #46). Session `blog-<ID | slug>`
+  #              in the engineering-blog checkout; worktree `.claude/worktrees/<slug>`
+  #              on branch `blog/<slug>`. Tabs: write = claude (blog-voice
+  #              brief on the first start) · draft view (`zse-blog view`) · shell;
+  #              edit = Neovim on the draft (prose mode, home/modules/prose.nix).
   #
   # Name keys (ticket, PR, slug, worktree, URL, …) live in the zse registry;
   # panes read them with `zse-meta` (old-style names: parsed from the name).
@@ -1084,6 +1239,7 @@ in
       zseCi
       zseExplore
       zseAgents
+      zseBlog
       zseEnv
       zseMeta
       zseShell
@@ -1148,6 +1304,35 @@ in
                 ${mkShellPane "explore"}
                 pane name="exploration" size="65%" {
                     command "${zseExplore}/bin/zse-explore"
+                }
+            }
+        }
+      '';
+
+      # Blog: tab "write" = claude + (draft view over a shell in the worktree);
+      # tab "edit" = Neovim on the draft. No tig — the PR is the review.
+      ".config/zellij/layouts/blog.kdl".text = ''
+        layout {
+            default_tab_template {
+                children
+                ${barPane}
+            }
+            tab name="write" focus=true {
+                pane split_direction="vertical" {
+                    ${blogClaudePane}
+                    pane split_direction="horizontal" size="45%" {
+                        pane name="draft" size="75%" {
+                            command "${zseBlog}/bin/zse-blog"
+                            args "view"
+                        }
+                        ${mkShellPane "blog"}
+                    }
+                }
+            }
+            tab name="edit" {
+                pane name="editor" {
+                    command "${zseBlog}/bin/zse-blog"
+                    args "edit"
                 }
             }
         }
