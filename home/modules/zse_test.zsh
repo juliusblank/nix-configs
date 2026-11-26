@@ -84,6 +84,12 @@ check "shade code-resume" "$(_z_shade code-y code-resume)"   2
 ZSE_SHADE_RGB=(ticket-1 '255;194;75')
 check "sgr rgb"           "$(_z_sgr tkt-c ticket)"           "38;2;255;194;75"
 check "sgr fallback"      "$(_z_sgr code-x code)"            "38;5;69"
+check "tint mix"          "$(ZSE_TINT_PCT=50 _z_tint tkt-c ticket)" "48;2;146;115;57"
+check "tint no shade rgb" "$(_z_tint code-x code)"           ""
+check "tint no use case"  "$(_z_tint loose '')"              ""
+check "group review"      "$(_z_group review)"               review
+check "group code-resume" "$(_z_group code-resume)"          code
+check "group none"        "$(_z_group '')"                   other
 rm -f "$ZSE_STATE_DIR"/(tkt-[abc]|code-[xy])
 
 # Age
@@ -112,6 +118,18 @@ check "act word"          "$(_z_activity_word proj-plat)"    "waiting, 1 agent"
 check "active busy"       "$(_z_is_active tkt-PCS-1-x && print 1)" 1
 check "inactive idle"     "$(_z_is_active code-x || print 0)" 0
 check "inactive unknown"  "$(_z_is_active nothing || print 0)" 0
+
+setopt extended_glob
+# Picker: groups in ZSE_GROUPS order, a separator (empty name) before each,
+# rows padded to the width
+zellij() { print -rl -- tkt-PCS-1-x code-x; }
+_z_reg_write code-x code /tmp ""
+lines=("${(@f)$(FZF_COLUMNS=83 _z_pick_lines)}")
+check "pick names"        "${(j:,:)${lines[@]%%$'\t'*}}"     ",tkt-PCS-1-x,,proj-plat,,code-x"
+check "pick sep label"    "${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}" "tickets ${(l:72::─:)}"
+plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "pick row width"    "${(m)#plain}"                     80
+unfunction zellij
 unfunction claude
 rm -rf "$ZSE_STATE_DIR"
 

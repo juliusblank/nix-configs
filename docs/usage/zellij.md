@@ -333,10 +333,18 @@ sessions: stop them with `zse stop --all` before you change it, and run
 - **`zse pick`** — fzf over all registered and running sessions, one line
   each: activity, type icon in the type colour, name, state, age since the
   last start, `✱` and a summary when a review PR has news since your last
-  review (from the `zse-ci` pane), background agents, title. Running
-  sessions come first (busy, waiting, idle), then stopped ones; newest
-  first. Enter switches (`zse switch`: a stopped session starts first),
-  `Ctrl-R` reloads, the preview shows the registry keys and the worktree.
+  review (from the `zse-ci` pane), background agents, title. Sessions are
+  grouped by type, each group under a separator line (`reviews ───`):
+  reviews, doc reviews, tickets, projects, explorations, code, daily, other
+  (no registered use case). In a group, running sessions come first (busy,
+  waiting, idle), then stopped ones; newest first. Each row has a
+  background tinted with the session's shade (`ZSE_TINT_PCT`, default 14 %,
+  mixed into the terminal background `ZSE_TERM_BG`, default Ghostty
+  0x96f). The list cycles: down on the last row goes to the first, up on
+  the first to the last; the cursor skips the separators. Enter switches
+  (`zse switch`: a stopped session starts first; Enter on a separator does
+  nothing), `Ctrl-R` reloads, the preview shows the registry keys and the
+  worktree.
   - Activity: `●` busy, `◐` waiting for you (a permission prompt or a
     question), `○` idle, `·` no Claude or unknown. It comes from
     `claude agents --json` (about 0.2 s), which lists every running Claude

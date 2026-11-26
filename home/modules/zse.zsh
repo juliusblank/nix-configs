@@ -660,22 +660,67 @@ _z_age() {
   else print -r -- "$((s / 86400))d"; fi
 }
 
+# Picker groups (one per colour type, in this order) and their labels;
+# sessions without a registered use case go to "other".
+typeset -ga ZSE_GROUPS=(review review-doc ticket project explore code daily other)
+typeset -gA ZSE_GROUP_LABEL=(review reviews review-doc 'doc reviews' ticket tickets
+  project projects explore explorations code code daily daily other other)
+# Row background in the picker: ZSE_TINT_PCT % of the session's shade mixed
+# into the terminal background (Ghostty 0x96f: #262427).
+typeset -g ZSE_TERM_BG=${ZSE_TERM_BG:-38;36;39}
+typeset -gi ZSE_TINT_PCT=${ZSE_TINT_PCT:-14}
+
+# _z_group USE_CASE — the picker group of a use case.
+_z_group() {
+  local g
+  g=$(_z_color_type "$1")
+  [[ -n $1 && -n ${ZSE_GROUP_LABEL[$g]:-} ]] && print -r -- "$g" || print -r -- other
+}
+
+# _z_tint NAME USE_CASE — SGR background for the session's picker row
+# (shade 1 when none is stored yet); empty without a use case or RGB.
+_z_tint() {
+  emulate -L zsh
+  [[ -n $2 ]] || return 0
+  local sh rgb i
+  sh=$(_z_reg_get "$1" shade 2>/dev/null)
+  rgb=${ZSE_SHADE_RGB[$(_z_color_type "$2")-${sh:-1}]:-}
+  [[ -n $rgb ]] || return 0
+  local -a c=(${(s:;:)rgb}) b=(${(s:;:)ZSE_TERM_BG}) out
+  for i in 1 2 3; do out+=$((b[i] + (c[i] - b[i]) * ZSE_TINT_PCT / 100)); done
+  print -r -- "48;2;${(j:;:)out}"
+}
+
+# _z_pick_width — the width of an fzf row: FZF_COLUMNS in a reload, else
+# the terminal, minus the pointer gutter and the scrollbar.
+_z_pick_width() {
+  local w=${FZF_COLUMNS:-${COLUMNS:-$(tput cols 2>/dev/null)}}
+  print -r -- $(( ${w:-100} - 3 ))
+}
+
 # _z_pick_lines — one tab-separated line per session for fzf: the name
 # (hidden, for the action), then the display: activity, type icon in the
-# type colour, name, state, age, new-on-PR badge, agents, title. Running
-# sessions first (busy, waiting, idle), then stopped ones; newest first.
+# type colour, name, state, age, new-on-PR badge, agents, title, on a
+# background tinted with the session's shade. Sessions are grouped by type
+# (ZSE_GROUPS); a separator line with an empty name heads each group.
+# Inside a group: running first (busy, waiting, idle), then stopped;
+# newest first.
 _z_pick_lines() {
   emulate -L zsh
+  setopt extended_glob
   _z_activity_load
   local -A live
   local l
   for l in ${(f)"$(zellij list-sessions --no-formatting --short 2>/dev/null)"}; do
     live[$l]=1
   done
-  local n uc st act sort badge agents title color icon age started pr_file
+  local n uc st act sort badge agents title fg bg icon age started pr_file g
+  local head plain row
+  local -i width=$(_z_pick_width) rest
   local -a rows
   local -A order=(busy 1 waiting 2 idle 3 '?' 4)
   local -a names=($(_z_reg_names) ${(k)live})
+  local e=$'\e'
   for n in ${(u)names}; do
     uc=$(_z_reg_get "$n" use_case 2>/dev/null) || uc=""
     if [[ -n ${live[$n]:-} ]]; then
@@ -691,21 +736,48 @@ _z_pick_lines() {
     agents=${ZSE_AGENTS[$n]:-0}
     title=$(_z_reg_get "$n" title 2>/dev/null)
     [[ -z $title ]] && title=$(_z_reg_get "$n" url 2>/dev/null)
-    color=$(_z_sgr "$n" "$uc") icon=${ZSE_ICON[$uc]:-·}
+    fg=$(_z_sgr "$n" "$uc") bg=$(_z_tint "$n" "$uc") icon=${ZSE_ICON[$uc]:-·}
     started=$(_z_reg_get "$n" last_started 2>/dev/null)
     age=$(_z_age "$started")
-    rows+=("$sort ${started:-0}	$n	${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } "$'\e'"[${color}m${icon}"$'\e'"[0m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")  "$'\e'"[1;33m${badge}"$'\e'"[0m$( ((agents)) && print -n "  [$agents agents]")  "$'\e'"[2m${title[1,70]}"$'\e'"[0m")
+    g=$(_z_group "$uc")
+    # Only foreground / weight resets inside the row: a full reset would
+    # end the background before the padding.
+    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")"
+    [[ -n $badge ]] && head+="  ${e}[1;33m${badge}${e}[22;39m"
+    ((agents)) && head+="  [$agents agents]"
+    plain=${head//$e\[[0-9;]#m/}
+    rest=$((width - ${(m)#plain} - 2))
+    ((rest > 0)) && head+="  ${e}[2m${title[1,rest]}${e}[22m"
+    plain=${head//$e\[[0-9;]#m/}
+    rest=$((width - ${(m)#plain}))
+    ((rest > 0)) && head+=${(l:rest:: :)}
+    row=$head
+    [[ -n $bg ]] && row="${e}[${bg}m${head}${e}[0m"
+    rows+=("${ZSE_GROUPS[(ie)$g]} $sort ${started:-0}	$n	$row")
   done
-  # Rows are "group last_started<TAB>name<TAB>display": sort by group, then
-  # newest first; drop the sort key.
   (($#rows)) || return 0
-  print -rl -- $rows | sort -k1,1n -k2,2r | cut -f2-
+  # Rows are "group activity last_started<TAB>name<TAB>display": sort by
+  # group, activity, then newest first; drop the sort key; a separator
+  # before each group.
+  local last="" gi label line
+  for line in ${(f)"$(print -rl -- $rows | sort -k1,1n -k2,2n -k3,3r)"}; do
+    gi=${line%% *}
+    if [[ $gi != $last ]]; then
+      g=${ZSE_GROUPS[gi]} label="${ZSE_GROUP_LABEL[$g]} "
+      rest=$((width - ${(m)#label}))
+      ((rest > 0)) && label+=${(l:rest::─:)}
+      print -r -- "	${e}[38;5;${ZSE_COLOR[$g]:-245}m${label}${e}[0m"
+      last=$gi
+    fi
+    print -r -- "${line#*	}"
+  done
 }
 
 # _z_pick_preview NAME — details for the fzf preview.
 _z_pick_preview() {
   emulate -L zsh
   local n=$1 f
+  [[ -n $n ]] || return 0 # a group separator
   f=$(_z_reg_file "$n")
   print -r -- "$n"
   print
@@ -723,16 +795,27 @@ _z_pick_preview() {
 }
 
 # zse pick — fzf over all sessions (Ctrl Space in Zellij); Enter switches
-# (a stopped session is restored first), Ctrl-R reloads.
+# (a stopped session is restored first), Ctrl-R reloads. The list cycles
+# (down on the last row goes to the first). Group separators have an empty
+# name: the cursor moves over them and Enter on one does nothing.
 _zse_pick() {
   emulate -L zsh
-  local choice
-  choice=$(_z_pick_lines | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse \
+  local choice skip='[ -n {1} ] || echo'
+  choice=$(COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)} _z_pick_lines \
+    | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse --cycle \
     --header='Enter switch · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · ✱ new on PR' \
     --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
     --preview-window='down,40%,wrap' \
+    --bind="result:transform:$skip down" \
+    --bind="down:down+transform:$skip down" \
+    --bind="ctrl-j:down+transform:$skip down" \
+    --bind="ctrl-n:down+transform:$skip down" \
+    --bind="up:up+transform:$skip up" \
+    --bind="ctrl-k:up+transform:$skip up" \
+    --bind="ctrl-p:up+transform:$skip up" \
+    --bind='enter:transform:[ -n {1} ] && echo accept' \
     --bind="ctrl-r:reload(zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_lines')") || return 0
-  _zse_switch "${choice%%$'\t'*}"
+  [[ -n ${choice%%$'\t'*} ]] && _zse_switch "${choice%%$'\t'*}"
 }
 
 # ----- Commands -----
