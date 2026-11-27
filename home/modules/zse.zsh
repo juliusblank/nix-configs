@@ -912,6 +912,10 @@ _z_pick_lines() {
     [[ -n $bg ]] && row="${e}[${bg}m${head}${e}[0m"
     rows+=("${ZSE_GROUPS[(ie)$g]} $sort ${started:-0}	$n	$row")
   done
+  # Column header (fzf --header-lines=1: fixed, not selectable)
+  head="    ${(r:namew:: :):-SESSION} $(printf '%-7s %4s' STATE AGE)"
+  ((badgew)) && head+="  ${(r:badgew:: :):-REVIEW}"
+  print -r -- "	${e}[2m${head}  TITLE${e}[22m"
   (($#rows)) || return 0
   # Rows are "group activity last_started<TAB>name<TAB>display": sort by
   # group, activity, then newest first; drop the sort key; a separator
@@ -976,6 +980,10 @@ typeset -g ZSE_REQ_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/requests"
 typeset -ga ZSE_REQ_SOURCES=(github team slack)
 typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'Slack')
 typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
+# The requests view: one icon per source (Nerd Font: Slack, GitHub), in
+# this order; the rows sort by their first source, then oldest first.
+typeset -gA ZSE_REQ_ICON=(slack $'\uf198' github $'\uf09b' team '#')
+typeset -ga ZSE_REQ_RANK=(slack github team)
 # Platform Support (incident.io): SH requests count only in your shifts.
 typeset -g ZSE_REQ_SCHEDULE=${ZSE_REQ_SCHEDULE:-01KY4FJZ1S64RZPPN1JR95R9TQ}
 typeset -gA ZSE_REQ_QUERY=(
@@ -1210,6 +1218,9 @@ _z_req_lines() {
       st+="${ZSE_REQ_LABEL[$src]} —"
     fi
   done
+  local -i iconw=$((2 * $#ZSE_REQ_RANK))
+  # Column header (fzf --header-lines=1), then the status line.
+  print -r -- "	${e}[2m  ${(r:iconw:: :):-VIA} $(printf '%-16s %4s  %-14s' PR AGE AUTHOR)  TITLE${e}[22m"
   print -r -- "	${e}[2m${(j: · :)st}${e}[22m"
 
   local -a files=()
@@ -1218,31 +1229,28 @@ _z_req_lines() {
   done
   (($#files)) || return 0
   local order
-  order=$(print -rl -- $ZSE_REQ_SOURCES | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
-  local line gi last="" label head plain fg=${ZSE_COLOR[review]:-70} repo num title author at srcs key note age reviewed
+  order=$(print -rl -- $ZSE_REQ_RANK | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
+  local line gi head plain repo num title author at key note age reviewed icons
+  local -a srcs
   for line in ${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" '
       [.[][]] | group_by(.url)
       | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
              author: .[0].author, at: (map(.at) | min),
              reviewed: (map(.reviewed // empty) | max),
-             groups: (map(.group // .source) | unique),
-             sources: (map(.source) | unique | sort_by((. as $s | $order | index($s)) // 99))})
-      | map(. + {g: (.groups | map(. as $s | $order | index($s)) | min)})
+             groups: (map(.group // .source) | unique | sort_by(. as $s | $order | index($s)))})
+      | map(. + {g: (.groups[0] as $s | $order | index($s))})
       | sort_by(.g, .at)[]
-      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.sources | join(",")),
+      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.groups | join(",")),
          (if .reviewed != null and .reviewed > .at then .reviewed else "" end)] | @tsv
     ' $files 2>/dev/null)"}; do
     IFS=$'\t' read -r gi u repo num title author at srcs reviewed <<<"$line"
-    if [[ $gi != $last ]]; then
-      label="${ZSE_REQ_LABEL[${ZSE_REQ_SOURCES[gi + 1]}]} "
-      rest=$((width - ${(m)#label}))
-      ((rest > 0)) && label+=${(l:rest::─:)}
-      print -r -- "	${e}[38;5;${fg}m${label}${e}[0m"
-      last=$gi
-    fi
     age=$(_z_age "$at")
-    srcs=${(j:,:)${(@)${(s:,:)srcs}/(#m)*/${ZSE_REQ_TAG[$MATCH]:-$MATCH}}}
-    head="  ${e}[38;5;${fg}m${ZSE_ICON[review]}${e}[39m $(printf '%-22s %4s  %-10s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "$srcs")"
+    # Each icon is one cell (Nerd Font Mono); zsh counts the Nerd Font ones
+    # as zero, so pad by the number of icons.
+    icons="" srcs=(${(s:,:)srcs})
+    for src in $srcs; do icons+="${ZSE_REQ_ICON[$src]:-?} "; done
+    author=${${author%-taktile}#taktile-}
+    head="  ${icons}${(l:iconw - 2 * $#srcs:: :)} $(printf '%-16s %4s  %-14s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "${author[1,14]}")"
     key=$u note=""
     if [[ -n ${sess[$u]:-} ]]; then
       key=${sess[$u]}
@@ -1251,9 +1259,9 @@ _z_req_lines() {
       note="  reviewed $(_z_age "$reviewed") ago"
     fi
     plain=${head//$e\[[0-9;]#m/}
-    rest=$((width - ${(m)#plain} - ${(m)#note} - ${#author} - 5))
+    rest=$((width - ${(m)#plain} - ${(m)#note} - 2 - ${#${(M)srcs:#(slack|github)}}))
     ((rest > 0)) && head+="  ${title[1,rest]}"
-    head+="  ${e}[2m($author)${e}[22m${note}"
+    head+=$note
     if [[ -n $note ]]; then
       print -r -- "$key	${e}[2m${head//$e\[22m/}${e}[22m"
     else
@@ -1277,7 +1285,7 @@ _zse_pick() {
   rm -f "$ZSE_FZF_SOCK"
   choice=$(COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)} _z_pick_lines \
     | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse --cycle \
-    --listen-unsafe="$ZSE_FZF_SOCK" --track --id-nth=1 \
+    --listen-unsafe="$ZSE_FZF_SOCK" --track --id-nth=1 --header-lines=1 \
     --header="$(_z_pick_header)" \
     --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
     --preview-window='down,40%,wrap' \

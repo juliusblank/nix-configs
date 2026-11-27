@@ -143,13 +143,17 @@ setopt extended_glob
 zellij() { print -rl -- tkt-PCS-1-x code-x; }
 _z_reg_write code-x code /tmp ""
 lines=("${(@f)$(FZF_COLUMNS=83 _z_pick_lines)}")
-check "pick names"        "${(j:,:)${lines[@]%%$'\t'*}}"     ",tkt-PCS-1-x,,proj-plat,,code-x"
-check "pick sep label"    "${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}" "tickets ${(l:72::─:)}"
-plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "pick names"        "${(j:,:)${lines[@]%%$'\t'*}}"     ",,tkt-PCS-1-x,,proj-plat,,code-x"
+hdr=${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}
+row=${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "pick header"       "${hdr[1,11]}"                     "    SESSION"
+check "pick header align" "${#${hdr%%STATE*}}"               "${#${row%%running*}}"
+check "pick sep label"    "${${lines[2]#*$'\t'}//$'\e'\[[0-9;]#m/}" "tickets ${(l:72::─:)}"
+plain=${${lines[5]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "pick row width"    "${(m)#plain}"                     80
 # The state column starts at the same place for short and long names
-s1=${${lines[2]#*$'\t'}//$'\e'\[[0-9;]#m/}; s1=${s1%%running*}
-s2=${${lines[6]#*$'\t'}//$'\e'\[[0-9;]#m/}; s2=${s2%%running*}
+s1=${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}; s1=${s1%%running*}
+s2=${${lines[7]#*$'\t'}//$'\e'\[[0-9;]#m/}; s2=${s2%%running*}
 check "pick name column"  "${(m)#s1}"                        "${(m)#s2}"
 unfunction zellij
 
@@ -191,17 +195,19 @@ _z_reg_write rev-r3-3-x review /tmp "" https://github.com/o/r3/pull/3
 _z_req_fetch github
 _z_req_fetch team
 lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
-check "req keys"          "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r1/pull/1,https://github.com/o/r2/pull/2,,rev-r3-3-x"
+check "req keys"          "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r1/pull/1,https://github.com/o/r2/pull/2,rev-r3-3-x"
 plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
-check "req sources"       "${${plain#*1d  }%% *}"           "gh,team"
-check "req bot author"    "${plain##* }"                    "(bot)"
-check "req session note"  "${${lines[6]//$'\e'\[[0-9;]#m/}#* → }" "rev-r3-3-x (Enter switches)"
+hdr=${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "req icons"         "${plain[(w)1]} ${plain[(w)2]}"   $'\uf09b #'
+check "req author column" "${plain[(w)5]}"                  "bot"
+check "req header align"  "${#${hdr%%PR *}} ${#${hdr%%AUTHOR*}}" "${#${plain%%r2#2*}} ${#${plain%%bot *}}"
+check "req session note"  "${${lines[5]//$'\e'\[[0-9;]#m/}#* → }" "rev-r3-3-x (Enter switches)"
 locks=($ZSE_REQ_DIR/*.lock(N))
 check "req no lock left"  "${#locks}" 0
 ZSE_REQ_QUERY[github]='broken'
 _z_req_fetch github
 check "req error kept"    "$([[ -r $ZSE_REQ_DIR/github.error && -r $ZSE_REQ_DIR/github.json ]] && print 1)" 1
-check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[1]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · Slack —"
+check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[2]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · Slack —"
 # Slack: valid lines only, URL suffixes cut, closed PRs and old requests
 # dropped, reviewed after the request → note; the search window starts at
 # the last search minus 1 h.
@@ -243,10 +249,10 @@ check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'on or after ([0-9-]+
 check "slack last search" "$(( $(<$ZSE_REQ_DIR/last-slack-search) >= EPOCHSECONDS - 5 ))" 1
 lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
 check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r8/pull/8,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1"
-check "slack sh tag"      "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)4]}" "sh"
+check "slack icon"        "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)1]}" $'\uf198'
 plain=${${lines[5]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "slack reviewed"    "${plain##*reviewed }"            "$(_z_age 2026-11-26T12:00:00Z) ago"
-check "slack via"         "${${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)4]}" "#team-platform"
+check "slack preview via" "$(_z_pick_preview https://github.com/o/r4/pull/4 | head -n 1)" "#team-platform · Ann · 2026-11-25 10:00: review please"
 # A second run keeps the earlier entries (the search only sees new ones)
 claude() { :; }
 _z_req_fetch slack

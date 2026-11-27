@@ -339,7 +339,8 @@ sessions: stop them with `zse stop --all` before you change it, and run
   dir; `zse restore` brings them back). It skips a session whose Claude is
   busy or waits for you, or that has background agents running, and says
   why (`zse: skipped 'x': busy, 2 agents.`); `--force` stops them too.
-- **`zse pick`** — fzf over all registered and running sessions, one line
+- **`zse pick`** — fzf over all registered and running sessions (a fixed
+  first line names the columns in both views), one line
   each: activity, type icon in the type colour, name (a review adds the PR
   author's first name: `rev-… (theo)`), state, age since the
   last start, the review state (from the `zse-ci` pane: `✱ <what is new>`
@@ -379,7 +380,11 @@ sessions: stop them with `zse stop --all` before you change it, and run
     request says `reviewed 2d ago`). Each source searches
     again every time you open the view, and its rows appear when it is
     done; the first line says which source still searches. One row per
-    PR, oldest first: repo and number, age, sources, title, author.
+    PR. The first column shows where the request came from: the Slack
+    icon (a DM, a mention or an SH request during your shift), the GitHub
+    icon (GitHub asks you), `#` (GitHub asks the platform-team). Rows sort
+    by that order, then oldest first: Slack, then GitHub, then the team.
+    Then repo and number, age, author, title.
     `Enter` starts the review session (`zse -l review <url>`); a PR that
     has a review session already is dim and `Enter` switches to it.
     The preview shows the Slack message and `gh pr view`. `Ctrl-R`
