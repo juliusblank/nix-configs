@@ -997,19 +997,25 @@ typeset -gA ZSE_REQ_QUERY=(
   team 'team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations'
 )
 typeset -gi ZSE_REQ_DAYS=7
-typeset -gi ZSE_REQ_SLACK_TIMEOUT=${ZSE_REQ_SLACK_TIMEOUT:-180}
-# The Slack search (claude -p, Haiku, the Slack connector's search and
-# profile tools only). SINCE / BEFORE: the window, YYYY-MM-DD (UTC).
-typeset -g ZSE_REQ_SLACK_PROMPT='Find GitHub pull request links in Slack messages that ask me to review, sent on or after SINCE (UTC). Search with the Slack search tool; run these searches, each with after:BEFORE:
-1. Direct messages and group DMs to me with a PR link: `is:dm github.com/ pull` and `to:me github.com/ pull`.
-2. Messages in any channel that mention me and have a PR link: `@me github.com/ pull` (if `@me` does not work, find my user ID with the profile tool and use `<@ID>`).
-3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`. Use "via":"sh" for these, or "@" when the message mentions me by name.
-4. Linear review requests in my DMs: `from:@Linear requested your review` and `from:@Linear re-requested your review`. These name the PR as `<owner>/<repo>#<number>`: use https://github.com/<owner>/<repo>/pull/<number> as the link, "via":"linear" and the person who requested the review as "from".
-Ignore messages that I sent myself.
-A message can have more than one PR link: list all of them. Copy each GitHub link exactly as it is in the message, also when it has a suffix such as /changes, /files or #diff-….
-Reply with JSON lines only, one per message, no other text:
-{"urls":["<every GitHub PR link in the message>"],"via":"dm" | "@" | "sh" | "linear" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
-If you find none, reply with nothing. If the search tool fails, reply ERROR.'
+typeset -gi ZSE_REQ_SLACK_TIMEOUT=${ZSE_REQ_SLACK_TIMEOUT:-300}
+# The Slack and Linear search (claude -p, Haiku, only the tools below). The
+# model only runs the calls: zse reads the raw tool results from the
+# stream-json output and finds the PR links itself (_z_req_slack_parse).
+# BEFORE: the day before the window starts, YYYY-MM-DD (UTC).
+typeset -g ZSE_REQ_SLACK_TOOLS=mcp__claude_ai_Slack__slack_search_public_and_private,mcp__claude_ai_Slack__slack_read_user_profile,mcp__claude_ai_Linear__get_notifications
+# Linear names a PR only by its title: zse finds it on GitHub with this search.
+typeset -g ZSE_REQ_LINEAR_SEARCH=${ZSE_REQ_LINEAR_SEARCH:-'is:pr org:taktile-org archived:false'}
+typeset -g ZSE_REQ_SLACK_PROMPT='Make these tool calls, one after the other, and nothing else. Do not summarise, filter or repeat the results.
+1. Read my own Slack profile with the Slack profile tool (no user ID).
+2. Run each of these Slack searches with the Slack search tool. When a result gives a cursor for the next page, run the same query again with that cursor, until the result says "End of results":
+   - `is:dm github.com/ pull after:BEFORE`
+   - `to:me github.com/ pull after:BEFORE`
+   - `@me github.com/ pull after:BEFORE`
+   - `in:#team-platform github.com/ pull after:BEFORE`
+3. Get my Linear notifications with the notifications tool, limit 50. While hasNextPage is true and the last notification was created on or after BEFORE, get the next page with the cursor.
+After the last call, reply DONE.'
+# The queries that the search must run (prefixes of the Slack queries).
+typeset -ga ZSE_REQ_SLACK_QUERIES=('is:dm ' 'to:me ' '@me ' 'in:#team-platform ')
 # A command for fzf actions: run a zse function in a fresh zsh.
 typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
 
@@ -1081,24 +1087,89 @@ _z_req_shifts() {
   print -r -- "$json" >"$f.tmp" && mv "$f.tmp" "$f"
 }
 
-# _z_req_slack LOCKDIR — the Slack source: search the messages since the
-# last search (minus 1 h, at most ZSE_REQ_DAYS days), merge them with the
-# earlier ones by PR URL, drop requests older than ZSE_REQ_DAYS days, your
-# own PRs, PRs that are closed or merged, and SH requests (`sh`,
-# #team-platform) sent outside your Platform Support shifts (all stay when
-# the shifts are unknown); add the PR data from GitHub (one GraphQL call);
-# write slack.json and the time of the search.
-# _z_req_slack_parse — the Slack search reply (JSON lines) on stdin → a JSON
-# array with one entry per PR link: {url, via, from, at, text}.
+# _z_req_slack LOCKDIR — the Slack and Linear source: one search over the
+# last ZSE_REQ_DAYS days (_z_req_slack_parse; on a missing call or page the
+# reason goes to slack.why and the earlier result stays), merged with the
+# earlier entries by PR URL and source; drops requests older than
+# ZSE_REQ_DAYS days, your own PRs, PRs that are closed or merged, and SH
+# requests (`sh`, #team-platform) sent outside your Platform Support shifts
+# (all stay when the shifts are unknown); adds the PR data from GitHub (one
+# GraphQL call); writes slack.json and the time of the search.
+# _z_req_slack_parse — the stream-json output of the search on stdin → a
+# JSON object {error, items}: items has one entry per PR link and source,
+# {url, via, from, at, text}; error is set when a call or a page is missing.
+#   Slack: every GitHub PR link in the text of a message (not in its
+#   context), without the messages you sent and bot messages. via: `dm` in a
+#   DM or group DM, `@` when it mentions you, `sh` in #team-platform; other
+#   channel messages (for example user-group mentions) are dropped.
+#   Linear: review requests in the Linear inbox (not archived), with the PR
+#   title in `title` and no url (_z_req_linear_urls finds the PR).
 _z_req_slack_parse() {
-  ${ZSE_JQ:-jq} -Rc '
-    fromjson? | select(type == "object")
-    | . as $m
-    | ([.urls?, .url?] | flatten | map(select(type == "string")) | .[])
-    | sub("[?#].*$"; "") | sub("^(?<u>https://github\\.com/[^/]+/[^/]+/pull/[0-9]+).*$"; "\(.u)")
-    | select(test("^https://github\\.com/[^/]+/[^/]+/pull/[0-9]+$"))
-    | {url: ., via: ($m.via // "slack"), from: ($m.from // ""), at: ($m.at // ""), text: ($m.text // "")}' \
-    | ${ZSE_JQ:-jq} -sc 'unique_by([.url, .via, .at])'
+  ${ZSE_JQ:-jq} -Rsc --arg queries "${(pj:\n:)ZSE_REQ_SLACK_QUERIES}" '
+    def body: if type == "array" then map(.text? // "") | join("") elif type == "string" then . else "" end;
+    def cap(re): (capture(re)? // {});
+    (split("\n") | map(fromjson? // empty)) as $ev
+    | ([$ev[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use")
+        | {key: .id, value: {name, input}}] | from_entries) as $uses
+    | [$ev[] | select(.type == "user") | .message.content[]? | select(.type == "tool_result")
+        | {use: ($uses[.tool_use_id] // {name: "", input: {}}), body: (.content | body)}] as $res
+    | ([$res[] | select(.use.name | test("slack_read_user_profile")) | .body | cap("User ID: (?<id>[A-Z0-9]+)").id
+        | select(. != null)] | first) as $me
+    | [$res[] | select(.use.name | test("slack_search")) | {q: (.use.input.query // ""), r: (.body | fromjson? // {})}] as $searches
+    | [$uses[] | .input.cursor? | select(. != null)] as $cursors
+    | ([$searches[] | .r.pagination_info? // "" | cap("cursor `(?<c>[^`]+)`").c | select(. != null)
+        | select(. as $c | $cursors | index($c) | not)] | length) as $missing_pages
+    | ([$queries | split("\n")[] | . as $p | select([$searches[] | .q | startswith($p)] | any | not)]) as $missing_queries
+    | [$searches[] | (.r.results? // "") | split("\n### Result ")[1:][]
+        | cap("\nChannel: (?<chan>[^\n]*)") as $c
+        | cap("\nFrom: (?<name>[^\n]*?)(?: <[^>\n]*>)? \\(ID: (?<id>[A-Z0-9]+)\\)(?<rest>[^\n]*)") as $f
+        | cap("\nMessage_ts: (?<ts>[0-9]+)") as $t
+        | cap("\nText: \n(?<text>[\\s\\S]*?)(?:\nContext (?:before|after): |\n\n---|$)") as $x
+        | select($f.id != null and $f.id != $me and ($f.rest | contains("[BOT]") | not) and $t.ts != null)
+        | ($x.text // "") as $text
+        | ($c.chan // "" | sub(" \\(ID: [^)]*\\)$"; "")) as $chan
+        | (if $chan | test("^(DM|Group DM|Multi-party DM|mpdm)"; "i") then "dm"
+           elif $me != null and ($text | contains("<@" + $me)) then "@"
+           elif $chan == "#team-platform" then "sh"
+           else empty end) as $via
+        | ($text | [scan("https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+")] | unique[])
+        | {url: ., via: $via, from: $f.name, at: ($t.ts | tonumber | todate),
+           text: ($text | gsub("(^|\n)>[ ]?"; " ") | gsub("<(?<u>https?://[^|>]+)\\|[^>]*>"; "\(.u)") | ltrimstr(" ") | .[0:120])}] as $slack
+    | [$res[] | select(.use.name | test("get_notifications")) | .body | fromjson? | .notifications[]?
+        | select((.type // "" | test("ReviewRequested"; "i")) and .archivedAt == null)
+        | {url: null, title, via: "linear", from: (.subtitle // "" | sub(" (re-)?requested.*$"; "")),
+           at: (.createdAt | sub("\\.[0-9]+Z$"; "Z")), text: ((.subtitle // "") + ": " + (.title // ""))}] as $linear
+    | {error: (if $me == null then "no Slack profile"
+               elif ($missing_queries | length) > 0 then "missing searches: " + ($missing_queries | join(", "))
+               elif $missing_pages > 0 then "\($missing_pages) Slack result pages not fetched"
+               elif ([$res[] | select(.use.name | test("get_notifications"))] | length) == 0 then "no Linear notifications"
+               else null end),
+       items: ($slack | group_by([.url, .via]) | map(min_by(.at))),
+       linear: ($linear | group_by(.title) | map(min_by(.at)))}'
+}
+
+# _z_req_linear_urls — a JSON array of Linear requests ({title, …}) on
+# stdin → the same entries with the GitHub PR url, found by the exact title
+# (ZSE_REQ_LINEAR_SEARCH, one GraphQL call); entries without a match drop.
+_z_req_linear_urls() {
+  emulate -L zsh
+  local jq=${ZSE_JQ:-jq} in q vars=() i n
+  in=$(cat)
+  n=$(print -r -- "$in" | $jq length) || return 1
+  if ((n == 0)); then print -r -- '[]'; return 0; fi
+  q='query('
+  for i in {1..$n}; do q+="\$q$i: String!,"; done
+  q="${q%,}) {"
+  for i in {1..$n}; do
+    q+=" s$i: search(query: \$q$i, type: ISSUE, first: 5) { nodes { ... on PullRequest { url title } } }"
+    vars+=(-f "q$i=${ZSE_REQ_LINEAR_SEARCH} in:title \"$(print -r -- "$in" | $jq -r --argjson i $((i - 1)) '.[$i].title | gsub("[\"\\\\]"; " ")')\"")
+  done
+  q+=' }'
+  ${ZSE_TIMEOUT:-timeout} 30 gh api graphql -f query="$q" "${vars[@]}" 2>/dev/null \
+    | $jq -c --argjson in "$in" '
+        [range(0; $in | length) as $i | $in[$i] as $r
+         | (.data["s\($i + 1)"].nodes // [] | map(select(.title == $r.title)) | first) as $m
+         | select($m != null) | $r + {url: $m.url} | del(.title)]'
 }
 
 _z_req_slack() {
@@ -1106,25 +1177,29 @@ _z_req_slack() {
   zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
   local lock=$1 now=$EPOCHSECONDS last since out new old merged q i
   local jq=${ZSE_JQ:-jq}
-  last=0
-  [[ -r $ZSE_REQ_DIR/last-slack-search ]] && last=$(<"$ZSE_REQ_DIR/last-slack-search")
-  [[ $last == <-> ]] || last=0
-  since=$((last - 3600))
-  ((since < now - ZSE_REQ_DAYS * 86400)) && since=$((now - ZSE_REQ_DAYS * 86400))
-  local p=${ZSE_REQ_SLACK_PROMPT//SINCE/$(TZ=UTC strftime '%Y-%m-%d' $since)}
-  p=${p//BEFORE/$(TZ=UTC strftime '%Y-%m-%d' $((since - 86400)))}
+  # The whole window on every search: one search costs about the same for
+  # one day or for ZSE_REQ_DAYS days.
+  since=$((now - ZSE_REQ_DAYS * 86400))
+  local p=${ZSE_REQ_SLACK_PROMPT//BEFORE/$(TZ=UTC strftime '%Y-%m-%d' $((since - 86400)))}
   out=$(
     cd "$HOME" || exit 1
     unset DELIVERY_SESSION ZSE_USE_CASE CLAUDECODE CLAUDE_CODE_ENTRYPOINT \
       CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
-    ${ZSE_TIMEOUT:-timeout} $ZSE_REQ_SLACK_TIMEOUT claude -p --model haiku \
-      --allowedTools mcp__claude_ai_Slack__slack_search_public_and_private,mcp__claude_ai_Slack__slack_read_user_profile \
-      --output-format text "$p" </dev/null 2>/dev/null
+    MAX_MCP_OUTPUT_TOKENS=60000 ${ZSE_TIMEOUT:-timeout} $ZSE_REQ_SLACK_TIMEOUT claude -p --model haiku \
+      --allowedTools $ZSE_REQ_SLACK_TOOLS \
+      --output-format stream-json --verbose "$p" </dev/null 2>/dev/null
   ) || return 1
-  [[ $out == ERROR* ]] && return 1
-  # Valid lines only; one entry per PR link of a message (`urls`, or
-  # `url`), the URL without a suffix (/changes, /files, #…, ?…).
-  new=$(print -r -- "$out" | _z_req_slack_parse) || return 1
+  local parsed err
+  parsed=$(print -r -- "$out" | _z_req_slack_parse) || return 1
+  err=$(print -r -- "$parsed" | $jq -r '.error // empty')
+  if [[ -n $err ]]; then
+    print -r -- "$err" >"$ZSE_REQ_DIR/slack.why"
+    return 1
+  fi
+  rm -f "$ZSE_REQ_DIR/slack.why"
+  local linear
+  linear=$(print -r -- "$parsed" | $jq -c .linear | _z_req_linear_urls) || return 1
+  new=$(print -r -- "$parsed" | $jq -c --argjson l "$linear" '.items + $l') || return 1
   old=$($jq -c '[.[] | {url, via: .source, from, at, text}]' "$ZSE_REQ_DIR/slack.json" 2>/dev/null) || old='[]'
   # One entry per URL and source: the earliest request.
   merged=$($jq -nc --argjson a "$old" --argjson b "$new" \

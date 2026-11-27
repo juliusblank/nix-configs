@@ -208,9 +208,68 @@ ZSE_REQ_QUERY[github]='broken'
 _z_req_fetch github
 check "req error kept"    "$([[ -r $ZSE_REQ_DIR/github.error && -r $ZSE_REQ_DIR/github.json ]] && print 1)" 1
 check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[2]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · new commits — · Slack —"
-# Slack: valid lines only, URL suffixes cut, closed PRs and old requests
-# dropped, reviewed after the request → note; the search window starts at
-# the last search minus 1 h.
+# Slack and Linear: zse reads the raw tool results (stream-json) and finds
+# the links itself; own and bot messages, other channels, closed and old
+# PRs drop; SH requests only during a shift; Linear PRs by exact title.
+_t_n=0
+# _t_call NAME INPUT-JSON RESULT-TEXT — one tool call and its result
+_t_call() {
+  ((++_t_n))
+  ${ZSE_JQ:-jq} -nc --arg id t$_t_n --arg name $1 --argjson input $2 \
+    '{type: "assistant", message: {content: [{type: "tool_use", id: $id, name: $name, input: $input}]}}'
+  ${ZSE_JQ:-jq} -nc --arg id t$_t_n --arg text $3 \
+    '{type: "user", message: {content: [{type: "tool_result", tool_use_id: $id, content: [{type: "text", text: $text}]}]}}'
+}
+# _t_msg CHANNEL FROM-NAME FROM-ID TIME TEXT [BOT] — one search result
+_t_msg() {
+  print -r -- "Channel: $1 (ID: C1)
+From: $2 <x@example.com> (ID: $3) ${6:+ [BOT]}
+Time: $4
+Message_ts: $(${ZSE_JQ:-jq} -nr --arg t $4 '$t | fromdate').000100
+Permalink: [link](https://example.slack.com/archives/C1/p1)
+Text: 
+> $5
+Context after: 
+- From: Zed (ID: U9) 
+  > not this one <https://github.com/o/r99/pull/99|ctx>
+"
+}
+# _t_search QUERY CURSOR PAGINATION MSG… — a Slack search call
+_t_search() {
+  local q=$1 c=$2 pag=$3 body="# Search Results for: $1" i=0 input
+  shift 3
+  for m; do body+=$'\n### Result '"$((++i)) of $#"$'\n'"$m"$'\n---\n'; done
+  input=$(${ZSE_JQ:-jq} -nc --arg q "$q" --arg c "$c" '{query: $q} + (if $c == "" then {} else {cursor: $c} end)')
+  _t_call mcp__claude_ai_Slack__slack_search_public_and_private "$input" \
+    "$(${ZSE_JQ:-jq} -nc --arg r "$body" --arg p "$pag" '{results: $r, pagination_info: $p}')"
+}
+_t_stream() {
+  local end='End of results - No more pages available.' w="after:$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 8 * 86400)))"
+  _t_call mcp__claude_ai_Slack__slack_read_user_profile '{}' $'User ID: U1\nUsername: me'
+  _t_search "is:dm github.com/ pull $w" "" 'For the next page of results use cursor `C2`' \
+    "$(_t_msg DM Theo U2 2026-11-26T10:00:00Z 'stamp? <https://github.com/o/r1/pull/1/files#diff|github.com/o/r1/pull/1/files>')" \
+    "$(_t_msg DM Me U1 2026-11-26T10:00:00Z 'mine <https://github.com/o/r11/pull/11|x>')" \
+    "$(_t_msg DM Claudius U3 2026-11-26T10:00:00Z 'digest <https://github.com/o/r12/pull/12|x>' bot)"
+  _t_search "is:dm github.com/ pull $w" C2 "$end" \
+    "$(_t_msg DM Bo U4 2026-11-25T10:00:00Z 'closed one <https://github.com/o/r5/pull/5|x>')" \
+    "$(_t_msg DM Bot U5 2026-11-25T10:00:00Z 'my own <https://github.com/o/r7/pull/7|x>')" \
+    "$(_t_msg DM Cy U6 $old_iso 'old <https://github.com/o/r6/pull/6|x>')" \
+    "$(_t_msg DM Gab U7 2026-11-26T15:30:57Z 'small PRs
+> • <https://github.com/o/ws/pull/31|a>
+> • <https://github.com/o/ws/pull/26/changes|b>
+> • <https://github.com/o/ws/pull/32/changes#diff-b2|c> and <https://github.com/o/ws/issues/9|d>')"
+  _t_search "to:me github.com/ pull $w" "" "$end"
+  _t_search "@me github.com/ pull $w" "" "$end" \
+    "$(_t_msg '#proj-x' Ann U8 2026-11-25T10:00:00Z 'review please <@U1|me> <https://github.com/o/r4/pull/4|x>')" \
+    "$(_t_msg '#proj-y' Ann U8 2026-11-25T10:00:00Z 'group mention <!subteam^S1> <https://github.com/o/r13/pull/13|x>')"
+  _t_search "in:#team-platform github.com/ pull $w" "" "$end" \
+    "$(_t_msg '#team-platform' Dan U10 2026-11-24T10:00:00Z 'SH: review? <https://github.com/o/r8/pull/8|x>')" \
+    "$(_t_msg '#team-platform' Eve U11 2026-11-25T10:00:00Z 'SH: not my shift <https://github.com/o/r9/pull/9|x>')"
+  _t_call mcp__claude_ai_Linear__get_notifications '{"limit":50}' '{"notifications":[
+    {"type":"pullRequestReviewRequested","title":"Ten","subtitle":"Katia Recard requested your review","createdAt":"2026-11-23T10:00:00.000Z","archivedAt":null},
+    {"type":"pullRequestReviewRequested","title":"Gone","subtitle":"Katia Recard requested your review","createdAt":"2026-11-23T10:00:00.000Z","archivedAt":"2026-11-24T10:00:00.000Z"},
+    {"type":"issueNewComment","title":"Eleven","subtitle":"Katia Recard commented","createdAt":"2026-11-23T10:00:00.000Z","archivedAt":null}],"hasNextPage":false}'
+}
 now_iso=$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $EPOCHSECONDS)
 old_iso=$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 9 * 86400)))
 claude() {
@@ -220,18 +279,14 @@ claude() {
     return
   fi
   print -r -- "$*" >"$ZSE_REQ_DIR/prompt"
-  print -r -- '{"url":"https://github.com/o/r10/pull/10","via":"linear","from":"Katia","at":"2026-11-23T10:00:00Z","text":"requested your review"}'
-  print -r -- '{"url":"https://github.com/o/r8/pull/8","via":"sh","from":"Dan","at":"2026-11-24T10:00:00Z","text":"SH: review?"}'
-  print -r -- '{"url":"https://github.com/o/r9/pull/9","via":"sh","from":"Eve","at":"2026-11-25T10:00:00Z","text":"SH: not my shift"}'
-  print -r -- '{"url":"https://github.com/o/r1/pull/1/files#diff","via":"dm","from":"Theo","at":"2026-11-26T10:00:00Z","text":"stamp?"}'
-  print -r -- 'some prose'
-  print -r -- '{"url":"https://github.com/o/r4/pull/4","via":"#team-platform","from":"Ann","at":"2026-11-25T10:00:00Z","text":"review please"}'
-  print -r -- '{"url":"https://github.com/o/r5/pull/5","via":"@","from":"Bo","at":"2026-11-25T10:00:00Z","text":"closed one"}'
-  print -r -- '{"url":"https://github.com/o/r7/pull/7","via":"dm","from":"Bot","at":"2026-11-25T10:00:00Z","text":"my own"}'
-  print -r -- "{\"url\":\"https://github.com/o/r6/pull/6\",\"via\":\"dm\",\"from\":\"Cy\",\"at\":\"$old_iso\",\"text\":\"old\"}"
+  _t_stream
 }
 gh() {
   [[ $1 == api ]] || return 1
+  if [[ $* == *'s1: search('* ]]; then
+    print -r -- '{"data":{"s1":{"nodes":[{"url":"https://github.com/o/r10/pull/10","title":"Ten"},{"url":"https://github.com/o/r14/pull/14","title":"Ten more"}]}}}'
+    return
+  fi
   print -r -- '{"data":{"viewer":{"login":"me"},
     "p1":{"pullRequest":{"url":"https://github.com/o/r1/pull/1","title":"Fix A","state":"OPEN","author":{"login":"theo"},"reviews":{"nodes":[{"author":{"login":"me"},"submittedAt":"2026-11-26T12:00:00Z"}]}}},
     "p2":{"pullRequest":{"url":"https://github.com/o/r4/pull/4","title":"Four","state":"OPEN","author":{"login":"ann"},"reviews":{"nodes":[]}}},
@@ -242,29 +297,34 @@ gh() {
     "p7":{"pullRequest":{"url":"https://github.com/o/r9/pull/9","title":"Nine","state":"OPEN","author":{"login":"eve"},"reviews":{"nodes":[]}}},
     "p8":{"pullRequest":{"url":"https://github.com/o/r10/pull/10","title":"Ten","state":"OPEN","author":{"login":"katia-recard-taktile"},"reviews":{"nodes":[]}}}}}'
 }
+parsed=$(_t_stream | _z_req_slack_parse)
+check "slack parse error" "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '.error')" null
+check "slack parse urls"  "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '[.items[] | "\(.url | sub(".*github.com/"; "")) \(.via)"] | join(",")')" "o/r1/pull/1 dm,o/r4/pull/4 @,o/r5/pull/5 dm,o/r6/pull/6 dm,o/r7/pull/7 dm,o/r8/pull/8 sh,o/r9/pull/9 sh,o/ws/pull/26 dm,o/ws/pull/31 dm,o/ws/pull/32 dm"
+check "slack parse text"  "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '.items[0].text')" "stamp? https://github.com/o/r1/pull/1/files#diff"
+check "slack parse at"    "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '.items[0].at')" 2026-11-26T10:00:00Z
+check "linear parse"      "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -c '[.linear[] | [.title, .from]]')" '[["Ten","Katia Recard"]]'
+check "slack page missing" "$(_t_stream | ${ZSE_JQ:-jq} -c 'select(.message.content[0].input.cursor? != "C2")' | _z_req_slack_parse | ${ZSE_JQ:-jq} -r .error)" "1 Slack result pages not fetched"
+check "slack query missing" "$(_t_stream | ${ZSE_JQ:-jq} -c 'select((.message.content[0].input.query? // "") | startswith("to:me") | not)' | _z_req_slack_parse | ${ZSE_JQ:-jq} -r .error)" "missing searches: to:me "
 rm -f "$ZSE_REQ_DIR"/*.json(N) "$ZSE_REQ_DIR"/*.error(N)
-print -r -- $((EPOCHSECONDS - 2 * 86400)) >"$ZSE_REQ_DIR/last-slack-search"
 _z_req_fetch slack
 check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r10/pull/10,https://github.com/o/r4/pull/4,https://github.com/o/r8/pull/8"
-parsed=$(print -r -- '{"urls":["https://github.com/o/ws/pull/31","https://github.com/o/ws/pull/30","https://github.com/o/ws/pull/26/changes","https://github.com/o/ws/pull/32/changes#diff-b2","https://github.com/o/ws/issues/9"],"via":"dm","from":"Gab","at":"2026-11-26T15:30:57Z","text":"small PRs"}' | _z_req_slack_parse)
-check "slack multi urls"  "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '[.[].url | sub(".*/pull/"; "")] | join(",")')" "26,30,31,32"
-check "slack multi from"  "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '[.[].from] | unique | join(",")')" "Gab"
 check "slack shifts"      "$(${ZSE_JQ:-jq} -c . "$ZSE_REQ_DIR/shifts.json")" '[{"start":"2026-11-24T00:00:00","end":"2026-11-25T00:00:00"}]'
-check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'on or after ([0-9-]+)' ]] && print $match[1])" "$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 2 * 86400 - 3600)))"
+check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'after:([0-9-]+)' ]] && print $match[1])" "$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 8 * 86400)))"
 check "slack last search" "$(( $(<$ZSE_REQ_DIR/last-slack-search) >= EPOCHSECONDS - 5 ))" 1
 lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
 check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r8/pull/8,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1,https://github.com/o/r10/pull/10"
 plain=${${lines[6]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "linear icon"       "${plain[(w)1]}"                  $'\U000f0c0d'
 check "linear author"     "${plain[(w)4]}"                  "katia"
-check "slack icon"        "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)1]}" $'\uf198'
+check "slack icon"        "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)1]}" $''
 plain=${${lines[5]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "slack reviewed"    "${plain##*reviewed }"            "$(_z_age 2026-11-26T12:00:00Z) ago"
-check "slack preview via" "$(_z_pick_preview https://github.com/o/r4/pull/4 | head -n 1)" "#team-platform · Ann · 2026-11-25 10:00: review please"
-# A second run keeps the earlier entries (the search only sees new ones)
-claude() { :; }
+check "slack preview via" "$(_z_pick_preview https://github.com/o/r4/pull/4 | head -n 1)" "@ · Ann · 2026-11-25 10:00: review please <@U1|me> https://github.com/o/r4/pull/4"
+# A failed search keeps the earlier entries and gives the reason
+claude() { _t_stream | ${ZSE_JQ:-jq} -c 'select((.message.content[0].input.query? // "") | startswith("to:me") | not)'; }
 _z_req_fetch slack
 check "slack keeps old"   "$(${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 4
+check "slack why"         "$(<$ZSE_REQ_DIR/slack.why)" "missing searches: to:me "
 check "shifts once a day" "$(wc -l <"$ZSE_REQ_DIR/shift-calls" | tr -d ' ')" 1
 claude() { print ERROR; }
 _z_req_fetch slack
