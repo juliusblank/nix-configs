@@ -796,6 +796,7 @@ _z_review() {
   emulate -L zsh
   local f="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$1.pr" k v
   REPLY="" REPLY_LABEL="" REPLY_SUMMARY="" REPLY_AT="" REPLY_AUTHOR=""
+  REPLY_HEAD="" REPLY_BASE="" REPLY_TICKET=""
   [[ -r $f ]] || return 1
   while IFS== read -r k v; do
     case $k in
@@ -804,6 +805,9 @@ _z_review() {
       summary) REPLY_SUMMARY=$v ;;
       at) REPLY_AT=$v ;;
       author) REPLY_AUTHOR=$v ;;
+      head) REPLY_HEAD=$v ;;
+      base) REPLY_BASE=$v ;;
+      ticket) REPLY_TICKET=$v ;;
     esac
   done <"$f"
   # A file from before the states: only `new=` and `summary=`.
@@ -847,8 +851,8 @@ _z_pick_lines() {
   local n uc st act sort badge agents title fg bg icon age started g
   local head plain row
   local -i width=$(_z_pick_width) rest namew=0 badgew=0
-  local -A badges sorts authors
-  local -a rows
+  local -A badges sorts authors trees tickets
+  local -a rows prs
   local -A order=(busy 1 waiting 2 idle 3 '?' 4)
   local -a names=($(_z_reg_names) ${(k)live})
   local e=$'\e'
@@ -874,10 +878,33 @@ _z_pick_lines() {
     badges[$n]=$badge sorts[$n]=$sort
     # The PR author after a review's name: `rev-… (theo)`
     [[ -n $REPLY_AUTHOR ]] && authors[$n]=" ($REPLY_AUTHOR)"
+    # Review sessions: stacks and ticket groups (pr_groups, below)
+    if [[ $uc == review ]]; then
+      prs+=("$(${ZSE_JQ:-jq} -nc --arg n "$n" --arg repo "$(_z_reg_get "$n" owner 2>/dev/null)/$(_z_reg_get "$n" repo 2>/dev/null)" \
+        --arg head "$REPLY_HEAD" --arg base "$REPLY_BASE" --arg ticket "$REPLY_TICKET" --argjson g "$sort" \
+        --arg started "$(_z_reg_get "$n" last_started 2>/dev/null)" \
+        '{url: $n, repo: $repo, head: $head, base: $base, ticket: $ticket, g: $g,
+          at: (0 - ($started | try fromdate catch 0))}')")
+    fi
     plain=${badge//$e\[[0-9;]#m/}
-    l="$n${authors[$n]:-}"
-    ((${(m)#l} > namew)) && namew=${(m)#l}
     ((${(m)#plain} > badgew)) && badgew=${(m)#plain}
+  done
+  # Review sessions in group order: the position becomes the sort key, with
+  # the stack prefix before the name and the ticket ID before the title.
+  if (($#prs)); then
+    local pn pos tr tk
+    while IFS=$'\t' read -r pn pos tr tk; do
+      sorts[$pn]=$pos
+      [[ $tr != . ]] && trees[$pn]=$tr
+      [[ $tk != . ]] && tickets[$pn]=$tk
+    done < <(print -rl -- $prs | ${ZSE_JQ:-jq} -rs "$ZSE_GROUP_JQ"'
+      pr_groups | to_entries[]
+      | [.value.url, .key, (if .value.tree == "" then "." else .value.tree end),
+         (if .value.tshow == "" then "." else .value.tshow end)] | @tsv' 2>/dev/null)
+  fi
+  for n in $names; do
+    l="${trees[$n]:-}$n${authors[$n]:-}"
+    ((${(m)#l} > namew)) && namew=${(m)#l}
   done
   for n in $names; do
     uc=$(_z_reg_get "$n" use_case 2>/dev/null) || uc=""
@@ -896,7 +923,9 @@ _z_pick_lines() {
     g=$(_z_group "$uc")
     # Only foreground / weight resets inside the row: a full reset would
     # end the background before the padding.
-    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m $n${authors[$n]:+${e}[2m${authors[$n]}${e}[22m}${(l:namew - ${(m)#n} - ${(m)#authors[$n]}:: :)} $(printf '%-7s %4s' "$st" "$age")"
+    l=${trees[$n]:-}
+    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m ${l:+${e}[2m$l${e}[22m}$n${authors[$n]:+${e}[2m${authors[$n]}${e}[22m}${(l:namew - ${(m)#l} - ${(m)#n} - ${(m)#authors[$n]}:: :)} $(printf '%-7s %4s' "$st" "$age")"
+    [[ -n ${tickets[$n]:-} ]] && title="${tickets[$n]} · $title"
     if ((badgew)); then
       plain=${badge//$e\[[0-9;]#m/}
       head+="  ${badge}${(l:badgew - ${(m)#plain}:: :)}"
@@ -1024,6 +1053,78 @@ typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
 
 # _z_req_fetch SOURCE — run one GitHub source; write its cache (or
 # <source>.error), then tell the picker.
+# Ticket IDs: 2–6 letters, a dash, at least 3 digits (PCS-16523); not these
+# words (UTF-8 has too few digits anyway).
+typeset -g ZSE_TICKET_RE='(?:^|[^A-Za-z0-9])([A-Za-z]{2,6}-[0-9]{3,})(?![0-9])'
+typeset -ga ZSE_TICKET_NOT=(SHA ISO RFC CVE UTC)
+
+# jq: `pr_groups` — rows ({url, repo, head, base, ticket, g, at}; g: lower
+# sorts first) → the same rows in display order, with `tree` (the stack
+# prefix: "", "├ " or "└ ", indented by depth) and `tshow` (the ticket ID of
+# a row in a group of two or more). A PR whose base branch is the head
+# branch of another listed PR in the same repo is stacked on it; a stack is
+# one group (base first, by depth), else PRs with the same ticket ID are
+# one group (by g, then at). Groups sort by their best g, then the oldest
+# `at` among the rows with that g.
+typeset -g ZSE_GROUP_JQ='
+def pr_groups:
+  . as $rows
+  | ([$rows[] | select((.head // "") != "") | {key: "\(.repo)|\(.head)", value: .url}] | from_entries) as $byhead
+  | ([$rows[] | {key: .url, value: (if (.base // "") != "" then $byhead["\(.repo)|\(.base)"] else null end)}]
+     | from_entries) as $par
+  | ([$par[] | select(. != null)] | unique) as $parents
+  | def up($u; $n): if $n > 20 or $par[$u] == null or $par[$u] == $u then {root: $u, depth: $n} else up($par[$u]; $n + 1) end;
+  def kids($u): [$rows[] | select($par[.url] == $u and .url != $u)] | sort_by(.at) | map(.url);
+  def dfs($u; $n): if $n > 20 then [] else [$u] + ([kids($u)[] | dfs(.; $n + 1)] | add // []) end;
+  map(up(.url; 0) as $x
+      | .url as $u | (($par[$u] != null) or ($parents | index([$u]) != null)) as $stacked
+      | . + {depth: $x.depth,
+             gkey: (if $stacked then "s:" + $x.root elif (.ticket // "") != "" then "t:" + .ticket else "u:" + .url end)})
+  | group_by(.gkey)
+  | map((map(.g) | min) as $gg | (map(select(.g == $gg) | .at) | min) as $ga
+        | (if (.[0].gkey | startswith("s:"))
+           then (map({key: .url, value: .}) | from_entries) as $by | [dfs(.[0].gkey[2:]; 0)[] | $by[.] | select(. != null)]
+           else sort_by(.g, .at) end)
+        | length as $n
+        | map(. + {gg: $gg, ga: $ga,
+                   tree: (if (.gkey | startswith("s:")) and .depth > 0
+                          then ([range(1; .depth)] | map("  ") | join(""))
+                               + (if (kids($par[.url]) | last) == .url then "└ " else "├ " end)
+                          else "" end),
+                   tshow: (if $n > 1 then (.ticket // "") else "" end)}))
+  | sort_by(.[0].gg, .[0].ga, .[0].gkey) | flatten;
+'
+
+# _z_req_prinfo — a JSON array of requests ({url, …}) on stdin → the same
+# entries with `head` and `base` (branch names) and `ticket` (the first
+# ticket ID in the head branch, else the title, else the body; upper case),
+# from one GraphQL call. On a failed call, the entries come back unchanged.
+_z_req_prinfo() {
+  emulate -L zsh
+  local jq=${ZSE_JQ:-jq} in q i data
+  local -a urls
+  in=$(cat)
+  urls=(${(f)"$(print -r -- "$in" | $jq -r '.[].url' 2>/dev/null)"})
+  q='query {'
+  for i in {1..$#urls}; do
+    [[ $urls[i] =~ '^https://github.com/([^/]+)/([^/]+)/pull/([0-9]+)$' ]] || continue
+    q+=" p$i: repository(owner: \"$match[1]\", name: \"$match[2]\") { pullRequest(number: $match[3]) { url headRefName baseRefName title body } }"
+  done
+  q+=' }'
+  if ((! $#urls)) || ! data=$(${ZSE_TIMEOUT:-timeout} 30 gh api graphql -f query="$q" 2>/dev/null); then
+    print -r -- "$in"
+    return 0
+  fi
+  print -r -- "$in" | $jq -c --argjson d "$data" --arg re "$ZSE_TICKET_RE" --arg not "${(j:|:)ZSE_TICKET_NOT}" '
+    def tickets: [match($re; "g").captures[0].string | ascii_upcase
+                  | select(split("-")[0] | test("^(" + $not + ")$") | not)];
+    ([$d.data[]? | .pullRequest | select(. != null)
+      | {key: .url, value: {head: .headRefName, base: .baseRefName,
+          ticket: ([(.headRefName // "" | tickets), (.title // "" | tickets), (.body // "" | tickets)]
+                   | map(first // empty) | first)}}] | from_entries) as $p
+    | map(. + ($p[.url] // {}))'
+}
+
 _z_req_fetch() {
   emulate -L zsh
   setopt extended_glob
@@ -1035,6 +1136,8 @@ _z_req_fetch() {
   mkdir "$lock" 2>/dev/null || return 0
   if [[ $src == slack || $src == rereview ]]; then
     if _z_req_$src "$lock"; then
+      _z_req_prinfo <"$ZSE_REQ_DIR/$src.json" >"$lock/info" && [[ -s $lock/info ]] \
+        && mv "$lock/info" "$ZSE_REQ_DIR/$src.json"
       rm -f "$ZSE_REQ_DIR/$src.error"
     else
       print -r -- "$(strftime '%H:%M' $EPOCHSECONDS)" >"$ZSE_REQ_DIR/$src.error"
@@ -1050,7 +1153,8 @@ _z_req_fetch() {
       --json url,repository,number,title,author,createdAt -- ${=q} 2>/dev/null) \
     && json=$(print -r -- "$json" | ${ZSE_JQ:-jq} -c --arg s "$src" \
       '[.[] | {url, repo: .repository.nameWithOwner, number, title,
-               author: (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "")), at: .createdAt, source: $s}]'); then
+               author: (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "")), at: .createdAt, source: $s}]' \
+      | _z_req_prinfo); then
     print -r -- "$json" >"$lock/out" && mv "$lock/out" "$ZSE_REQ_DIR/$src.json"
     rm -f "$ZSE_REQ_DIR/$src.error"
   else
@@ -1348,34 +1452,47 @@ _z_req_lines() {
   order=$(print -rl -- $ZSE_REQ_RANK | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
   weight=$(for src in ${(k)ZSE_REQ_WEIGHT}; do print -r -- "$src ${ZSE_REQ_WEIGHT[$src]}"; done \
     | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != "") | split(" ") | {key: .[0], value: (.[1] | tonumber)}) | from_entries')
-  (($#files)) && rows=(${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" --argjson weight "$weight" '
+  # Fields: g, url, repo, number, title, author, at, sources, tree, ticket,
+  # reviewed ("." for an empty tree / ticket: `read` joins empty fields).
+  (($#files)) && rows=(${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" --argjson weight "$weight" "$ZSE_GROUP_JQ"'
       [.[][]] | group_by(.url)
       | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
              author: .[0].author, at: (map(.at) | min),
+             head: (map(.head // empty) | first), base: (map(.base // empty) | first),
+             ticket: (map(.ticket // empty) | first),
              reviewed: (map(.reviewed // empty) | max),
              groups: (map(.group // .source) | unique | sort_by(. as $s | $order | index($s)))})
       | map(. + {g: (0 - ([.groups[] | $weight[.] // 0] | add))})
-      | sort_by(.g, .at)[]
+      | pr_groups[]
       | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.groups | join(",")),
+         (if .tree == "" then "." else .tree end), (if .tshow == "" then "." else .tshow end),
          (if .reviewed != null and .reviewed > .at then .reviewed else "" end)] | @tsv
     ' $files 2>/dev/null)"})
   # The VIA column fits the row with the most sources.
-  local -i iconw=6 n_src
+  local -i iconw=6 n_src tw=0
   local -a via
-  local line
+  local line tk
   for line in $rows; do
     via=(${(s:,:)${${(ps:\t:)line}[8]}})
     n_src=$#via
     ((2 * n_src > iconw)) && iconw=$((2 * n_src))
+    # The TICKET column fits the longest ticket of a group (none: no column).
+    tk=${${(ps:\t:)line}[10]}
+    [[ $tk != . ]] && ((${#tk} > tw)) && tw=${#tk}
   done
+  local tcol=""
+  ((tw)) && tcol=" ${(r:tw:: :):-TICKET}"
+  ((tw && tw < 6)) && tw=6
   # Column header (fzf --header-lines=1), then the status line.
-  print -r -- "	${e}[2m  ${(r:iconw:: :):-VIA} $(printf '%-16s %4s  %-14s' PR AGE AUTHOR)  TITLE${e}[22m"
+  print -r -- "	${e}[2m  ${(r:iconw:: :):-VIA} $(printf '%-16s %4s  %-14s' PR AGE AUTHOR)${tcol:+ ${(r:tw:: :):-TICKET}}  TITLE${e}[22m"
   print -r -- "	${e}[2m${(j: · :)st}${e}[22m"
 
-  local gi head plain repo num title author at key note age reviewed icons
+  local gi head plain repo num title author at key note age reviewed icons tree ticket
   local -a srcs
   for line in $rows; do
-    IFS=$'\t' read -r gi u repo num title author at srcs reviewed <<<"$line"
+    IFS=$'\t' read -r gi u repo num title author at srcs tree ticket reviewed <<<"$line"
+    [[ $tree == . ]] && tree=""
+    [[ $ticket == . ]] && ticket=""
     age=$(_z_age "$at")
     # Each icon is one cell (Nerd Font Mono); zsh counts the Nerd Font ones
     # as zero, so pad by the number of icons.
@@ -1384,6 +1501,8 @@ _z_req_lines() {
     # First part of the login: katia-recard-taktile → katia
     author=${${${author%-taktile}#taktile-}%%[-._]*}
     head="  ${icons}${(l:iconw - 2 * $#srcs:: :)} $(printf '%-16s %4s  %-14s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "${author[1,14]}")"
+    ((tw)) && head+=" ${(r:tw:: :)ticket}"
+    title="$tree$title"
     key=$u note=""
     # New commits alone (no request) only count without a review session.
     [[ $srcs == rereview && -n ${sess[$u]:-} ]] && continue

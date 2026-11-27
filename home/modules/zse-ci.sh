@@ -65,6 +65,10 @@ write_state() {
     printf 'state=%s\n' "$1"
     printf 'label=%s\n' "$2"
     [[ -n $author ]] && printf 'author=%s\n' "$author"
+    # For the stacks and ticket groups of the picker (SPEC #47)
+    [[ -n $branch ]] && printf 'head=%s\n' "$branch"
+    [[ -n $base ]] && printf 'base=%s\n' "$base"
+    [[ -n $ticket ]] && printf 'ticket=%s\n' "$ticket"
     [[ -n ${3:-} ]] && printf 'summary=%s\n' "$3"
     printf 'at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   } >"$state_file.tmp" && mv "$state_file.tmp" "$state_file"
@@ -89,7 +93,7 @@ ticket_status() {
 render() {
   local json s
   if ! json=$(gh pr view "$pr" "${repo_args[@]}" --json \
-    title,author,state,isDraft,reviewDecision,mergeable,headRefName,headRefOid,commits,reviews,comments,statusCheckRollup 2>&1); then
+    title,body,author,state,isDraft,reviewDecision,mergeable,headRefName,baseRefName,headRefOid,commits,reviews,comments,statusCheckRollup 2>&1); then
     clear
     printf 'PR #%s\n%s\n\n%s · every %ss · r refresh · q quit\n' "$pr" "$json" "$(date '+%H:%M:%S')" "$interval"
     return
@@ -107,7 +111,7 @@ render() {
   draft=$(q .draft)
   decision=$(q '.decision | ascii_downcase | gsub("_"; " ")')
   mergeable=$(q '.mergeable | ascii_downcase')
-  branch=$(q .branch)
+  branch=$(q .branch) base=$(q '.base_branch // ""') ticket=$(q '.ticket // ""')
   author=$(q .author)
 
   clear
@@ -175,7 +179,7 @@ render() {
     "$dim" "$(date '+%H:%M:%S')" "$interval" "$reset"
 }
 
-branch="" author=""
+branch="" base="" ticket="" author=""
 while :; do
   render
   key=""
@@ -187,10 +191,9 @@ while :; do
   case $key in
     q) set_badge off; exit 0 ;;  # the state file stays for the picker
     t)
-      id=$(printf '%s %s' "$branch" "$(gh pr view "$pr" "${repo_args[@]}" --json title -q .title 2>/dev/null)" \
-        | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -n 1)
+      id=$ticket
       if [[ -z $id ]]; then
-        ticket_line="Ticket: no ticket ID in the PR title or branch."
+        ticket_line="Ticket: no ticket ID in the PR branch, title or body."
       else
         printf '\n%sReading %s from Linear (about 10 s) …%s\n' "$dim" "$id" "$reset"
         line=$(ticket_status "$id")

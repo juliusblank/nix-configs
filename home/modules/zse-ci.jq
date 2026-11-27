@@ -10,6 +10,9 @@
 #   submitted        my latest review comments or requests changes (or I
 #                    only commented), nothing new since
 
+# Ticket IDs as in zse.zsh (ZSE_TICKET_RE / ZSE_TICKET_NOT; keep in sync).
+def tickets: [match("(?:^|[^A-Za-z0-9])([A-Za-z]{2,6}-[0-9]{3,})(?![0-9])"; "g").captures[0].string | ascii_upcase
+              | select(split("-")[0] | test("^(SHA|ISO|RFC|CVE|UTC)$") | not)];
 def first_line: (. // "" | gsub("<!--[\\s\\S]*?-->"; "") | split("\n") | map(select(test("\\S"))) | .[0] // "" | .[0:90]);
 def outcome:
   ((if (.conclusion // "") != "" then .conclusion else (.state // .status // "") end) | ascii_upcase)
@@ -69,7 +72,8 @@ def outcome:
     author: ((.author.name // "" | split(" ") | .[0] // "") as $f
       | if $f != "" then $f else (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "") | sub("-taktile$"; "") | sub("^taktile-"; "") | split("-")[0] | split(".")[0] | split("_")[0]) end | ascii_downcase),
     state, draft: .isDraft, decision: (.reviewDecision // ""), mergeable: (.mergeable // ""),
-    branch: .headRefName, head: (.headRefOid[0:7]),
+    branch: .headRefName, base_branch: (.baseRefName // ""), head: (.headRefOid[0:7]),
+    ticket: ([(.headRefName // "" | tickets), (.title // "" | tickets), (.body // "" | tickets)] | map(first // empty) | first),
     ci: {
       pass: ([$ci[] | select(.o == "pass")] | length),
       fail: ([$ci[] | select(.o == "fail")] | length),

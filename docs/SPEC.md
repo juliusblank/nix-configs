@@ -169,10 +169,10 @@ A PR that already has a review session, or that you reviewed after the latest re
 
 **Enter:** `zse -l review <url>` (a new session starts in the background, then the picker switches to it), or `zse switch <name>` when a session exists. Preview: `gh pr view` (title, author, size, CI, review decision) and the Slack message text.
 
-**Planned: stacks and ticket groups (both views).** PRs that belong together stay together; the score order between groups does not change.
+**Stacks and ticket groups (both views; done).** PRs that belong together stay together; the score order between groups does not change.
 
 - **Stacks:** a PR whose base branch (`baseRefName`) is the head branch (`headRefName`) of another open PR is stacked on it. The requests view gets both fields in the GraphQL call that already reads the PR data (no extra call); the sessions view reads them from the `zse-ci` state of each review session (`zse-ci` also reads `baseRefName`). A stack is one block, placed at the score of its best member; inside the block the base PR comes first, and each PR above it is indented in the title column (`├` / `└`). PRs in the stack that are not in the list (no request, no session) do not show.
-- **Ticket groups:** PRs with the same ticket ID (`[A-Z]+-[0-9]+`, first match in the branch, then the title, then the body; regex only, no model call) stay together as one block at the score of the best member, with the usual order of the view inside; a short ticket column shows the ID. A stack wins over a ticket group (a stack is never split).
+- **Ticket groups:** PRs with the same ticket ID (`[A-Z]+-[0-9]+`, first match in the branch, then the title, then the body; regex only, no model call) stay together as one block at the score of the best member, with the usual order of the view inside; the requests view shows the ID in a TICKET column (only when a group exists), the sessions view before the title (`PCS-100 · <title>`). Branches and ticket IDs come from one GraphQL call per source fetch (`_z_req_prinfo`) and, for sessions, from the `zse-ci` state (`head`, `base`, `ticket`). The ticket regex (`ZSE_TICKET_RE`: 2–6 letters, a dash, 3+ digits; not SHA / ISO / RFC / CVE / UTC) is the same in `zse-ci.jq`. A stack wins over a ticket group (a stack is never split).
 - **Not planned:** grouping by Linear project (one Linear lookup per ticket).
 
 **Not in scope:** Slack threads without a PR link; requests in other tools; notifications or polling while the picker is closed.

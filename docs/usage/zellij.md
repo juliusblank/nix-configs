@@ -401,6 +401,12 @@ sessions: stop them with `zse stop --all` before you change it, and run
     before every row without it, and inside each level more sources come
     first (Slack + GitHub before Slack only). Equal scores: oldest first.
     Then repo and number, age, author (first part of the login), title.
+    PRs that belong together stay together (both views): a stack (a PR
+    based on another listed PR's branch) shows as one block, base first,
+    the PRs above it indented with `├` / `└`; PRs with the same ticket ID
+    (branch, title or body) form one block, with the ID in a TICKET column
+    (sessions view: before the title). A block takes the place of its best
+    row.
     When you type, the best match comes first (in both views).
     `Enter` starts the review session (`zse -l review <url>`); a PR that
     has a review session already is dim and `Enter` switches to it.
