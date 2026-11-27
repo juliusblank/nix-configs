@@ -178,6 +178,32 @@ check "pick author align" "${#${row_a%%running*}}"           "${#${row_b%%runnin
 check "pick new first"    "${(j:,:)${(@M)picked:#rev-*}}"     "rev-b,rev-a"
 unfunction zellij
 rm -rf "$XDG_CACHE_HOME"; unset XDG_CACHE_HOME
+# Review requests (#47): merge by URL, groups, review sessions by URL
+ZSE_REQ_DIR=$(mktemp -d)
+gh() {
+  case "$*" in
+    *user-review-requested*) print -r '[{"url":"https://github.com/o/r1/pull/1","repository":{"nameWithOwner":"o/r1"},"number":1,"title":"Fix A","author":{"login":"theo"},"createdAt":"2026-11-20T10:00:00Z"},{"url":"https://github.com/o/r2/pull/2","repository":{"nameWithOwner":"o/r2"},"number":2,"title":"Add B","author":{"login":"app/bot[bot]"},"createdAt":"2026-11-25T10:00:00Z"}]' ;;
+    *team-review-requested*) print -r '[{"url":"https://github.com/o/r2/pull/2","repository":{"nameWithOwner":"o/r2"},"number":2,"title":"Add B","author":{"login":"app/bot[bot]"},"createdAt":"2026-11-25T10:00:00Z"},{"url":"https://github.com/o/r3/pull/3","repository":{"nameWithOwner":"o/r3"},"number":3,"title":"Team C","author":{"login":"ann"},"createdAt":"2026-11-10T10:00:00Z"}]' ;;
+    *) return 1 ;;
+  esac
+}
+_z_reg_write rev-r3-3-x review /tmp "" https://github.com/o/r3/pull/3
+_z_req_fetch github
+_z_req_fetch team
+lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
+check "req keys"          "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r1/pull/1,https://github.com/o/r2/pull/2,,rev-r3-3-x"
+plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "req sources"       "${${plain#*1d  }%% *}"           "gh,team"
+check "req bot author"    "${plain##* }"                    "(bot)"
+check "req session note"  "${${lines[6]//$'\e'\[[0-9;]#m/}#* → }" "rev-r3-3-x (Enter switches)"
+locks=($ZSE_REQ_DIR/*.lock(N))
+check "req no lock left"  "${#locks}" 0
+ZSE_REQ_QUERY[github]='broken'
+_z_req_fetch github
+check "req error kept"    "$([[ -r $ZSE_REQ_DIR/github.error && -r $ZSE_REQ_DIR/github.json ]] && print 1)" 1
+check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[1]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m"
+unfunction gh
+rm -rf "$ZSE_REQ_DIR" "$ZSE_STATE_DIR/rev-r3-3-x"
 unfunction claude
 rm -rf "$ZSE_STATE_DIR"
 

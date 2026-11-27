@@ -935,6 +935,10 @@ _z_pick_preview() {
   emulate -L zsh
   local n=$1 f
   [[ -n $n ]] || return 0 # a group separator
+  if [[ $n == https://* ]]; then # a review request
+    gh pr view "$n" 2>/dev/null | head -n 60
+    return 0
+  fi
   f=$(_z_reg_file "$n")
   print -r -- "$n"
   print
@@ -953,16 +957,193 @@ _z_pick_preview() {
   fi
 }
 
+# ----- Review requests (roadmap #47) -----
+#
+# A second view in `zse pick` (Ctrl-T): open review requests. Each source
+# runs in the background when the view opens, writes
+# ~/.cache/zse/requests/<source>.json and, when the picker still shows the
+# requests, reloads it through the fzf socket (`--listen-unsafe` on a
+# socket in that user-only directory). One lock directory per source stops
+# a second run while one runs.
+typeset -g ZSE_REQ_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/requests"
+typeset -ga ZSE_REQ_SOURCES=(github team)
+typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'slack')
+typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
+typeset -gA ZSE_REQ_QUERY=(
+  github 'user-review-requested:@me'
+  team 'team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations'
+)
+typeset -gi ZSE_REQ_DAYS=7
+# A command for fzf actions: run a zse function in a fresh zsh.
+typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
+
+# _z_req_fetch SOURCE — run one GitHub source; write its cache (or
+# <source>.error), then tell the picker.
+_z_req_fetch() {
+  emulate -L zsh
+  setopt extended_glob
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local src=$1 lock="$ZSE_REQ_DIR/$1.lock" q json
+  mkdir -p "$ZSE_REQ_DIR"
+  # A lock older than 5 minutes is left over from a run that died.
+  [[ -n $lock(#qN/mm+5) ]] && rm -rf "$lock"
+  mkdir "$lock" 2>/dev/null || return 0
+  q=${ZSE_REQ_QUERY[$src]:-}
+  [[ $src == team ]] && q+=" updated:>=$(strftime '%Y-%m-%d' $((EPOCHSECONDS - ZSE_REQ_DAYS * 86400)))"
+  if [[ -n $q ]] \
+    && json=$(${ZSE_TIMEOUT:-timeout} 30 gh search prs --state=open --limit 100 \
+      --json url,repository,number,title,author,createdAt -- ${=q} 2>/dev/null) \
+    && json=$(print -r -- "$json" | ${ZSE_JQ:-jq} -c --arg s "$src" \
+      '[.[] | {url, repo: .repository.nameWithOwner, number, title,
+               author: (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "")), at: .createdAt, source: $s}]'); then
+    print -r -- "$json" >"$lock/out" && mv "$lock/out" "$ZSE_REQ_DIR/$src.json"
+    rm -f "$ZSE_REQ_DIR/$src.error"
+  else
+    print -r -- "$(strftime '%H:%M' $EPOCHSECONDS)" >"$ZSE_REQ_DIR/$src.error"
+  fi
+  rm -rf "$lock"
+  _z_req_notify
+}
+
+# _z_req_notify — reload the picker's requests view (no-op without one).
+_z_req_notify() {
+  [[ -n ${ZSE_FZF_SOCK:-} && -S $ZSE_FZF_SOCK ]] || return 0
+  curl -s --max-time 2 --unix-socket "$ZSE_FZF_SOCK" -X POST http://localhost \
+    -d "transform:$ZSE_ZCALL _z_req_on_update" >/dev/null 2>&1
+}
+
+# fzf actions. The prompt says which view is open.
+_z_req_on_update() {
+  [[ $FZF_PROMPT == requests* ]] && print -r -- "reload($ZSE_ZCALL _z_req_lines)"
+}
+_z_req_toggle() {
+  if [[ $FZF_PROMPT == requests* ]]; then
+    print -r -- "change-prompt(> )+reload($ZSE_ZCALL _z_pick_lines)+change-header:$(_z_pick_header)"
+  else
+    print -r -- "change-prompt(requests> )+reload($ZSE_ZCALL _z_req_lines --fetch)+change-header:$(_z_req_header)"
+  fi
+}
+_z_req_refresh() {
+  if [[ $FZF_PROMPT == requests* ]]; then
+    print -r -- "reload($ZSE_ZCALL _z_req_lines --fetch)"
+  else
+    print -r -- "reload($ZSE_ZCALL _z_pick_lines)"
+  fi
+}
+_z_pick_header() {
+  print -r -- 'Enter switch · Ctrl-T review requests · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged'
+}
+_z_req_header() {
+  print -r -- 'Enter start the review (dim: switch to its session) · Ctrl-T sessions · Ctrl-R search again · Esc close'
+}
+
+# _z_req_lines [--fetch] — the requests view: a status line, then one row
+# per PR ("key<TAB>display"; the key is the PR URL, or the name of its
+# review session), grouped by source in ZSE_REQ_SOURCES order (a PR in
+# more than one source goes to the first), oldest first. --fetch starts the
+# sources in the background first.
+_z_req_lines() {
+  emulate -L zsh
+  setopt extended_glob
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  zmodload -F zsh/stat b:zstat
+  local src n u e=$'\e'
+  if [[ ${1:-} == --fetch ]]; then
+    mkdir -p "$ZSE_REQ_DIR"
+    for src in $ZSE_REQ_SOURCES; do
+      ( _z_req_fetch "$src" ) </dev/null >/dev/null 2>&1 &!
+      # Let the lock appear before the status line reads it.
+    done
+    sleep 0.1
+  fi
+  local -i width=$(_z_pick_width) rest
+  # Review sessions by PR URL.
+  local -A sess
+  for n in $(_z_reg_names); do
+    [[ $(_z_reg_get "$n" use_case 2>/dev/null) == review ]] || continue
+    u=$(_z_reg_get "$n" url 2>/dev/null)
+    [[ -n $u ]] && sess[$u]=$n
+  done
+
+  # Status: per source, loading / failed / the age of its cache.
+  local -a st
+  local -a mt
+  for src in $ZSE_REQ_SOURCES; do
+    if [[ -d $ZSE_REQ_DIR/$src.lock ]]; then
+      st+="${ZSE_REQ_LABEL[$src]} … searching"
+    elif [[ -r $ZSE_REQ_DIR/$src.error ]]; then
+      st+="${ZSE_REQ_LABEL[$src]} ✗ failed $(<"$ZSE_REQ_DIR/$src.error")"
+    elif [[ -r $ZSE_REQ_DIR/$src.json ]]; then
+      zstat -A mt +mtime "$ZSE_REQ_DIR/$src.json"
+      st+="${ZSE_REQ_LABEL[$src]} ✓ $(_z_age "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $mt[1])")"
+    else
+      st+="${ZSE_REQ_LABEL[$src]} —"
+    fi
+  done
+  print -r -- "	${e}[2m${(j: · :)st}${e}[22m"
+
+  local -a files=()
+  for src in $ZSE_REQ_SOURCES; do
+    [[ -r $ZSE_REQ_DIR/$src.json ]] && files+="$ZSE_REQ_DIR/$src.json"
+  done
+  (($#files)) || return 0
+  local order
+  order=$(print -rl -- $ZSE_REQ_SOURCES | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
+  local line gi last="" label head plain fg=${ZSE_COLOR[review]:-70} repo num title author at srcs key note age
+  for line in ${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" '
+      [.[][]] | group_by(.url)
+      | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
+             author: .[0].author, at: (map(.at) | min),
+             sources: (map(.source) | unique | sort_by(. as $s | $order | index($s)))})
+      | map(. + {g: (.sources[0] as $s | $order | index($s))})
+      | sort_by(.g, .at)[]
+      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.sources | join(","))] | @tsv
+    ' $files 2>/dev/null)"}; do
+    IFS=$'\t' read -r gi u repo num title author at srcs <<<"$line"
+    if [[ $gi != $last ]]; then
+      label="${ZSE_REQ_LABEL[${ZSE_REQ_SOURCES[gi + 1]}]} "
+      rest=$((width - ${(m)#label}))
+      ((rest > 0)) && label+=${(l:rest::─:)}
+      print -r -- "	${e}[38;5;${fg}m${label}${e}[0m"
+      last=$gi
+    fi
+    age=$(_z_age "$at")
+    srcs=${(j:,:)${(@)${(s:,:)srcs}/(#m)*/${ZSE_REQ_TAG[$MATCH]:-$MATCH}}}
+    head="  ${e}[38;5;${fg}m${ZSE_ICON[review]}${e}[39m $(printf '%-22s %4s  %-10s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "$srcs")"
+    key=$u note=""
+    if [[ -n ${sess[$u]:-} ]]; then
+      key=${sess[$u]}
+      note="  → ${sess[$u]} (Enter switches)"
+    fi
+    plain=${head//$e\[[0-9;]#m/}
+    rest=$((width - ${(m)#plain} - ${(m)#note} - ${#author} - 5))
+    ((rest > 0)) && head+="  ${title[1,rest]}"
+    head+="  ${e}[2m($author)${e}[22m${note}"
+    if [[ -n $note ]]; then
+      print -r -- "$key	${e}[2m${head//$e\[22m/}${e}[22m"
+    else
+      print -r -- "$key	$head"
+    fi
+  done
+}
+
 # zse pick — fzf over all sessions (Ctrl Space in Zellij); Enter switches
-# (a stopped session is restored first), Ctrl-R reloads. The list cycles
+# (a stopped session is restored first), Ctrl-R reloads, Ctrl-T shows the
+# review requests (Enter starts the review). The list cycles
 # (down on the last row goes to the first). Group separators have an empty
 # name: the cursor moves over them and Enter on one does nothing.
 _zse_pick() {
   emulate -L zsh
-  local choice skip='[ -n {1} ] || echo'
+  local choice key skip='[ -n {1} ] || echo'
+  mkdir -p "$ZSE_REQ_DIR" && chmod 700 "$ZSE_REQ_DIR"
+  # Sockets of pickers that did not close normally.
+  rm -f "$ZSE_REQ_DIR"/fzf-*.sock(N=mh+12)
+  local -x ZSE_FZF_SOCK="$ZSE_REQ_DIR/fzf-$$.sock"
+  rm -f "$ZSE_FZF_SOCK"
   choice=$(COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)} _z_pick_lines \
     | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse --cycle \
-    --header='Enter switch · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged' \
+    --listen-unsafe="$ZSE_FZF_SOCK" --track --id-nth=1 \
+    --header="$(_z_pick_header)" \
     --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
     --preview-window='down,40%,wrap' \
     --bind="result:transform:$skip down" \
@@ -973,8 +1154,16 @@ _zse_pick() {
     --bind="ctrl-k:up+transform:$skip up" \
     --bind="ctrl-p:up+transform:$skip up" \
     --bind='enter:transform:[ -n {1} ] && echo accept' \
-    --bind="ctrl-r:reload(zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_lines')") || return 0
-  [[ -n ${choice%%$'\t'*} ]] && _zse_switch "${choice%%$'\t'*}"
+    --bind="ctrl-t:transform:$ZSE_ZCALL _z_req_toggle" \
+    --bind="ctrl-r:transform:$ZSE_ZCALL _z_req_refresh")
+  rm -f "$ZSE_FZF_SOCK"
+  key=${choice%%$'\t'*}
+  [[ -n $key ]] || return 0
+  if [[ $key == https://* ]]; then
+    zse -l review "$key"
+  else
+    _zse_switch "$key"
+  fi
 }
 
 # ----- Commands -----

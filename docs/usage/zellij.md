@@ -367,6 +367,17 @@ sessions: stop them with `zse stop --all` before you change it, and run
     stay "busy".
   - Icons (display only, never in the name): ticket `◆`, project `▲`,
     review `✓`, review-doc `¶`, explore `✦`, code `›`, daily `☀`.
+  - **Review requests (`Ctrl-T`):** a second view with your open review
+    requests: PRs that request your review on GitHub (`gh`) and PRs that
+    request the platform-team (`team`; no drafts, no PRs by Claudius or
+    eng-automations, updated in the last 7 days). Each source searches
+    again every time you open the view, and its rows appear when it is
+    done; the first line says which source still searches. One row per
+    PR, oldest first: repo and number, age, sources, title, author.
+    `Enter` starts the review session (`zse -l review <url>`); a PR that
+    has a review session already is dim and `Enter` switches to it.
+    `Ctrl-R` searches again, `Ctrl-T` goes back to the sessions. The
+    results are in `~/.cache/zse/requests/`.
 - **Terminal tint** — in Ghostty, the terminal background follows the
   session you look at: `ZSE_TERM_TINT_PCT` % (default 5, `0` turns it
   off) of the session's shade, mixed into `ZSE_TERM_BG`. zse sets it when
