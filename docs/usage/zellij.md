@@ -374,15 +374,18 @@ sessions: stop them with `zse stop --all` before you change it, and run
     eng-automations, updated in the last 7 days), and PR links from Slack
     (`dm`, `@` mentions, and SH requests in `#team-platform` (`sh`): only
     those sent during your Platform Support shifts, from incident.io, looked
-    up once a day; Claude searches with the Slack
-    connector, about 1–2 min, from the last search on, at most 7 days;
-    your own and closed PRs are left out; a PR you reviewed after the
+    up once a day; Claude runs fixed Slack searches over the last 7 days
+    and reads your Linear inbox, about 30 s to 2 min, and zse finds every
+    PR link in the raw results itself; your own messages, bot messages,
+    other channels without a mention of you, and your own and closed PRs
+    are left out; Linear review requests are found on GitHub by the exact
+    PR title; a PR you reviewed after the
     request says `reviewed 2d ago`). Each source searches
     again every time you open the view, and its rows appear when it is
     done; the first line says which source still searches. One row per
     PR. The first column shows where the request came from: the Slack
-    icon (a DM, a mention or an SH request during your shift), Ⓛ (Linear
-    says "requested your review"), the GitHub icon (GitHub asks you), the
+    icon (a DM, a mention or an SH request during your shift), Ⓛ (a review
+    request in your Linear inbox), the GitHub icon (GitHub asks you), the
     clock icon (new commits since your review, no new request; only
     without a review session), `#` (GitHub asks the platform-team). Rows
     sort in that order (Linear and GitHub together), then oldest first.
