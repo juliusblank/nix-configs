@@ -845,12 +845,16 @@ _z_pick_lines() {
   done
   local n uc st act sort badge agents title fg bg icon age started g
   local head plain row
-  local -i width=$(_z_pick_width) rest
+  local -i width=$(_z_pick_width) rest namew=0 badgew=0
+  local -A badges sorts
   local -a rows
   local -A order=(busy 1 waiting 2 idle 3 '?' 4)
   local -a names=($(_z_reg_names) ${(k)live})
   local e=$'\e'
-  for n in ${(u)names}; do
+  names=(${(u)names})
+  # Pass 1: the review badges and sort keys; the name and badge columns get
+  # the width of their widest value.
+  for n in $names; do
     uc=$(_z_reg_get "$n" use_case 2>/dev/null) || uc=""
     if [[ -n ${live[$n]:-} ]]; then
       st=running act=${ZSE_ACT[$n]:-?}
@@ -866,6 +870,19 @@ _z_pick_lines() {
       new) sort=0 ;;
       closed | merged) sort=6 ;;
     esac
+    badges[$n]=$badge sorts[$n]=$sort
+    plain=${badge//$e\[[0-9;]#m/}
+    ((${(m)#n} > namew)) && namew=${(m)#n}
+    ((${(m)#plain} > badgew)) && badgew=${(m)#plain}
+  done
+  for n in $names; do
+    uc=$(_z_reg_get "$n" use_case 2>/dev/null) || uc=""
+    if [[ -n ${live[$n]:-} ]]; then
+      st=running act=${ZSE_ACT[$n]:-?}
+    else
+      st=stopped act=""
+    fi
+    badge=${badges[$n]} sort=${sorts[$n]}
     agents=${ZSE_AGENTS[$n]:-0}
     title=$(_z_reg_get "$n" title 2>/dev/null)
     [[ -z $title ]] && title=$(_z_reg_get "$n" url 2>/dev/null)
@@ -875,8 +892,11 @@ _z_pick_lines() {
     g=$(_z_group "$uc")
     # Only foreground / weight resets inside the row: a full reset would
     # end the background before the padding.
-    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m $(printf '%-34s %-7s %4s' "$n" "$st" "$age")"
-    [[ -n $badge ]] && head+="  ${badge}"
+    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m ${(r:namew:: :)n} $(printf '%-7s %4s' "$st" "$age")"
+    if ((badgew)); then
+      plain=${badge//$e\[[0-9;]#m/}
+      head+="  ${badge}${(l:badgew - ${(m)#plain}:: :)}"
+    fi
     ((agents)) && head+="  [$agents agents]"
     plain=${head//$e\[[0-9;]#m/}
     rest=$((width - ${(m)#plain} - 2))
