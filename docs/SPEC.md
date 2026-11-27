@@ -163,7 +163,7 @@ The Slack search covers the last 7 days on every run (one search costs about the
 2. starts the three sources in the background, every time (a lock file per source stops a second run of the same source while one runs);
 3. each source, when it is done, writes its cache and sends `reload` to the picker through `fzf --listen` (`$FZF_PORT`), only while the requests view is open (`transform` checks `$FZF_PROMPT`). New entries thus appear while the view is open. `--track` with `--id-nth` (the PR URL) keeps the cursor on its row.
 
-One row per PR (merged by URL): sources (`gh`, `team`, `dm`, `@`, `#team-platform`), age of the oldest request, repo and number, title, author. Order: groups `github`, `platform-team`, `slack` (a PR in more than one source goes to the first), oldest request first.
+One row per PR (merged by URL): sources (`gh`, `team`, `dm`, `@`, `#team-platform`), age of the oldest request, repo and number, title, author. Order: a score per row, the sum of the weights of its sources (`ZSE_REQ_WEIGHT`: Slack 16, Linear 4, GitHub 4, new commits 2, team 1), highest first, then oldest request first. Each weight is larger than the sum of all lower ones, so a row with Slack always comes before a row without it, and inside a level more sources come first (Slack + GitHub before Slack only; Linear + GitHub + team before GitHub only).
 
 A PR that already has a review session, or that you reviewed after the latest request, stays in the list, dimmed, with a note (`session rev-… — Enter switches`, `reviewed 2d ago`).
 

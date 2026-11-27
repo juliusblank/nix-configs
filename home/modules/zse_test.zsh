@@ -195,8 +195,8 @@ _z_reg_write rev-r3-3-x review /tmp "" https://github.com/o/r3/pull/3
 _z_req_fetch github
 _z_req_fetch team
 lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
-check "req keys"          "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r1/pull/1,https://github.com/o/r2/pull/2,rev-r3-3-x"
-plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "req keys"          "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r2/pull/2,https://github.com/o/r1/pull/1,rev-r3-3-x"
+plain=${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}
 hdr=${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "req icons"         "${plain[(w)1]} ${plain[(w)2]}"   $'\uf09b #'
 check "req author column" "${plain[(w)5]}"                  "bot"
@@ -208,6 +208,29 @@ ZSE_REQ_QUERY[github]='broken'
 _z_req_fetch github
 check "req error kept"    "$([[ -r $ZSE_REQ_DIR/github.error && -r $ZSE_REQ_DIR/github.json ]] && print 1)" 1
 check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[2]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · new commits — · Slack —"
+# Score: the sum of the source weights, highest first, then oldest first
+() {
+  local ZSE_REQ_DIR=$(mktemp -d) n src
+  _t_req() {  # FILE NUMBER AT GROUP
+    ${ZSE_JQ:-jq} -nc --arg n $2 --arg at $3 --arg g $4 \
+      '{url: "https://github.com/o/s/pull/\($n)", repo: "o/s", number: ($n | tonumber), title: "T\($n)", author: "a", at: $at, source: $g, group: $g}' >>"$ZSE_REQ_DIR/$1.tmp"
+  }
+  _t_req slack 1 2026-11-20T00:00:00Z slack            # 16
+  _t_req slack 2 2026-11-21T00:00:00Z slack; _t_req github 2 2026-11-21T00:00:00Z github   # 20
+  _t_req github 3 2026-11-19T00:00:00Z github; _t_req team 3 2026-11-19T00:00:00Z team; _t_req slack 3 2026-11-22T00:00:00Z linear   # 9
+  _t_req github 4 2026-11-18T00:00:00Z github          # 4
+  _t_req team 5 2026-11-17T00:00:00Z team              # 1
+  _t_req rereview 6 2026-11-17T00:00:00Z rereview; _t_req team 6 2026-11-17T00:00:00Z team   # 3
+  _t_req github 7 2026-11-17T00:00:00Z github          # 4, older than 4
+  for src in slack github team rereview; do
+    ${ZSE_JQ:-jq} -sc . "$ZSE_REQ_DIR/$src.tmp" >"$ZSE_REQ_DIR/$src.json"
+  done
+  lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
+  local -a keys=("${(@)${(@)lines[3,-1]%%$'\t'*}##*/}")
+  check "req score order" "${(j:,:)keys}" "2,1,3,7,4,6,5"
+  rm -rf "$ZSE_REQ_DIR"
+  unfunction _t_req
+}
 # Slack and Linear: zse reads the raw tool results (stream-json) and finds
 # the links itself; own and bot messages, other channels, closed and old
 # PRs drop; SH requests only during a shift; Linear PRs by exact title.

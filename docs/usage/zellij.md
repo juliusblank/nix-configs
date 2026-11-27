@@ -396,7 +396,10 @@ sessions: stop them with `zse stop --all` before you change it, and run
     request in your Linear inbox), the GitHub icon (GitHub asks you), the
     clock icon (new commits since your review, no new request; only
     without a review session), `#` (GitHub asks the platform-team). Rows
-    sort in that order (Linear and GitHub together), then oldest first.
+    sort by a score, the sum of their sources' weights (Slack 16, Linear
+    and GitHub 4, new commits 2, team 1): every row with Slack comes
+    before every row without it, and inside each level more sources come
+    first (Slack + GitHub before Slack only). Equal scores: oldest first.
     Then repo and number, age, author (first part of the login), title.
     When you type, the best match comes first (in both views).
     `Enter` starts the review session (`zse -l review <url>`); a PR that
