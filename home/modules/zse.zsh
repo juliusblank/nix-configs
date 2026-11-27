@@ -966,7 +966,7 @@ _z_pick_preview() {
 
 # ----- Review requests (roadmap #47) -----
 #
-# A second view in `zse pick` (Ctrl-T): open review requests. Each source
+# A second view in `zse pick` (Tab): open review requests. Each source
 # runs in the background when the view opens, writes
 # ~/.cache/zse/requests/<source>.json and, when the picker still shows the
 # requests, reloads it through the fzf socket (`--listen-unsafe` on a
@@ -1161,10 +1161,10 @@ _z_req_refresh() {
   fi
 }
 _z_pick_header() {
-  print -r -- 'Enter switch · Ctrl-T review requests · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged'
+  print -r -- 'Enter switch · Tab review requests · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged'
 }
 _z_req_header() {
-  print -r -- 'Enter start the review (dim: switch to its session) · Ctrl-T sessions · Ctrl-R search again · Esc close'
+  print -r -- 'Enter start the review (dim: switch to its session) · Tab sessions · Ctrl-R search again · Esc close'
 }
 
 # _z_req_lines [--fetch] — the requests view: a status line, then one row
@@ -1263,7 +1263,7 @@ _z_req_lines() {
 }
 
 # zse pick — fzf over all sessions (Ctrl Space in Zellij); Enter switches
-# (a stopped session is restored first), Ctrl-R reloads, Ctrl-T shows the
+# (a stopped session is restored first), Ctrl-R reloads, Tab shows the
 # review requests (Enter starts the review). The list cycles
 # (down on the last row goes to the first). Group separators have an empty
 # name: the cursor moves over them and Enter on one does nothing.
@@ -1289,7 +1289,7 @@ _zse_pick() {
     --bind="ctrl-k:up+transform:$skip up" \
     --bind="ctrl-p:up+transform:$skip up" \
     --bind='enter:transform:[ -n {1} ] && echo accept' \
-    --bind="ctrl-t:transform:$ZSE_ZCALL _z_req_toggle" \
+    --bind="tab:transform:$ZSE_ZCALL _z_req_toggle" \
     --bind="ctrl-r:transform:$ZSE_ZCALL _z_req_refresh")
   rm -f "$ZSE_FZF_SOCK"
   key=${choice%%$'\t'*}
