@@ -62,7 +62,7 @@ def outcome:
     title,
     # The author's first name in lower case (the login without a name)
     author: ((.author.name // "" | split(" ") | .[0] // "") as $f
-      | if $f != "" then $f else (.author.login // "" | sub("^app/"; "")) end | ascii_downcase),
+      | if $f != "" then $f else (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "") | sub("-taktile$"; "") | sub("^taktile-"; "") | split("-")[0] | split(".")[0] | split("_")[0]) end | ascii_downcase),
     state, draft: .isDraft, decision: (.reviewDecision // ""), mergeable: (.mergeable // ""),
     branch: .headRefName, head: (.headRefOid[0:7]),
     ci: {

@@ -912,6 +912,10 @@ _z_pick_lines() {
     [[ -n $bg ]] && row="${e}[${bg}m${head}${e}[0m"
     rows+=("${ZSE_GROUPS[(ie)$g]} $sort ${started:-0}	$n	$row")
   done
+  # Column header (fzf --header-lines=1: fixed, not selectable)
+  head="    ${(r:namew:: :):-SESSION} $(printf '%-7s %4s' STATE AGE)"
+  ((badgew)) && head+="  ${(r:badgew:: :):-REVIEW}"
+  print -r -- "	${e}[2m${head}  TITLE${e}[22m"
   (($#rows)) || return 0
   # Rows are "group activity last_started<TAB>name<TAB>display": sort by
   # group, activity, then newest first; drop the sort key; a separator
@@ -973,9 +977,19 @@ _z_pick_preview() {
 # socket in that user-only directory). One lock directory per source stops
 # a second run while one runs.
 typeset -g ZSE_REQ_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/requests"
-typeset -ga ZSE_REQ_SOURCES=(github team slack)
-typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'Slack')
+typeset -ga ZSE_REQ_SOURCES=(github team rereview slack)
+typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' rereview 'new commits' slack 'Slack')
 typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
+# The requests view: one icon per source (Nerd Font: Slack, GitHub), in
+# this order; the rows sort by their first source, then oldest first.
+# Linear (no logo in the Nerd Font: a circled L) and "new commits since my
+# review" (a clock with an arrow).
+typeset -gA ZSE_REQ_ICON=(slack $'\uf198' linear $'\U000f0c0d' github $'\uf09b' rereview $'\U000f02da' team '#')
+typeset -ga ZSE_REQ_RANK=(slack linear github rereview team)
+# The order of the rows: Slack (DMs, mentions, SH in your shift) first,
+# then the direct requests (Linear, GitHub), then new commits since your
+# review, then the team.
+typeset -gA ZSE_REQ_TIER=(slack 0 linear 1 github 1 rereview 2 team 3)
 # Platform Support (incident.io): SH requests count only in your shifts.
 typeset -g ZSE_REQ_SCHEDULE=${ZSE_REQ_SCHEDULE:-01KY4FJZ1S64RZPPN1JR95R9TQ}
 typeset -gA ZSE_REQ_QUERY=(
@@ -990,9 +1004,10 @@ typeset -g ZSE_REQ_SLACK_PROMPT='Find GitHub pull request links in Slack message
 1. Direct messages and group DMs to me with a PR link: `is:dm github.com/ pull` and `to:me github.com/ pull`.
 2. Messages in any channel that mention me and have a PR link: `@me github.com/ pull` (if `@me` does not work, find my user ID with the profile tool and use `<@ID>`).
 3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`. Use "via":"sh" for these, or "@" when the message mentions me by name.
+4. Linear review requests in my DMs: `from:@Linear requested your review` and `from:@Linear re-requested your review`. These name the PR as `<owner>/<repo>#<number>`: use https://github.com/<owner>/<repo>/pull/<number> as the url, "via":"linear" and the person who requested the review as "from".
 Ignore messages that I sent myself, and links that are not https://github.com/<owner>/<repo>/pull/<number>.
 Reply with JSON lines only, one per PR link, no other text:
-{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "sh" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
+{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "sh" | "linear" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
 If you find none, reply with nothing. If the search tool fails, reply ERROR.'
 # A command for fzf actions: run a zse function in a fresh zsh.
 typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
@@ -1008,8 +1023,8 @@ _z_req_fetch() {
   # A lock older than 5 minutes is left over from a run that died.
   [[ -n $lock(#qN/mm+5) ]] && rm -rf "$lock"
   mkdir "$lock" 2>/dev/null || return 0
-  if [[ $src == slack ]]; then
-    if _z_req_slack "$lock"; then
+  if [[ $src == slack || $src == rereview ]]; then
+    if _z_req_$src "$lock"; then
       rm -f "$ZSE_REQ_DIR/$src.error"
     else
       print -r -- "$(strftime '%H:%M' $EPOCHSECONDS)" >"$ZSE_REQ_DIR/$src.error"
@@ -1130,9 +1145,35 @@ _z_req_slack() {
               or any($shifts[]; .start <= ($r.at[0:19]) and ($r.at[0:19]) < .end))
      | ($r.url | capture("^https://github\\.com/(?<o>[^/]+)/(?<n>[^/]+)/pull/(?<num>[0-9]+)$")) as $m
      | {url, repo: "\($m.o)/\($m.n)", number: ($m.num | tonumber), title: $p.title, author: $p.author,
-        at, source: .via, group: "slack", from, text, reviewed: $p.reviewed}]' >"$lock/out" || return 1
+        at, source: .via, group: (if .via == "linear" then "linear" else "slack" end),
+        from, text, reviewed: $p.reviewed}]' >"$lock/out" || return 1
   mv "$lock/out" "$ZSE_REQ_DIR/slack.json"
   print -r -- "$now" >"$ZSE_REQ_DIR/last-slack-search"
+}
+
+# _z_req_rereview LOCKDIR — open PRs by others that you reviewed, with
+# commits after your latest review (updated in the last ZSE_REQ_DAYS days;
+# one GraphQL search). `at` is the newest commit.
+_z_req_rereview() {
+  emulate -L zsh
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local q json
+  q="is:pr is:open reviewed-by:@me -author:@me archived:false updated:>=$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - ZSE_REQ_DAYS * 86400)))"
+  json=$(${ZSE_TIMEOUT:-timeout} 30 gh api graphql -f q="$q" -f query='
+    query($q: String!) { viewer { login }
+      search(type: ISSUE, query: $q, first: 50) { nodes { ... on PullRequest {
+        url number title repository { nameWithOwner } author { login }
+        commits(last: 1) { nodes { commit { committedDate } } }
+        reviews(last: 50) { nodes { author { login } submittedAt } } } } } }' 2>/dev/null \
+    | ${ZSE_JQ:-jq} -c '.data.viewer.login as $me | [.data.search.nodes[] | select(.url)
+        | ([.reviews.nodes[] | select(.author.login == $me) | .submittedAt] | max) as $mine
+        | (.commits.nodes[0].commit.committedDate // "") as $last
+        | select($mine != null and $last > $mine)
+        | {url, repo: .repository.nameWithOwner, number, title,
+           author: (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "")),
+           at: $last, source: "rereview"}]') || return 1
+  [[ -n $json ]] || return 1
+  print -r -- "$json" >"$1/out" && mv "$1/out" "$ZSE_REQ_DIR/rereview.json"
 }
 
 # _z_req_notify — reload the picker's requests view (no-op without one).
@@ -1210,40 +1251,53 @@ _z_req_lines() {
       st+="${ZSE_REQ_LABEL[$src]} —"
     fi
   done
-  print -r -- "	${e}[2m${(j: · :)st}${e}[22m"
-
-  local -a files=()
+  local -a files=() rows=()
   for src in $ZSE_REQ_SOURCES; do
     [[ -r $ZSE_REQ_DIR/$src.json ]] && files+="$ZSE_REQ_DIR/$src.json"
   done
-  (($#files)) || return 0
-  local order
-  order=$(print -rl -- $ZSE_REQ_SOURCES | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
-  local line gi last="" label head plain fg=${ZSE_COLOR[review]:-70} repo num title author at srcs key note age reviewed
-  for line in ${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" '
+  local order tier
+  order=$(print -rl -- $ZSE_REQ_RANK | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
+  tier=$(for src in ${(k)ZSE_REQ_TIER}; do print -r -- "$src ${ZSE_REQ_TIER[$src]}"; done \
+    | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != "") | split(" ") | {key: .[0], value: (.[1] | tonumber)}) | from_entries')
+  (($#files)) && rows=(${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" --argjson tier "$tier" '
       [.[][]] | group_by(.url)
       | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
              author: .[0].author, at: (map(.at) | min),
              reviewed: (map(.reviewed // empty) | max),
-             groups: (map(.group // .source) | unique),
-             sources: (map(.source) | unique | sort_by((. as $s | $order | index($s)) // 99))})
-      | map(. + {g: (.groups | map(. as $s | $order | index($s)) | min)})
+             groups: (map(.group // .source) | unique | sort_by(. as $s | $order | index($s)))})
+      | map(. + {g: ([.groups[] | $tier[.] // 9] | min)})
       | sort_by(.g, .at)[]
-      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.sources | join(",")),
+      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.groups | join(",")),
          (if .reviewed != null and .reviewed > .at then .reviewed else "" end)] | @tsv
-    ' $files 2>/dev/null)"}; do
+    ' $files 2>/dev/null)"})
+  # The VIA column fits the row with the most sources.
+  local -i iconw=6 n_src
+  local -a via
+  local line
+  for line in $rows; do
+    via=(${(s:,:)${${(ps:\t:)line}[8]}})
+    n_src=$#via
+    ((2 * n_src > iconw)) && iconw=$((2 * n_src))
+  done
+  # Column header (fzf --header-lines=1), then the status line.
+  print -r -- "	${e}[2m  ${(r:iconw:: :):-VIA} $(printf '%-16s %4s  %-14s' PR AGE AUTHOR)  TITLE${e}[22m"
+  print -r -- "	${e}[2m${(j: · :)st}${e}[22m"
+
+  local gi head plain repo num title author at key note age reviewed icons
+  local -a srcs
+  for line in $rows; do
     IFS=$'\t' read -r gi u repo num title author at srcs reviewed <<<"$line"
-    if [[ $gi != $last ]]; then
-      label="${ZSE_REQ_LABEL[${ZSE_REQ_SOURCES[gi + 1]}]} "
-      rest=$((width - ${(m)#label}))
-      ((rest > 0)) && label+=${(l:rest::─:)}
-      print -r -- "	${e}[38;5;${fg}m${label}${e}[0m"
-      last=$gi
-    fi
     age=$(_z_age "$at")
-    srcs=${(j:,:)${(@)${(s:,:)srcs}/(#m)*/${ZSE_REQ_TAG[$MATCH]:-$MATCH}}}
-    head="  ${e}[38;5;${fg}m${ZSE_ICON[review]}${e}[39m $(printf '%-22s %4s  %-10s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "$srcs")"
+    # Each icon is one cell (Nerd Font Mono); zsh counts the Nerd Font ones
+    # as zero, so pad by the number of icons.
+    icons="" srcs=(${(s:,:)srcs})
+    for src in $srcs; do icons+="${ZSE_REQ_ICON[$src]:-?} "; done
+    # First part of the login: katia-recard-taktile → katia
+    author=${${${author%-taktile}#taktile-}%%[-._]*}
+    head="  ${icons}${(l:iconw - 2 * $#srcs:: :)} $(printf '%-16s %4s  %-14s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "${author[1,14]}")"
     key=$u note=""
+    # New commits alone (no request) only count without a review session.
+    [[ $srcs == rereview && -n ${sess[$u]:-} ]] && continue
     if [[ -n ${sess[$u]:-} ]]; then
       key=${sess[$u]}
       note="  → ${sess[$u]} (Enter switches)"
@@ -1251,9 +1305,9 @@ _z_req_lines() {
       note="  reviewed $(_z_age "$reviewed") ago"
     fi
     plain=${head//$e\[[0-9;]#m/}
-    rest=$((width - ${(m)#plain} - ${(m)#note} - ${#author} - 5))
+    rest=$((width - ${(m)#plain} - ${(m)#note} - 2 - ${#${(M)srcs:#(slack|linear|github|rereview)}}))
     ((rest > 0)) && head+="  ${title[1,rest]}"
-    head+="  ${e}[2m($author)${e}[22m${note}"
+    head+=$note
     if [[ -n $note ]]; then
       print -r -- "$key	${e}[2m${head//$e\[22m/}${e}[22m"
     else
@@ -1276,8 +1330,8 @@ _zse_pick() {
   local -x ZSE_FZF_SOCK="$ZSE_REQ_DIR/fzf-$$.sock"
   rm -f "$ZSE_FZF_SOCK"
   choice=$(COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)} _z_pick_lines \
-    | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse --cycle \
-    --listen-unsafe="$ZSE_FZF_SOCK" --track --id-nth=1 \
+    | fzf --ansi --delimiter=$'\t' --with-nth=2.. --layout=reverse --cycle \
+    --listen-unsafe="$ZSE_FZF_SOCK" --track --id-nth=1 --header-lines=1 \
     --header="$(_z_pick_header)" \
     --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
     --preview-window='down,40%,wrap' \
