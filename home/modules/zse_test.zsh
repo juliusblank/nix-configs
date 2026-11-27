@@ -201,7 +201,48 @@ check "req no lock left"  "${#locks}" 0
 ZSE_REQ_QUERY[github]='broken'
 _z_req_fetch github
 check "req error kept"    "$([[ -r $ZSE_REQ_DIR/github.error && -r $ZSE_REQ_DIR/github.json ]] && print 1)" 1
-check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[1]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m"
+check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[1]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · Slack —"
+# Slack: valid lines only, URL suffixes cut, closed PRs and old requests
+# dropped, reviewed after the request → note; the search window starts at
+# the last search minus 1 h.
+now_iso=$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $EPOCHSECONDS)
+old_iso=$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 9 * 86400)))
+claude() {
+  print -r -- "$*" >"$ZSE_REQ_DIR/prompt"
+  print -r -- '{"url":"https://github.com/o/r1/pull/1/files#diff","via":"dm","from":"Theo","at":"2026-11-26T10:00:00Z","text":"stamp?"}'
+  print -r -- 'some prose'
+  print -r -- '{"url":"https://github.com/o/r4/pull/4","via":"#team-platform","from":"Ann","at":"2026-11-25T10:00:00Z","text":"review please"}'
+  print -r -- '{"url":"https://github.com/o/r5/pull/5","via":"@","from":"Bo","at":"2026-11-25T10:00:00Z","text":"closed one"}'
+  print -r -- '{"url":"https://github.com/o/r7/pull/7","via":"dm","from":"Bot","at":"2026-11-25T10:00:00Z","text":"my own"}'
+  print -r -- "{\"url\":\"https://github.com/o/r6/pull/6\",\"via\":\"dm\",\"from\":\"Cy\",\"at\":\"$old_iso\",\"text\":\"old\"}"
+}
+gh() {
+  [[ $1 == api ]] || return 1
+  print -r -- '{"data":{"viewer":{"login":"me"},
+    "p1":{"pullRequest":{"url":"https://github.com/o/r1/pull/1","title":"Fix A","state":"OPEN","author":{"login":"theo"},"reviews":{"nodes":[{"author":{"login":"me"},"submittedAt":"2026-11-26T12:00:00Z"}]}}},
+    "p2":{"pullRequest":{"url":"https://github.com/o/r4/pull/4","title":"Four","state":"OPEN","author":{"login":"ann"},"reviews":{"nodes":[]}}},
+    "p3":{"pullRequest":{"url":"https://github.com/o/r5/pull/5","title":"Five","state":"CLOSED","author":{"login":"bo"},"reviews":{"nodes":[]}}},
+    "p4":{"pullRequest":{"url":"https://github.com/o/r6/pull/6","title":"Six","state":"OPEN","author":{"login":"cy"},"reviews":{"nodes":[]}}},
+    "p5":{"pullRequest":{"url":"https://github.com/o/r7/pull/7","title":"Mine","state":"OPEN","author":{"login":"me"},"reviews":{"nodes":[]}}}}}'
+}
+rm -f "$ZSE_REQ_DIR"/*.json(N) "$ZSE_REQ_DIR"/*.error(N)
+print -r -- $((EPOCHSECONDS - 2 * 86400)) >"$ZSE_REQ_DIR/last-slack-search"
+_z_req_fetch slack
+check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r4/pull/4"
+check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'on or after ([0-9-]+)' ]] && print $match[1])" "$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 2 * 86400 - 3600)))"
+check "slack last search" "$(( $(<$ZSE_REQ_DIR/last-slack-search) >= EPOCHSECONDS - 5 ))" 1
+lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
+check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1"
+plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "slack reviewed"    "${plain##*reviewed }"            "$(_z_age 2026-11-26T12:00:00Z) ago"
+check "slack via"         "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)4]}" "#team-platform"
+# A second run keeps the earlier entries (the search only sees new ones)
+claude() { :; }
+_z_req_fetch slack
+check "slack keeps old"   "$(${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 2
+claude() { print ERROR; }
+_z_req_fetch slack
+check "slack error"       "$([[ -r $ZSE_REQ_DIR/slack.error ]] && ${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 2
 unfunction gh
 rm -rf "$ZSE_REQ_DIR" "$ZSE_STATE_DIR/rev-r3-3-x"
 unfunction claude

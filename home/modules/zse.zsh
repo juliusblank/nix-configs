@@ -936,6 +936,13 @@ _z_pick_preview() {
   local n=$1 f
   [[ -n $n ]] || return 0 # a group separator
   if [[ $n == https://* ]]; then # a review request
+    local src
+    for src in $ZSE_REQ_SOURCES; do
+      ${ZSE_JQ:-jq} -r --arg u "$n" '.[] | select(.url == $u and .text != null)
+        | "\(.source) · \(.from) · \(.at[0:16] | sub("T"; " ")): \(.text)"' \
+        "$ZSE_REQ_DIR/$src.json" 2>/dev/null
+    done
+    print
     gh pr view "$n" 2>/dev/null | head -n 60
     return 0
   fi
@@ -966,14 +973,25 @@ _z_pick_preview() {
 # socket in that user-only directory). One lock directory per source stops
 # a second run while one runs.
 typeset -g ZSE_REQ_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/requests"
-typeset -ga ZSE_REQ_SOURCES=(github team)
-typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'slack')
+typeset -ga ZSE_REQ_SOURCES=(github team slack)
+typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'Slack')
 typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
 typeset -gA ZSE_REQ_QUERY=(
   github 'user-review-requested:@me'
   team 'team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations'
 )
 typeset -gi ZSE_REQ_DAYS=7
+typeset -gi ZSE_REQ_SLACK_TIMEOUT=${ZSE_REQ_SLACK_TIMEOUT:-180}
+# The Slack search (claude -p, Haiku, the Slack connector's search and
+# profile tools only). SINCE / BEFORE: the window, YYYY-MM-DD (UTC).
+typeset -g ZSE_REQ_SLACK_PROMPT='Find GitHub pull request links in Slack messages that ask me to review, sent on or after SINCE (UTC). Search with the Slack search tool; run these searches, each with after:BEFORE:
+1. Direct messages and group DMs to me with a PR link: `is:dm github.com/ pull` and `to:me github.com/ pull`.
+2. Messages in any channel that mention me and have a PR link: `@me github.com/ pull` (if `@me` does not work, find my user ID with the profile tool and use `<@ID>`).
+3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`.
+Ignore messages that I sent myself, and links that are not https://github.com/<owner>/<repo>/pull/<number>.
+Reply with JSON lines only, one per PR link, no other text:
+{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
+If you find none, reply with nothing. If the search tool fails, reply ERROR.'
 # A command for fzf actions: run a zse function in a fresh zsh.
 typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
 
@@ -988,6 +1006,16 @@ _z_req_fetch() {
   # A lock older than 5 minutes is left over from a run that died.
   [[ -n $lock(#qN/mm+5) ]] && rm -rf "$lock"
   mkdir "$lock" 2>/dev/null || return 0
+  if [[ $src == slack ]]; then
+    if _z_req_slack "$lock"; then
+      rm -f "$ZSE_REQ_DIR/$src.error"
+    else
+      print -r -- "$(strftime '%H:%M' $EPOCHSECONDS)" >"$ZSE_REQ_DIR/$src.error"
+    fi
+    rm -rf "$lock"
+    _z_req_notify
+    return 0
+  fi
   q=${ZSE_REQ_QUERY[$src]:-}
   [[ $src == team ]] && q+=" updated:>=$(strftime '%Y-%m-%d' $((EPOCHSECONDS - ZSE_REQ_DAYS * 86400)))"
   if [[ -n $q ]] \
@@ -1003,6 +1031,70 @@ _z_req_fetch() {
   fi
   rm -rf "$lock"
   _z_req_notify
+}
+
+# _z_req_slack LOCKDIR — the Slack source: search the messages since the
+# last search (minus 1 h, at most ZSE_REQ_DAYS days), merge them with the
+# earlier ones by PR URL, drop requests older than ZSE_REQ_DAYS days, your
+# own PRs and PRs that are closed or merged, add the PR data from GitHub (one GraphQL
+# call), write slack.json and the time of the search.
+_z_req_slack() {
+  emulate -L zsh
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local lock=$1 now=$EPOCHSECONDS last since out new old merged q i
+  local jq=${ZSE_JQ:-jq}
+  last=0
+  [[ -r $ZSE_REQ_DIR/last-slack-search ]] && last=$(<"$ZSE_REQ_DIR/last-slack-search")
+  [[ $last == <-> ]] || last=0
+  since=$((last - 3600))
+  ((since < now - ZSE_REQ_DAYS * 86400)) && since=$((now - ZSE_REQ_DAYS * 86400))
+  local p=${ZSE_REQ_SLACK_PROMPT//SINCE/$(TZ=UTC strftime '%Y-%m-%d' $since)}
+  p=${p//BEFORE/$(TZ=UTC strftime '%Y-%m-%d' $((since - 86400)))}
+  out=$(
+    cd "$HOME" || exit 1
+    unset DELIVERY_SESSION ZSE_USE_CASE CLAUDECODE CLAUDE_CODE_ENTRYPOINT \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+    ${ZSE_TIMEOUT:-timeout} $ZSE_REQ_SLACK_TIMEOUT claude -p --model haiku \
+      --allowedTools mcp__claude_ai_Slack__slack_search_public_and_private,mcp__claude_ai_Slack__slack_read_user_profile \
+      --output-format text "$p" </dev/null 2>/dev/null
+  ) || return 1
+  [[ $out == ERROR* ]] && return 1
+  # Valid lines only, the URL without a suffix (/files, #…, ?…).
+  new=$(print -r -- "$out" | $jq -Rc '
+    fromjson? | select(type == "object" and (.url | type) == "string")
+    | .url |= (sub("[?#].*$"; "") | sub("^(?<u>https://github\\.com/[^/]+/[^/]+/pull/[0-9]+).*$"; "\(.u)"))
+    | select(.url | test("^https://github\\.com/[^/]+/[^/]+/pull/[0-9]+$"))
+    | {url, via: (.via // "slack"), from: (.from // ""), at: (.at // ""), text: (.text // "")}' | $jq -sc .) || return 1
+  old=$($jq -c '[.[] | {url, via: .source, from, at, text}]' "$ZSE_REQ_DIR/slack.json" 2>/dev/null) || old='[]'
+  # One entry per URL and source: the earliest request.
+  merged=$($jq -nc --argjson a "$old" --argjson b "$new" \
+    --arg cut "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((now - ZSE_REQ_DAYS * 86400)))" '
+    $a + $b | map(select(.at >= $cut)) | group_by([.url, .via]) | map(min_by(.at))') || return 1
+  # PR data and my latest review, for all PRs in one GraphQL call.
+  local -a urls=(${(f)"$(print -r -- "$merged" | $jq -r '[.[].url] | unique[]')"})
+  local pr_data='{}'
+  if (($#urls)); then
+    q='query { viewer { login }'
+    for i in {1..$#urls}; do
+      [[ $urls[i] =~ '^https://github.com/([^/]+)/([^/]+)/pull/([0-9]+)$' ]] || continue
+      q+=" p$i: repository(owner: \"$match[1]\", name: \"$match[2]\") { pullRequest(number: $match[3]) { url title state author { login } reviews(last: 30) { nodes { author { login } submittedAt } } } }"
+    done
+    q+=' }'
+    pr_data=$(${ZSE_TIMEOUT:-timeout} 30 gh api graphql -f query="$q" 2>/dev/null \
+      | $jq -c '.data as $d | ($d.viewer.login) as $me
+          | [$d | to_entries[] | select(.key != "viewer") | .value.pullRequest
+             | select(. != null and .author.login != $me)
+             | {key: .url, value: {title, state, author: (.author.login // "" | sub("\\[bot\\]$"; "")),
+                 reviewed: ([.reviews.nodes[] | select(.author.login == $me) | .submittedAt] | max)}}]
+          | from_entries') || return 1
+  fi
+  print -r -- "$merged" | $jq -c --argjson prs "$pr_data" '
+    [.[] | . as $r | $prs[$r.url] as $p | select($p != null and $p.state == "OPEN")
+     | ($r.url | capture("^https://github\\.com/(?<o>[^/]+)/(?<n>[^/]+)/pull/(?<num>[0-9]+)$")) as $m
+     | {url, repo: "\($m.o)/\($m.n)", number: ($m.num | tonumber), title: $p.title, author: $p.author,
+        at, source: .via, group: "slack", from, text, reviewed: $p.reviewed}]' >"$lock/out" || return 1
+  mv "$lock/out" "$ZSE_REQ_DIR/slack.json"
+  print -r -- "$now" >"$ZSE_REQ_DIR/last-slack-search"
 }
 
 # _z_req_notify — reload the picker's requests view (no-op without one).
@@ -1089,17 +1181,20 @@ _z_req_lines() {
   (($#files)) || return 0
   local order
   order=$(print -rl -- $ZSE_REQ_SOURCES | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
-  local line gi last="" label head plain fg=${ZSE_COLOR[review]:-70} repo num title author at srcs key note age
+  local line gi last="" label head plain fg=${ZSE_COLOR[review]:-70} repo num title author at srcs key note age reviewed
   for line in ${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" '
       [.[][]] | group_by(.url)
       | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
              author: .[0].author, at: (map(.at) | min),
-             sources: (map(.source) | unique | sort_by(. as $s | $order | index($s)))})
-      | map(. + {g: (.sources[0] as $s | $order | index($s))})
+             reviewed: (map(.reviewed // empty) | max),
+             groups: (map(.group // .source) | unique),
+             sources: (map(.source) | unique | sort_by((. as $s | $order | index($s)) // 99))})
+      | map(. + {g: (.groups | map(. as $s | $order | index($s)) | min)})
       | sort_by(.g, .at)[]
-      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.sources | join(","))] | @tsv
+      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.sources | join(",")),
+         (if .reviewed != null and .reviewed > .at then .reviewed else "" end)] | @tsv
     ' $files 2>/dev/null)"}; do
-    IFS=$'\t' read -r gi u repo num title author at srcs <<<"$line"
+    IFS=$'\t' read -r gi u repo num title author at srcs reviewed <<<"$line"
     if [[ $gi != $last ]]; then
       label="${ZSE_REQ_LABEL[${ZSE_REQ_SOURCES[gi + 1]}]} "
       rest=$((width - ${(m)#label}))
@@ -1114,6 +1209,8 @@ _z_req_lines() {
     if [[ -n ${sess[$u]:-} ]]; then
       key=${sess[$u]}
       note="  → ${sess[$u]} (Enter switches)"
+    elif [[ -n $reviewed ]]; then
+      note="  reviewed $(_z_age "$reviewed") ago"
     fi
     plain=${head//$e\[[0-9;]#m/}
     rest=$((width - ${(m)#plain} - ${(m)#note} - ${#author} - 5))

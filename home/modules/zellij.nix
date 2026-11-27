@@ -14,11 +14,12 @@ let
   };
 
   /**
-    Sets what zse.zsh needs, then sources it: the repo short names and the
-    tool paths. `ZSE_SOURCE` is exported for the subshells of `zse pick`
-    (fzf preview and reload). Used by ~/.zshrc and by `zse-pick`.
+    What zse.zsh needs: the repo short names, the shade colours, Claude's
+    colours and the tool paths, then zse.zsh itself. One file, so that the
+    subshells of `zse pick` (fzf preview, reload, the review requests) get
+    the same: they source `$ZSE_SOURCE`.
   */
-  zsePrelude = ''
+  zseSource = pkgs.writeText "zse-source.zsh" ''
     typeset -gA ZSE_REPO_SHORT=(${
       lib.concatStringsSep " " (
         lib.mapAttrsToList (k: v: "${lib.escapeShellArg k} ${lib.escapeShellArg v}") zseRepoShort
@@ -34,8 +35,16 @@ let
     })
     typeset -gx ZSE_TIMEOUT=${pkgs.coreutils}/bin/timeout
     typeset -gx ZSE_JQ=${pkgs.jq}/bin/jq
-    typeset -gx ZSE_SOURCE=${./zse.zsh}
     source ${./zse.zsh}
+  '';
+
+  /**
+    Loads zse: exports `ZSE_SOURCE` (see `zseSource`) and sources it. Used by
+    ~/.zshrc and by `zse-pick`.
+  */
+  zsePrelude = ''
+    typeset -gx ZSE_SOURCE=${zseSource}
+    source ${zseSource}
   '';
 
   /**
