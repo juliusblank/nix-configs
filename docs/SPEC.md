@@ -147,6 +147,8 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | GitHub, you | `gh search prs --state=open -- user-review-requested:@me` (only you, not your teams) | `github` |
 | GitHub, platform-team | `gh search prs --state=open -- team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations updated:>=<7 days ago>` (about 50 PRs; without the filters more than 300) | `platform-team` |
 | Slack | `claude -p` (Haiku) with the Slack MCP search tools only: PR links in DMs to you, messages that mention you, and `#team-platform` (SH requests, `sh`: kept only when sent during one of your Platform Support shifts) | `slack` |
+| Linear | the same Slack search: Linear's "requested your review" DMs (`owner/repo#n`) | `linear` (a direct request, like GitHub) |
+| New commits | `gh api graphql` search `reviewed-by:@me -author:@me`, updated in the last 7 days: open PRs with a commit after your latest review; shown only without a review session | `rereview` |
 
 The Slack search covers the time since the last search (minus 1 h overlap), at most 7 days. `~/.cache/zse/requests/last-slack-search` stores the time of the last successful search. Claude returns JSON lines (`url`, `source` = `dm` / `mention` / `#channel`, `from`, `at`, `text`); a run that fails or times out (120 s) changes nothing and the view says so.
 

@@ -207,7 +207,7 @@ check "req no lock left"  "${#locks}" 0
 ZSE_REQ_QUERY[github]='broken'
 _z_req_fetch github
 check "req error kept"    "$([[ -r $ZSE_REQ_DIR/github.error && -r $ZSE_REQ_DIR/github.json ]] && print 1)" 1
-check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[2]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · Slack —"
+check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[2]//$'\e'\[[0-9;]#m/}" "	requested from you ✗ failed ${$(<$ZSE_REQ_DIR/github.error)} · platform-team ✓ 0m · new commits — · Slack —"
 # Slack: valid lines only, URL suffixes cut, closed PRs and old requests
 # dropped, reviewed after the request → note; the search window starts at
 # the last search minus 1 h.
@@ -220,6 +220,7 @@ claude() {
     return
   fi
   print -r -- "$*" >"$ZSE_REQ_DIR/prompt"
+  print -r -- '{"url":"https://github.com/o/r10/pull/10","via":"linear","from":"Katia","at":"2026-11-23T10:00:00Z","text":"requested your review"}'
   print -r -- '{"url":"https://github.com/o/r8/pull/8","via":"sh","from":"Dan","at":"2026-11-24T10:00:00Z","text":"SH: review?"}'
   print -r -- '{"url":"https://github.com/o/r9/pull/9","via":"sh","from":"Eve","at":"2026-11-25T10:00:00Z","text":"SH: not my shift"}'
   print -r -- '{"url":"https://github.com/o/r1/pull/1/files#diff","via":"dm","from":"Theo","at":"2026-11-26T10:00:00Z","text":"stamp?"}'
@@ -238,17 +239,21 @@ gh() {
     "p4":{"pullRequest":{"url":"https://github.com/o/r6/pull/6","title":"Six","state":"OPEN","author":{"login":"cy"},"reviews":{"nodes":[]}}},
     "p5":{"pullRequest":{"url":"https://github.com/o/r7/pull/7","title":"Mine","state":"OPEN","author":{"login":"me"},"reviews":{"nodes":[]}}},
     "p6":{"pullRequest":{"url":"https://github.com/o/r8/pull/8","title":"Eight","state":"OPEN","author":{"login":"dan"},"reviews":{"nodes":[]}}},
-    "p7":{"pullRequest":{"url":"https://github.com/o/r9/pull/9","title":"Nine","state":"OPEN","author":{"login":"eve"},"reviews":{"nodes":[]}}}}}'
+    "p7":{"pullRequest":{"url":"https://github.com/o/r9/pull/9","title":"Nine","state":"OPEN","author":{"login":"eve"},"reviews":{"nodes":[]}}},
+    "p8":{"pullRequest":{"url":"https://github.com/o/r10/pull/10","title":"Ten","state":"OPEN","author":{"login":"katia-recard-taktile"},"reviews":{"nodes":[]}}}}}'
 }
 rm -f "$ZSE_REQ_DIR"/*.json(N) "$ZSE_REQ_DIR"/*.error(N)
 print -r -- $((EPOCHSECONDS - 2 * 86400)) >"$ZSE_REQ_DIR/last-slack-search"
 _z_req_fetch slack
-check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r4/pull/4,https://github.com/o/r8/pull/8"
+check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r10/pull/10,https://github.com/o/r4/pull/4,https://github.com/o/r8/pull/8"
 check "slack shifts"      "$(${ZSE_JQ:-jq} -c . "$ZSE_REQ_DIR/shifts.json")" '[{"start":"2026-11-24T00:00:00","end":"2026-11-25T00:00:00"}]'
 check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'on or after ([0-9-]+)' ]] && print $match[1])" "$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 2 * 86400 - 3600)))"
 check "slack last search" "$(( $(<$ZSE_REQ_DIR/last-slack-search) >= EPOCHSECONDS - 5 ))" 1
 lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
-check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r8/pull/8,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1"
+check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r8/pull/8,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1,https://github.com/o/r10/pull/10"
+plain=${${lines[6]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "linear icon"       "${plain[(w)1]}"                  $'\U000f0c0d'
+check "linear author"     "${plain[(w)4]}"                  "katia"
 check "slack icon"        "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)1]}" $'\uf198'
 plain=${${lines[5]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "slack reviewed"    "${plain##*reviewed }"            "$(_z_age 2026-11-26T12:00:00Z) ago"
@@ -256,11 +261,30 @@ check "slack preview via" "$(_z_pick_preview https://github.com/o/r4/pull/4 | he
 # A second run keeps the earlier entries (the search only sees new ones)
 claude() { :; }
 _z_req_fetch slack
-check "slack keeps old"   "$(${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 3
+check "slack keeps old"   "$(${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 4
 check "shifts once a day" "$(wc -l <"$ZSE_REQ_DIR/shift-calls" | tr -d ' ')" 1
 claude() { print ERROR; }
 _z_req_fetch slack
-check "slack error"       "$([[ -r $ZSE_REQ_DIR/slack.error ]] && ${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 3
+check "slack error"       "$([[ -r $ZSE_REQ_DIR/slack.error ]] && ${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 4
+# New commits since my review: kept only with a commit after my latest
+# review; a row from this source alone is hidden when a session exists.
+rm -f "$ZSE_REQ_DIR"/*.json(N) "$ZSE_REQ_DIR"/*.error(N)
+gh() {
+  [[ $* == *reviewed-by* ]] || return 1
+  print -r -- '{"data":{"viewer":{"login":"me"},"search":{"nodes":[
+    {"url":"https://github.com/o/r11/pull/11","number":11,"title":"Eleven","repository":{"nameWithOwner":"o/r11"},"author":{"login":"ann"},
+     "commits":{"nodes":[{"commit":{"committedDate":"2026-11-26T10:00:00Z"}}]},"reviews":{"nodes":[{"author":{"login":"me"},"submittedAt":"2026-11-25T10:00:00Z"}]}},
+    {"url":"https://github.com/o/r12/pull/12","number":12,"title":"Twelve","repository":{"nameWithOwner":"o/r12"},"author":{"login":"bo"},
+     "commits":{"nodes":[{"commit":{"committedDate":"2026-11-24T10:00:00Z"}}]},"reviews":{"nodes":[{"author":{"login":"me"},"submittedAt":"2026-11-25T10:00:00Z"}]}},
+    {"url":"https://github.com/o/r13/pull/13","number":13,"title":"Thirteen","repository":{"nameWithOwner":"o/r13"},"author":{"login":"cy"},
+     "commits":{"nodes":[{"commit":{"committedDate":"2026-11-26T10:00:00Z"}}]},"reviews":{"nodes":[{"author":{"login":"me"},"submittedAt":"2026-11-25T10:00:00Z"}]}}]}}}'
+}
+_z_req_fetch rereview
+check "rereview urls"     "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/rereview.json")" "https://github.com/o/r11/pull/11,https://github.com/o/r13/pull/13"
+_z_reg_write rev-r13-13-x review /tmp "" https://github.com/o/r13/pull/13
+lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
+check "rereview no sess"  "${(j:,:)${lines[@]%%$'\t'*}}"  ",,https://github.com/o/r11/pull/11"
+rm -f "$ZSE_STATE_DIR/rev-r13-13-x"
 unfunction gh
 rm -rf "$ZSE_REQ_DIR" "$ZSE_STATE_DIR/rev-r3-3-x"
 unfunction claude

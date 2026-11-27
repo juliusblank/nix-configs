@@ -381,10 +381,13 @@ sessions: stop them with `zse stop --all` before you change it, and run
     again every time you open the view, and its rows appear when it is
     done; the first line says which source still searches. One row per
     PR. The first column shows where the request came from: the Slack
-    icon (a DM, a mention or an SH request during your shift), the GitHub
-    icon (GitHub asks you), `#` (GitHub asks the platform-team). Rows sort
-    by that order, then oldest first: Slack, then GitHub, then the team.
-    Then repo and number, age, author, title.
+    icon (a DM, a mention or an SH request during your shift), Ⓛ (Linear
+    says "requested your review"), the GitHub icon (GitHub asks you), the
+    clock icon (new commits since your review, no new request; only
+    without a review session), `#` (GitHub asks the platform-team). Rows
+    sort in that order (Linear and GitHub together), then oldest first.
+    Then repo and number, age, author (first part of the login), title.
+    When you type, the best match comes first (in both views).
     `Enter` starts the review session (`zse -l review <url>`); a PR that
     has a review session already is dim and `Enter` switches to it.
     The preview shows the Slack message and `gh pr view`. `Ctrl-R`
