@@ -935,6 +935,17 @@ _z_pick_preview() {
   emulate -L zsh
   local n=$1 f
   [[ -n $n ]] || return 0 # a group separator
+  if [[ $n == https://* ]]; then # a review request
+    local src
+    for src in $ZSE_REQ_SOURCES; do
+      ${ZSE_JQ:-jq} -r --arg u "$n" '.[] | select(.url == $u and .text != null)
+        | "\(.source) · \(.from) · \(.at[0:16] | sub("T"; " ")): \(.text)"' \
+        "$ZSE_REQ_DIR/$src.json" 2>/dev/null
+    done
+    print
+    gh pr view "$n" 2>/dev/null | head -n 60
+    return 0
+  fi
   f=$(_z_reg_file "$n")
   print -r -- "$n"
   print
@@ -953,16 +964,321 @@ _z_pick_preview() {
   fi
 }
 
+# ----- Review requests (roadmap #47) -----
+#
+# A second view in `zse pick` (Ctrl-T): open review requests. Each source
+# runs in the background when the view opens, writes
+# ~/.cache/zse/requests/<source>.json and, when the picker still shows the
+# requests, reloads it through the fzf socket (`--listen-unsafe` on a
+# socket in that user-only directory). One lock directory per source stops
+# a second run while one runs.
+typeset -g ZSE_REQ_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/requests"
+typeset -ga ZSE_REQ_SOURCES=(github team slack)
+typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'Slack')
+typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
+# Platform Support (incident.io): SH requests count only in your shifts.
+typeset -g ZSE_REQ_SCHEDULE=${ZSE_REQ_SCHEDULE:-01KY4FJZ1S64RZPPN1JR95R9TQ}
+typeset -gA ZSE_REQ_QUERY=(
+  github 'user-review-requested:@me'
+  team 'team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations'
+)
+typeset -gi ZSE_REQ_DAYS=7
+typeset -gi ZSE_REQ_SLACK_TIMEOUT=${ZSE_REQ_SLACK_TIMEOUT:-180}
+# The Slack search (claude -p, Haiku, the Slack connector's search and
+# profile tools only). SINCE / BEFORE: the window, YYYY-MM-DD (UTC).
+typeset -g ZSE_REQ_SLACK_PROMPT='Find GitHub pull request links in Slack messages that ask me to review, sent on or after SINCE (UTC). Search with the Slack search tool; run these searches, each with after:BEFORE:
+1. Direct messages and group DMs to me with a PR link: `is:dm github.com/ pull` and `to:me github.com/ pull`.
+2. Messages in any channel that mention me and have a PR link: `@me github.com/ pull` (if `@me` does not work, find my user ID with the profile tool and use `<@ID>`).
+3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`. Use "via":"sh" for these, or "@" when the message mentions me by name.
+Ignore messages that I sent myself, and links that are not https://github.com/<owner>/<repo>/pull/<number>.
+Reply with JSON lines only, one per PR link, no other text:
+{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "sh" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
+If you find none, reply with nothing. If the search tool fails, reply ERROR.'
+# A command for fzf actions: run a zse function in a fresh zsh.
+typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
+
+# _z_req_fetch SOURCE — run one GitHub source; write its cache (or
+# <source>.error), then tell the picker.
+_z_req_fetch() {
+  emulate -L zsh
+  setopt extended_glob
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local src=$1 lock="$ZSE_REQ_DIR/$1.lock" q json
+  mkdir -p "$ZSE_REQ_DIR"
+  # A lock older than 5 minutes is left over from a run that died.
+  [[ -n $lock(#qN/mm+5) ]] && rm -rf "$lock"
+  mkdir "$lock" 2>/dev/null || return 0
+  if [[ $src == slack ]]; then
+    if _z_req_slack "$lock"; then
+      rm -f "$ZSE_REQ_DIR/$src.error"
+    else
+      print -r -- "$(strftime '%H:%M' $EPOCHSECONDS)" >"$ZSE_REQ_DIR/$src.error"
+    fi
+    rm -rf "$lock"
+    _z_req_notify
+    return 0
+  fi
+  q=${ZSE_REQ_QUERY[$src]:-}
+  [[ $src == team ]] && q+=" updated:>=$(strftime '%Y-%m-%d' $((EPOCHSECONDS - ZSE_REQ_DAYS * 86400)))"
+  if [[ -n $q ]] \
+    && json=$(${ZSE_TIMEOUT:-timeout} 30 gh search prs --state=open --limit 100 \
+      --json url,repository,number,title,author,createdAt -- ${=q} 2>/dev/null) \
+    && json=$(print -r -- "$json" | ${ZSE_JQ:-jq} -c --arg s "$src" \
+      '[.[] | {url, repo: .repository.nameWithOwner, number, title,
+               author: (.author.login // "" | sub("^app/"; "") | sub("\\[bot\\]$"; "")), at: .createdAt, source: $s}]'); then
+    print -r -- "$json" >"$lock/out" && mv "$lock/out" "$ZSE_REQ_DIR/$src.json"
+    rm -f "$ZSE_REQ_DIR/$src.error"
+  else
+    print -r -- "$(strftime '%H:%M' $EPOCHSECONDS)" >"$ZSE_REQ_DIR/$src.error"
+  fi
+  rm -rf "$lock"
+  _z_req_notify
+}
+
+# The shift lookup (claude -p, Haiku, incident.io identity and schedule
+# tools only). Claude copies the raw shifts; zse picks yours with jq.
+typeset -g ZSE_REQ_SHIFT_PROMPT='Call the incident.io identity_show tool, then schedule_show with id SCHEDULE, from FROM, until UNTIL. Reply with one line of compact JSON and nothing else: {"me":"<user.id from identity_show>","shifts":[<every item of shifts and next_shifts as {"user_id":…,"start_at":…,"end_at":…}>]}. Copy the values exactly; do not filter or merge. If a tool fails, reply ERROR.'
+
+# _z_req_shifts — your Platform Support shifts from ZSE_REQ_DAYS days ago
+# to tomorrow in shifts.json ([{start, end}]), looked up at most once a day.
+# Fails (and keeps the old file) when incident.io cannot be read.
+_z_req_shifts() {
+  emulate -L zsh
+  setopt extended_glob
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local f="$ZSE_REQ_DIR/shifts.json" out json p
+  [[ -n $f(#qN.mh-24) ]] && return 0
+  p=${ZSE_REQ_SHIFT_PROMPT//SCHEDULE/$ZSE_REQ_SCHEDULE}
+  p=${p//FROM/$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - ZSE_REQ_DAYS * 86400)))}
+  p=${p//UNTIL/$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS + 86400)))}
+  out=$(
+    cd "$HOME" || exit 1
+    unset DELIVERY_SESSION ZSE_USE_CASE CLAUDECODE CLAUDE_CODE_ENTRYPOINT \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+    ${ZSE_TIMEOUT:-timeout} 120 claude -p --model haiku \
+      --allowedTools mcp__claude_ai_incident_io__identity_show,mcp__claude_ai_incident_io__schedule_show \
+      --output-format text "$p" </dev/null 2>/dev/null
+  ) || return 1
+  json=$(print -r -- "$out" | ${ZSE_JQ:-jq} -Rc 'fromjson? | select(.me and .shifts)
+    | .me as $me | [.shifts[] | select(.user_id == $me) | {start: .start_at[0:19], end: .end_at[0:19]}]' | head -n 1)
+  [[ -n $json ]] || return 1
+  print -r -- "$json" >"$f.tmp" && mv "$f.tmp" "$f"
+}
+
+# _z_req_slack LOCKDIR — the Slack source: search the messages since the
+# last search (minus 1 h, at most ZSE_REQ_DAYS days), merge them with the
+# earlier ones by PR URL, drop requests older than ZSE_REQ_DAYS days, your
+# own PRs, PRs that are closed or merged, and SH requests (`sh`,
+# #team-platform) sent outside your Platform Support shifts (all stay when
+# the shifts are unknown); add the PR data from GitHub (one GraphQL call);
+# write slack.json and the time of the search.
+_z_req_slack() {
+  emulate -L zsh
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local lock=$1 now=$EPOCHSECONDS last since out new old merged q i
+  local jq=${ZSE_JQ:-jq}
+  last=0
+  [[ -r $ZSE_REQ_DIR/last-slack-search ]] && last=$(<"$ZSE_REQ_DIR/last-slack-search")
+  [[ $last == <-> ]] || last=0
+  since=$((last - 3600))
+  ((since < now - ZSE_REQ_DAYS * 86400)) && since=$((now - ZSE_REQ_DAYS * 86400))
+  local p=${ZSE_REQ_SLACK_PROMPT//SINCE/$(TZ=UTC strftime '%Y-%m-%d' $since)}
+  p=${p//BEFORE/$(TZ=UTC strftime '%Y-%m-%d' $((since - 86400)))}
+  out=$(
+    cd "$HOME" || exit 1
+    unset DELIVERY_SESSION ZSE_USE_CASE CLAUDECODE CLAUDE_CODE_ENTRYPOINT \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+    ${ZSE_TIMEOUT:-timeout} $ZSE_REQ_SLACK_TIMEOUT claude -p --model haiku \
+      --allowedTools mcp__claude_ai_Slack__slack_search_public_and_private,mcp__claude_ai_Slack__slack_read_user_profile \
+      --output-format text "$p" </dev/null 2>/dev/null
+  ) || return 1
+  [[ $out == ERROR* ]] && return 1
+  # Valid lines only, the URL without a suffix (/files, #…, ?…).
+  new=$(print -r -- "$out" | $jq -Rc '
+    fromjson? | select(type == "object" and (.url | type) == "string")
+    | .url |= (sub("[?#].*$"; "") | sub("^(?<u>https://github\\.com/[^/]+/[^/]+/pull/[0-9]+).*$"; "\(.u)"))
+    | select(.url | test("^https://github\\.com/[^/]+/[^/]+/pull/[0-9]+$"))
+    | {url, via: (.via // "slack"), from: (.from // ""), at: (.at // ""), text: (.text // "")}' | $jq -sc .) || return 1
+  old=$($jq -c '[.[] | {url, via: .source, from, at, text}]' "$ZSE_REQ_DIR/slack.json" 2>/dev/null) || old='[]'
+  # One entry per URL and source: the earliest request.
+  merged=$($jq -nc --argjson a "$old" --argjson b "$new" \
+    --arg cut "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((now - ZSE_REQ_DAYS * 86400)))" '
+    $a + $b | map(select(.at >= $cut)) | group_by([.url, .via]) | map(min_by(.at))') || return 1
+  # PR data and my latest review, for all PRs in one GraphQL call.
+  local -a urls=(${(f)"$(print -r -- "$merged" | $jq -r '[.[].url] | unique[]')"})
+  local pr_data='{}'
+  if (($#urls)); then
+    q='query { viewer { login }'
+    for i in {1..$#urls}; do
+      [[ $urls[i] =~ '^https://github.com/([^/]+)/([^/]+)/pull/([0-9]+)$' ]] || continue
+      q+=" p$i: repository(owner: \"$match[1]\", name: \"$match[2]\") { pullRequest(number: $match[3]) { url title state author { login } reviews(last: 30) { nodes { author { login } submittedAt } } } }"
+    done
+    q+=' }'
+    pr_data=$(${ZSE_TIMEOUT:-timeout} 30 gh api graphql -f query="$q" 2>/dev/null \
+      | $jq -c '.data as $d | ($d.viewer.login) as $me
+          | [$d | to_entries[] | select(.key != "viewer") | .value.pullRequest
+             | select(. != null and .author.login != $me)
+             | {key: .url, value: {title, state, author: (.author.login // "" | sub("\\[bot\\]$"; "")),
+                 reviewed: ([.reviews.nodes[] | select(.author.login == $me) | .submittedAt] | max)}}]
+          | from_entries') || return 1
+  fi
+  local shifts=null
+  _z_req_shifts && shifts=$(<"$ZSE_REQ_DIR/shifts.json")
+  print -r -- "$merged" | $jq -c --argjson prs "$pr_data" --argjson shifts "$shifts" '
+    [.[] | . as $r | $prs[$r.url] as $p | select($p != null and $p.state == "OPEN")
+     | select(.via != "sh" or $shifts == null
+              or any($shifts[]; .start <= ($r.at[0:19]) and ($r.at[0:19]) < .end))
+     | ($r.url | capture("^https://github\\.com/(?<o>[^/]+)/(?<n>[^/]+)/pull/(?<num>[0-9]+)$")) as $m
+     | {url, repo: "\($m.o)/\($m.n)", number: ($m.num | tonumber), title: $p.title, author: $p.author,
+        at, source: .via, group: "slack", from, text, reviewed: $p.reviewed}]' >"$lock/out" || return 1
+  mv "$lock/out" "$ZSE_REQ_DIR/slack.json"
+  print -r -- "$now" >"$ZSE_REQ_DIR/last-slack-search"
+}
+
+# _z_req_notify — reload the picker's requests view (no-op without one).
+_z_req_notify() {
+  [[ -n ${ZSE_FZF_SOCK:-} && -S $ZSE_FZF_SOCK ]] || return 0
+  curl -s --max-time 2 --unix-socket "$ZSE_FZF_SOCK" -X POST http://localhost \
+    -d "transform:$ZSE_ZCALL _z_req_on_update" >/dev/null 2>&1
+}
+
+# fzf actions. The prompt says which view is open.
+_z_req_on_update() {
+  [[ $FZF_PROMPT == requests* ]] && print -r -- "reload($ZSE_ZCALL _z_req_lines)"
+}
+_z_req_toggle() {
+  if [[ $FZF_PROMPT == requests* ]]; then
+    print -r -- "change-prompt(> )+reload($ZSE_ZCALL _z_pick_lines)+change-header:$(_z_pick_header)"
+  else
+    print -r -- "change-prompt(requests> )+reload($ZSE_ZCALL _z_req_lines --fetch)+change-header:$(_z_req_header)"
+  fi
+}
+_z_req_refresh() {
+  if [[ $FZF_PROMPT == requests* ]]; then
+    print -r -- "reload($ZSE_ZCALL _z_req_lines --fetch)"
+  else
+    print -r -- "reload($ZSE_ZCALL _z_pick_lines)"
+  fi
+}
+_z_pick_header() {
+  print -r -- 'Enter switch · Ctrl-T review requests · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged'
+}
+_z_req_header() {
+  print -r -- 'Enter start the review (dim: switch to its session) · Ctrl-T sessions · Ctrl-R search again · Esc close'
+}
+
+# _z_req_lines [--fetch] — the requests view: a status line, then one row
+# per PR ("key<TAB>display"; the key is the PR URL, or the name of its
+# review session), grouped by source in ZSE_REQ_SOURCES order (a PR in
+# more than one source goes to the first), oldest first. --fetch starts the
+# sources in the background first.
+_z_req_lines() {
+  emulate -L zsh
+  setopt extended_glob
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  zmodload -F zsh/stat b:zstat
+  local src n u e=$'\e'
+  if [[ ${1:-} == --fetch ]]; then
+    mkdir -p "$ZSE_REQ_DIR"
+    for src in $ZSE_REQ_SOURCES; do
+      ( _z_req_fetch "$src" ) </dev/null >/dev/null 2>&1 &!
+      # Let the lock appear before the status line reads it.
+    done
+    sleep 0.1
+  fi
+  local -i width=$(_z_pick_width) rest
+  # Review sessions by PR URL.
+  local -A sess
+  for n in $(_z_reg_names); do
+    [[ $(_z_reg_get "$n" use_case 2>/dev/null) == review ]] || continue
+    u=$(_z_reg_get "$n" url 2>/dev/null)
+    [[ -n $u ]] && sess[$u]=$n
+  done
+
+  # Status: per source, loading / failed / the age of its cache.
+  local -a st
+  local -a mt
+  for src in $ZSE_REQ_SOURCES; do
+    if [[ -d $ZSE_REQ_DIR/$src.lock ]]; then
+      st+="${ZSE_REQ_LABEL[$src]} … searching"
+    elif [[ -r $ZSE_REQ_DIR/$src.error ]]; then
+      st+="${ZSE_REQ_LABEL[$src]} ✗ failed $(<"$ZSE_REQ_DIR/$src.error")"
+    elif [[ -r $ZSE_REQ_DIR/$src.json ]]; then
+      zstat -A mt +mtime "$ZSE_REQ_DIR/$src.json"
+      st+="${ZSE_REQ_LABEL[$src]} ✓ $(_z_age "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $mt[1])")"
+    else
+      st+="${ZSE_REQ_LABEL[$src]} —"
+    fi
+  done
+  print -r -- "	${e}[2m${(j: · :)st}${e}[22m"
+
+  local -a files=()
+  for src in $ZSE_REQ_SOURCES; do
+    [[ -r $ZSE_REQ_DIR/$src.json ]] && files+="$ZSE_REQ_DIR/$src.json"
+  done
+  (($#files)) || return 0
+  local order
+  order=$(print -rl -- $ZSE_REQ_SOURCES | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
+  local line gi last="" label head plain fg=${ZSE_COLOR[review]:-70} repo num title author at srcs key note age reviewed
+  for line in ${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" '
+      [.[][]] | group_by(.url)
+      | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
+             author: .[0].author, at: (map(.at) | min),
+             reviewed: (map(.reviewed // empty) | max),
+             groups: (map(.group // .source) | unique),
+             sources: (map(.source) | unique | sort_by((. as $s | $order | index($s)) // 99))})
+      | map(. + {g: (.groups | map(. as $s | $order | index($s)) | min)})
+      | sort_by(.g, .at)[]
+      | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.sources | join(",")),
+         (if .reviewed != null and .reviewed > .at then .reviewed else "" end)] | @tsv
+    ' $files 2>/dev/null)"}; do
+    IFS=$'\t' read -r gi u repo num title author at srcs reviewed <<<"$line"
+    if [[ $gi != $last ]]; then
+      label="${ZSE_REQ_LABEL[${ZSE_REQ_SOURCES[gi + 1]}]} "
+      rest=$((width - ${(m)#label}))
+      ((rest > 0)) && label+=${(l:rest::─:)}
+      print -r -- "	${e}[38;5;${fg}m${label}${e}[0m"
+      last=$gi
+    fi
+    age=$(_z_age "$at")
+    srcs=${(j:,:)${(@)${(s:,:)srcs}/(#m)*/${ZSE_REQ_TAG[$MATCH]:-$MATCH}}}
+    head="  ${e}[38;5;${fg}m${ZSE_ICON[review]}${e}[39m $(printf '%-22s %4s  %-10s' "$(_z_repo_short "${repo#*/}")#$num" "$age" "$srcs")"
+    key=$u note=""
+    if [[ -n ${sess[$u]:-} ]]; then
+      key=${sess[$u]}
+      note="  → ${sess[$u]} (Enter switches)"
+    elif [[ -n $reviewed ]]; then
+      note="  reviewed $(_z_age "$reviewed") ago"
+    fi
+    plain=${head//$e\[[0-9;]#m/}
+    rest=$((width - ${(m)#plain} - ${(m)#note} - ${#author} - 5))
+    ((rest > 0)) && head+="  ${title[1,rest]}"
+    head+="  ${e}[2m($author)${e}[22m${note}"
+    if [[ -n $note ]]; then
+      print -r -- "$key	${e}[2m${head//$e\[22m/}${e}[22m"
+    else
+      print -r -- "$key	$head"
+    fi
+  done
+}
+
 # zse pick — fzf over all sessions (Ctrl Space in Zellij); Enter switches
-# (a stopped session is restored first), Ctrl-R reloads. The list cycles
+# (a stopped session is restored first), Ctrl-R reloads, Ctrl-T shows the
+# review requests (Enter starts the review). The list cycles
 # (down on the last row goes to the first). Group separators have an empty
 # name: the cursor moves over them and Enter on one does nothing.
 _zse_pick() {
   emulate -L zsh
-  local choice skip='[ -n {1} ] || echo'
+  local choice key skip='[ -n {1} ] || echo'
+  mkdir -p "$ZSE_REQ_DIR" && chmod 700 "$ZSE_REQ_DIR"
+  # Sockets of pickers that did not close normally.
+  rm -f "$ZSE_REQ_DIR"/fzf-*.sock(N=mh+12)
+  local -x ZSE_FZF_SOCK="$ZSE_REQ_DIR/fzf-$$.sock"
+  rm -f "$ZSE_FZF_SOCK"
   choice=$(COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)} _z_pick_lines \
     | fzf --ansi --delimiter=$'\t' --with-nth=2.. --no-sort --layout=reverse --cycle \
-    --header='Enter switch · Ctrl-R reload · Esc close   ● busy ◐ waiting ○ idle · review: ✱ new ↩ submitted ✔ approved ✗ closed ⇥ merged' \
+    --listen-unsafe="$ZSE_FZF_SOCK" --track --id-nth=1 \
+    --header="$(_z_pick_header)" \
     --preview="zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_preview \"\$1\"' zse {1}" \
     --preview-window='down,40%,wrap' \
     --bind="result:transform:$skip down" \
@@ -973,8 +1289,16 @@ _zse_pick() {
     --bind="ctrl-k:up+transform:$skip up" \
     --bind="ctrl-p:up+transform:$skip up" \
     --bind='enter:transform:[ -n {1} ] && echo accept' \
-    --bind="ctrl-r:reload(zsh -c 'source \"\$ZSE_SOURCE\"; _z_pick_lines')") || return 0
-  [[ -n ${choice%%$'\t'*} ]] && _zse_switch "${choice%%$'\t'*}"
+    --bind="ctrl-t:transform:$ZSE_ZCALL _z_req_toggle" \
+    --bind="ctrl-r:transform:$ZSE_ZCALL _z_req_refresh")
+  rm -f "$ZSE_FZF_SOCK"
+  key=${choice%%$'\t'*}
+  [[ -n $key ]] || return 0
+  if [[ $key == https://* ]]; then
+    zse -l review "$key"
+  else
+    _zse_switch "$key"
+  fi
 }
 
 # ----- Commands -----
