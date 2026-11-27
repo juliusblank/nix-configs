@@ -1004,10 +1004,11 @@ typeset -g ZSE_REQ_SLACK_PROMPT='Find GitHub pull request links in Slack message
 1. Direct messages and group DMs to me with a PR link: `is:dm github.com/ pull` and `to:me github.com/ pull`.
 2. Messages in any channel that mention me and have a PR link: `@me github.com/ pull` (if `@me` does not work, find my user ID with the profile tool and use `<@ID>`).
 3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`. Use "via":"sh" for these, or "@" when the message mentions me by name.
-4. Linear review requests in my DMs: `from:@Linear requested your review` and `from:@Linear re-requested your review`. These name the PR as `<owner>/<repo>#<number>`: use https://github.com/<owner>/<repo>/pull/<number> as the url, "via":"linear" and the person who requested the review as "from".
-Ignore messages that I sent myself, and links that are not https://github.com/<owner>/<repo>/pull/<number>.
-Reply with JSON lines only, one per PR link, no other text:
-{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "sh" | "linear" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
+4. Linear review requests in my DMs: `from:@Linear requested your review` and `from:@Linear re-requested your review`. These name the PR as `<owner>/<repo>#<number>`: use https://github.com/<owner>/<repo>/pull/<number> as the link, "via":"linear" and the person who requested the review as "from".
+Ignore messages that I sent myself.
+A message can have more than one PR link: list all of them. Copy each GitHub link exactly as it is in the message, also when it has a suffix such as /changes, /files or #diff-….
+Reply with JSON lines only, one per message, no other text:
+{"urls":["<every GitHub PR link in the message>"],"via":"dm" | "@" | "sh" | "linear" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
 If you find none, reply with nothing. If the search tool fails, reply ERROR.'
 # A command for fzf actions: run a zse function in a fresh zsh.
 typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
@@ -1087,6 +1088,19 @@ _z_req_shifts() {
 # #team-platform) sent outside your Platform Support shifts (all stay when
 # the shifts are unknown); add the PR data from GitHub (one GraphQL call);
 # write slack.json and the time of the search.
+# _z_req_slack_parse — the Slack search reply (JSON lines) on stdin → a JSON
+# array with one entry per PR link: {url, via, from, at, text}.
+_z_req_slack_parse() {
+  ${ZSE_JQ:-jq} -Rc '
+    fromjson? | select(type == "object")
+    | . as $m
+    | ([.urls?, .url?] | flatten | map(select(type == "string")) | .[])
+    | sub("[?#].*$"; "") | sub("^(?<u>https://github\\.com/[^/]+/[^/]+/pull/[0-9]+).*$"; "\(.u)")
+    | select(test("^https://github\\.com/[^/]+/[^/]+/pull/[0-9]+$"))
+    | {url: ., via: ($m.via // "slack"), from: ($m.from // ""), at: ($m.at // ""), text: ($m.text // "")}' \
+    | ${ZSE_JQ:-jq} -sc 'unique_by([.url, .via, .at])'
+}
+
 _z_req_slack() {
   emulate -L zsh
   zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
@@ -1108,12 +1122,9 @@ _z_req_slack() {
       --output-format text "$p" </dev/null 2>/dev/null
   ) || return 1
   [[ $out == ERROR* ]] && return 1
-  # Valid lines only, the URL without a suffix (/files, #…, ?…).
-  new=$(print -r -- "$out" | $jq -Rc '
-    fromjson? | select(type == "object" and (.url | type) == "string")
-    | .url |= (sub("[?#].*$"; "") | sub("^(?<u>https://github\\.com/[^/]+/[^/]+/pull/[0-9]+).*$"; "\(.u)"))
-    | select(.url | test("^https://github\\.com/[^/]+/[^/]+/pull/[0-9]+$"))
-    | {url, via: (.via // "slack"), from: (.from // ""), at: (.at // ""), text: (.text // "")}' | $jq -sc .) || return 1
+  # Valid lines only; one entry per PR link of a message (`urls`, or
+  # `url`), the URL without a suffix (/changes, /files, #…, ?…).
+  new=$(print -r -- "$out" | _z_req_slack_parse) || return 1
   old=$($jq -c '[.[] | {url, via: .source, from, at, text}]' "$ZSE_REQ_DIR/slack.json" 2>/dev/null) || old='[]'
   # One entry per URL and source: the earliest request.
   merged=$($jq -nc --argjson a "$old" --argjson b "$new" \

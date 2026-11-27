@@ -246,6 +246,9 @@ rm -f "$ZSE_REQ_DIR"/*.json(N) "$ZSE_REQ_DIR"/*.error(N)
 print -r -- $((EPOCHSECONDS - 2 * 86400)) >"$ZSE_REQ_DIR/last-slack-search"
 _z_req_fetch slack
 check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r10/pull/10,https://github.com/o/r4/pull/4,https://github.com/o/r8/pull/8"
+parsed=$(print -r -- '{"urls":["https://github.com/o/ws/pull/31","https://github.com/o/ws/pull/30","https://github.com/o/ws/pull/26/changes","https://github.com/o/ws/pull/32/changes#diff-b2","https://github.com/o/ws/issues/9"],"via":"dm","from":"Gab","at":"2026-11-26T15:30:57Z","text":"small PRs"}' | _z_req_slack_parse)
+check "slack multi urls"  "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '[.[].url | sub(".*/pull/"; "")] | join(",")')" "26,30,31,32"
+check "slack multi from"  "$(print -r -- "$parsed" | ${ZSE_JQ:-jq} -r '[.[].from] | unique | join(",")')" "Gab"
 check "slack shifts"      "$(${ZSE_JQ:-jq} -c . "$ZSE_REQ_DIR/shifts.json")" '[{"start":"2026-11-24T00:00:00","end":"2026-11-25T00:00:00"}]'
 check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'on or after ([0-9-]+)' ]] && print $match[1])" "$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 2 * 86400 - 3600)))"
 check "slack last search" "$(( $(<$ZSE_REQ_DIR/last-slack-search) >= EPOCHSECONDS - 5 ))" 1

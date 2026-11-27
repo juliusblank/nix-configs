@@ -15,7 +15,8 @@ def outcome:
   ((if (.conclusion // "") != "" then .conclusion else (.state // .status // "") end) | ascii_upcase)
   | if . == "SUCCESS" or . == "NEUTRAL" then "pass"
     elif . == "SKIPPED" then "skip"
-    elif . == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "CANCELLED"
+    elif . == "CANCELLED" then "cancel"
+    elif . == "FAILURE" or . == "ERROR" or . == "TIMED_OUT"
       or . == "ACTION_REQUIRED" or . == "STARTUP_FAILURE" then "fail"
     else "pending" end;
 
@@ -57,7 +58,11 @@ def outcome:
     else "submitted"
     end
   ) as $review_state
-| ([(.statusCheckRollup // [])[] | {name: (.name // .context // "?"), o: outcome}]) as $ci
+# The newest run of each check only (as GitHub shows it): a re-run or a
+# run that a newer push or a concurrency group cancelled stays in the rollup.
+| ([(.statusCheckRollup // [])[] | {wf: (.workflowName // ""), name: (.name // .context // "?"),
+     at: (.startedAt // .createdAt // ""), o: outcome}]
+   | group_by([.wf, .name]) | map(max_by(.at))) as $ci
 | {
     title,
     # The author's first name in lower case (the login without a name)
@@ -70,7 +75,9 @@ def outcome:
       fail: ([$ci[] | select(.o == "fail")] | length),
       pending: ([$ci[] | select(.o == "pending")] | length),
       skip: ([$ci[] | select(.o == "skip")] | length),
+      cancel: ([$ci[] | select(.o == "cancel")] | length),
       failing: [$ci[] | select(.o == "fail") | .name],
+      cancelled: [$ci[] | select(.o == "cancel") | .name],
       running: [$ci[] | select(.o == "pending") | .name]
     },
     base: (if $base == null then null else ($base + {at: ($base.at[0:16] | sub("T"; " "))}) end),

@@ -119,14 +119,16 @@ render() {
   printf '%s%s%s\n' "$dim" "$status_line" "$reset"
 
   # CI
-  local pass fail pending skip
-  pass=$(q .ci.pass) fail=$(q .ci.fail) pending=$(q .ci.pending) skip=$(q .ci.skip)
+  local pass fail pending skip cancel
+  pass=$(q .ci.pass) fail=$(q .ci.fail) pending=$(q .ci.pending) skip=$(q .ci.skip) cancel=$(q '.ci.cancel // 0')
   printf 'CI  %s✓ %s%s' "$green" "$pass" "$reset"
   ((fail)) && printf '  %s✗ %s%s' "$red" "$fail" "$reset"
   ((pending)) && printf '  %s… %s%s' "$yellow" "$pending" "$reset"
   ((skip)) && printf '  %sskipped %s%s' "$dim" "$skip" "$reset"
+  ((cancel)) && printf '  %s⊘ %s cancelled%s' "$dim" "$cancel" "$reset"
   printf '\n'
   ((fail)) && q '.ci.failing[] | "    ✗ " + .' | sed "s/^/$red/;s/\$/$reset/"
+  ((cancel)) && q '.ci.cancelled[] | "    ⊘ " + .' | sed "s/^/$dim/;s/\$/$reset/"
   ((pending)) && q '.ci.running[0:3][] | "    … " + .'
   printf '\n'
 
