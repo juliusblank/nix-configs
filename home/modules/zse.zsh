@@ -795,7 +795,7 @@ typeset -gA ZSE_REVIEW_MARK=(new '✱' submitted '↩' approved '✔' closed '�
 _z_review() {
   emulate -L zsh
   local f="${XDG_CACHE_HOME:-$HOME/.cache}/zse/activity/$1.pr" k v
-  REPLY="" REPLY_LABEL="" REPLY_SUMMARY="" REPLY_AT=""
+  REPLY="" REPLY_LABEL="" REPLY_SUMMARY="" REPLY_AT="" REPLY_AUTHOR=""
   [[ -r $f ]] || return 1
   while IFS== read -r k v; do
     case $k in
@@ -803,6 +803,7 @@ _z_review() {
       label) REPLY_LABEL=$v ;;
       summary) REPLY_SUMMARY=$v ;;
       at) REPLY_AT=$v ;;
+      author) REPLY_AUTHOR=$v ;;
     esac
   done <"$f"
   # A file from before the states: only `new=` and `summary=`.
@@ -846,7 +847,7 @@ _z_pick_lines() {
   local n uc st act sort badge agents title fg bg icon age started g
   local head plain row
   local -i width=$(_z_pick_width) rest namew=0 badgew=0
-  local -A badges sorts
+  local -A badges sorts authors
   local -a rows
   local -A order=(busy 1 waiting 2 idle 3 '?' 4)
   local -a names=($(_z_reg_names) ${(k)live})
@@ -871,8 +872,11 @@ _z_pick_lines() {
       closed | merged) sort=6 ;;
     esac
     badges[$n]=$badge sorts[$n]=$sort
+    # The PR author after a review's name: `rev-… (theo)`
+    [[ -n $REPLY_AUTHOR ]] && authors[$n]=" ($REPLY_AUTHOR)"
     plain=${badge//$e\[[0-9;]#m/}
-    ((${(m)#n} > namew)) && namew=${(m)#n}
+    l="$n${authors[$n]:-}"
+    ((${(m)#l} > namew)) && namew=${(m)#l}
     ((${(m)#plain} > badgew)) && badgew=${(m)#plain}
   done
   for n in $names; do
@@ -892,7 +896,7 @@ _z_pick_lines() {
     g=$(_z_group "$uc")
     # Only foreground / weight resets inside the row: a full reset would
     # end the background before the padding.
-    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m ${(r:namew:: :)n} $(printf '%-7s %4s' "$st" "$age")"
+    head="${${act:+${ZSE_ACT_ICON[$act]:-·}}:- } ${e}[${fg}m${icon}${e}[39m $n${authors[$n]:+${e}[2m${authors[$n]}${e}[22m}${(l:namew - ${(m)#n} - ${(m)#authors[$n]}:: :)} $(printf '%-7s %4s' "$st" "$age")"
     if ((badgew)); then
       plain=${badge//$e\[[0-9;]#m/}
       head+="  ${badge}${(l:badgew - ${(m)#plain}:: :)}"

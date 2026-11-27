@@ -340,7 +340,8 @@ sessions: stop them with `zse stop --all` before you change it, and run
   busy or waits for you, or that has background agents running, and says
   why (`zse: skipped 'x': busy, 2 agents.`); `--force` stops them too.
 - **`zse pick`** — fzf over all registered and running sessions, one line
-  each: activity, type icon in the type colour, name, state, age since the
+  each: activity, type icon in the type colour, name (a review adds the PR
+  author's first name: `rev-… (theo)`), state, age since the
   last start, the review state (from the `zse-ci` pane: `✱ <what is new>`
   inverse in the session colour, `↩ commented` / `↩ changes requested`
   dim, `✔ approved` green, `✗ closed` / `⇥ merged` grey), background

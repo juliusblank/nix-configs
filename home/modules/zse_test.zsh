@@ -156,7 +156,7 @@ unfunction zellij
 # Review states (the zse-ci state file)
 export XDG_CACHE_HOME=$(mktemp -d)
 mkdir -p "$XDG_CACHE_HOME/zse/activity"
-printf 'state=submitted\nlabel=changes requested\nat=2026-11-01T10:00:00Z\n' >"$XDG_CACHE_HOME/zse/activity/rev-a.pr"
+printf 'state=submitted\nlabel=changes requested\nauthor=theo\nat=2026-11-01T10:00:00Z\n' >"$XDG_CACHE_HOME/zse/activity/rev-a.pr"
 _z_review rev-a
 check "review state"      "$REPLY"                           submitted
 check "review label"      "$REPLY_LABEL"                     "changes requested"
@@ -171,6 +171,10 @@ _z_reg_write rev-a review /tmp ""
 _z_reg_write rev-b review /tmp ""
 lines=("${(@f)$(FZF_COLUMNS=120 _z_pick_lines)}")
 picked=(${lines[@]%%$'\t'*})
+row_a=${(M)lines:#rev-a$'\t'*}; row_a=${${row_a#*$'\t'}//$'\e'\[[0-9;]#m/}
+row_b=${(M)lines:#rev-b$'\t'*}; row_b=${${row_b#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "pick author"       "${${row_a#*rev-a }%% *}"          "(theo)"
+check "pick author align" "${#${row_a%%running*}}"           "${#${row_b%%running*}}"
 check "pick new first"    "${(j:,:)${(@M)picked:#rev-*}}"     "rev-b,rev-a"
 unfunction zellij
 rm -rf "$XDG_CACHE_HOME"; unset XDG_CACHE_HOME

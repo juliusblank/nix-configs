@@ -64,6 +64,7 @@ write_state() {
   {
     printf 'state=%s\n' "$1"
     printf 'label=%s\n' "$2"
+    [[ -n $author ]] && printf 'author=%s\n' "$author"
     [[ -n ${3:-} ]] && printf 'summary=%s\n' "$3"
     printf 'at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   } >"$state_file.tmp" && mv "$state_file.tmp" "$state_file"
@@ -88,7 +89,7 @@ ticket_status() {
 render() {
   local json s
   if ! json=$(gh pr view "$pr" "${repo_args[@]}" --json \
-    title,state,isDraft,reviewDecision,mergeable,headRefName,headRefOid,commits,reviews,comments,statusCheckRollup 2>&1); then
+    title,author,state,isDraft,reviewDecision,mergeable,headRefName,headRefOid,commits,reviews,comments,statusCheckRollup 2>&1); then
     clear
     printf 'PR #%s\n%s\n\n%s · every %ss · r refresh · q quit\n' "$pr" "$json" "$(date '+%H:%M:%S')" "$interval"
     return
@@ -107,6 +108,7 @@ render() {
   decision=$(q '.decision | ascii_downcase | gsub("_"; " ")')
   mergeable=$(q '.mergeable | ascii_downcase')
   branch=$(q .branch)
+  author=$(q .author)
 
   clear
   printf '%sPR #%s%s  %s\n' "$bold" "$pr" "$reset" "$title"
@@ -171,7 +173,7 @@ render() {
     "$dim" "$(date '+%H:%M:%S')" "$interval" "$reset"
 }
 
-branch=""
+branch="" author=""
 while :; do
   render
   key=""

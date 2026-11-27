@@ -59,7 +59,11 @@ def outcome:
   ) as $review_state
 | ([(.statusCheckRollup // [])[] | {name: (.name // .context // "?"), o: outcome}]) as $ci
 | {
-    title, state, draft: .isDraft, decision: (.reviewDecision // ""), mergeable: (.mergeable // ""),
+    title,
+    # The author's first name in lower case (the login without a name)
+    author: ((.author.name // "" | split(" ") | .[0] // "") as $f
+      | if $f != "" then $f else (.author.login // "" | sub("^app/"; "")) end | ascii_downcase),
+    state, draft: .isDraft, decision: (.reviewDecision // ""), mergeable: (.mergeable // ""),
     branch: .headRefName, head: (.headRefOid[0:7]),
     ci: {
       pass: ([$ci[] | select(.o == "pass")] | length),
