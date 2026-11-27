@@ -147,6 +147,10 @@ check "pick names"        "${(j:,:)${lines[@]%%$'\t'*}}"     ",tkt-PCS-1-x,,proj
 check "pick sep label"    "${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}" "tickets ${(l:72::─:)}"
 plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "pick row width"    "${(m)#plain}"                     80
+# The state column starts at the same place for short and long names
+s1=${${lines[2]#*$'\t'}//$'\e'\[[0-9;]#m/}; s1=${s1%%running*}
+s2=${${lines[6]#*$'\t'}//$'\e'\[[0-9;]#m/}; s2=${s2%%running*}
+check "pick name column"  "${(m)#s1}"                        "${(m)#s2}"
 unfunction zellij
 
 # Review states (the zse-ci state file)
