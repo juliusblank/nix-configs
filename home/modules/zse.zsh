@@ -976,6 +976,8 @@ typeset -g ZSE_REQ_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zse/requests"
 typeset -ga ZSE_REQ_SOURCES=(github team slack)
 typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' slack 'Slack')
 typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
+# Platform Support (incident.io): SH requests count only in your shifts.
+typeset -g ZSE_REQ_SCHEDULE=${ZSE_REQ_SCHEDULE:-01KY4FJZ1S64RZPPN1JR95R9TQ}
 typeset -gA ZSE_REQ_QUERY=(
   github 'user-review-requested:@me'
   team 'team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations'
@@ -987,10 +989,10 @@ typeset -gi ZSE_REQ_SLACK_TIMEOUT=${ZSE_REQ_SLACK_TIMEOUT:-180}
 typeset -g ZSE_REQ_SLACK_PROMPT='Find GitHub pull request links in Slack messages that ask me to review, sent on or after SINCE (UTC). Search with the Slack search tool; run these searches, each with after:BEFORE:
 1. Direct messages and group DMs to me with a PR link: `is:dm github.com/ pull` and `to:me github.com/ pull`.
 2. Messages in any channel that mention me and have a PR link: `@me github.com/ pull` (if `@me` does not work, find my user ID with the profile tool and use `<@ID>`).
-3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`.
+3. Messages in #team-platform with a PR link: `in:#team-platform github.com/ pull`. Use "via":"sh" for these, or "@" when the message mentions me by name.
 Ignore messages that I sent myself, and links that are not https://github.com/<owner>/<repo>/pull/<number>.
 Reply with JSON lines only, one per PR link, no other text:
-{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
+{"url":"https://github.com/<owner>/<repo>/pull/<n>","via":"dm" | "@" | "sh" | "#<channel>","from":"<sender display name>","at":"<message time, ISO 8601 UTC>","text":"<first 120 characters of the message>"}
 If you find none, reply with nothing. If the search tool fails, reply ERROR.'
 # A command for fzf actions: run a zse function in a fresh zsh.
 typeset -g ZSE_ZCALL='zsh -c '\''source "$ZSE_SOURCE"; "$@"'\'' zse'
@@ -1033,11 +1035,43 @@ _z_req_fetch() {
   _z_req_notify
 }
 
+# The shift lookup (claude -p, Haiku, incident.io identity and schedule
+# tools only). Claude copies the raw shifts; zse picks yours with jq.
+typeset -g ZSE_REQ_SHIFT_PROMPT='Call the incident.io identity_show tool, then schedule_show with id SCHEDULE, from FROM, until UNTIL. Reply with one line of compact JSON and nothing else: {"me":"<user.id from identity_show>","shifts":[<every item of shifts and next_shifts as {"user_id":…,"start_at":…,"end_at":…}>]}. Copy the values exactly; do not filter or merge. If a tool fails, reply ERROR.'
+
+# _z_req_shifts — your Platform Support shifts from ZSE_REQ_DAYS days ago
+# to tomorrow in shifts.json ([{start, end}]), looked up at most once a day.
+# Fails (and keeps the old file) when incident.io cannot be read.
+_z_req_shifts() {
+  emulate -L zsh
+  setopt extended_glob
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local f="$ZSE_REQ_DIR/shifts.json" out json p
+  [[ -n $f(#qN.mh-24) ]] && return 0
+  p=${ZSE_REQ_SHIFT_PROMPT//SCHEDULE/$ZSE_REQ_SCHEDULE}
+  p=${p//FROM/$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - ZSE_REQ_DAYS * 86400)))}
+  p=${p//UNTIL/$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS + 86400)))}
+  out=$(
+    cd "$HOME" || exit 1
+    unset DELIVERY_SESSION ZSE_USE_CASE CLAUDECODE CLAUDE_CODE_ENTRYPOINT \
+      CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+    ${ZSE_TIMEOUT:-timeout} 120 claude -p --model haiku \
+      --allowedTools mcp__claude_ai_incident_io__identity_show,mcp__claude_ai_incident_io__schedule_show \
+      --output-format text "$p" </dev/null 2>/dev/null
+  ) || return 1
+  json=$(print -r -- "$out" | ${ZSE_JQ:-jq} -Rc 'fromjson? | select(.me and .shifts)
+    | .me as $me | [.shifts[] | select(.user_id == $me) | {start: .start_at[0:19], end: .end_at[0:19]}]' | head -n 1)
+  [[ -n $json ]] || return 1
+  print -r -- "$json" >"$f.tmp" && mv "$f.tmp" "$f"
+}
+
 # _z_req_slack LOCKDIR — the Slack source: search the messages since the
 # last search (minus 1 h, at most ZSE_REQ_DAYS days), merge them with the
 # earlier ones by PR URL, drop requests older than ZSE_REQ_DAYS days, your
-# own PRs and PRs that are closed or merged, add the PR data from GitHub (one GraphQL
-# call), write slack.json and the time of the search.
+# own PRs, PRs that are closed or merged, and SH requests (`sh`,
+# #team-platform) sent outside your Platform Support shifts (all stay when
+# the shifts are unknown); add the PR data from GitHub (one GraphQL call);
+# write slack.json and the time of the search.
 _z_req_slack() {
   emulate -L zsh
   zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
@@ -1088,8 +1122,12 @@ _z_req_slack() {
                  reviewed: ([.reviews.nodes[] | select(.author.login == $me) | .submittedAt] | max)}}]
           | from_entries') || return 1
   fi
-  print -r -- "$merged" | $jq -c --argjson prs "$pr_data" '
+  local shifts=null
+  _z_req_shifts && shifts=$(<"$ZSE_REQ_DIR/shifts.json")
+  print -r -- "$merged" | $jq -c --argjson prs "$pr_data" --argjson shifts "$shifts" '
     [.[] | . as $r | $prs[$r.url] as $p | select($p != null and $p.state == "OPEN")
+     | select(.via != "sh" or $shifts == null
+              or any($shifts[]; .start <= ($r.at[0:19]) and ($r.at[0:19]) < .end))
      | ($r.url | capture("^https://github\\.com/(?<o>[^/]+)/(?<n>[^/]+)/pull/(?<num>[0-9]+)$")) as $m
      | {url, repo: "\($m.o)/\($m.n)", number: ($m.num | tonumber), title: $p.title, author: $p.author,
         at, source: .via, group: "slack", from, text, reviewed: $p.reviewed}]' >"$lock/out" || return 1

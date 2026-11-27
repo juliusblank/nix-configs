@@ -208,7 +208,14 @@ check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[1]//$'\e'\[[0
 now_iso=$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $EPOCHSECONDS)
 old_iso=$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 9 * 86400)))
 claude() {
+  if [[ $* == *schedule_show* ]]; then
+    print -r -- x >>"$ZSE_REQ_DIR/shift-calls"
+    print -r -- '{"me":"U1","shifts":[{"user_id":"U1","start_at":"2026-11-24T00:00:00Z","end_at":"2026-11-25T00:00:00Z"},{"user_id":"U2","start_at":"2026-11-25T00:00:00Z","end_at":"2026-11-26T00:00:00Z"}]}'
+    return
+  fi
   print -r -- "$*" >"$ZSE_REQ_DIR/prompt"
+  print -r -- '{"url":"https://github.com/o/r8/pull/8","via":"sh","from":"Dan","at":"2026-11-24T10:00:00Z","text":"SH: review?"}'
+  print -r -- '{"url":"https://github.com/o/r9/pull/9","via":"sh","from":"Eve","at":"2026-11-25T10:00:00Z","text":"SH: not my shift"}'
   print -r -- '{"url":"https://github.com/o/r1/pull/1/files#diff","via":"dm","from":"Theo","at":"2026-11-26T10:00:00Z","text":"stamp?"}'
   print -r -- 'some prose'
   print -r -- '{"url":"https://github.com/o/r4/pull/4","via":"#team-platform","from":"Ann","at":"2026-11-25T10:00:00Z","text":"review please"}'
@@ -223,26 +230,31 @@ gh() {
     "p2":{"pullRequest":{"url":"https://github.com/o/r4/pull/4","title":"Four","state":"OPEN","author":{"login":"ann"},"reviews":{"nodes":[]}}},
     "p3":{"pullRequest":{"url":"https://github.com/o/r5/pull/5","title":"Five","state":"CLOSED","author":{"login":"bo"},"reviews":{"nodes":[]}}},
     "p4":{"pullRequest":{"url":"https://github.com/o/r6/pull/6","title":"Six","state":"OPEN","author":{"login":"cy"},"reviews":{"nodes":[]}}},
-    "p5":{"pullRequest":{"url":"https://github.com/o/r7/pull/7","title":"Mine","state":"OPEN","author":{"login":"me"},"reviews":{"nodes":[]}}}}}'
+    "p5":{"pullRequest":{"url":"https://github.com/o/r7/pull/7","title":"Mine","state":"OPEN","author":{"login":"me"},"reviews":{"nodes":[]}}},
+    "p6":{"pullRequest":{"url":"https://github.com/o/r8/pull/8","title":"Eight","state":"OPEN","author":{"login":"dan"},"reviews":{"nodes":[]}}},
+    "p7":{"pullRequest":{"url":"https://github.com/o/r9/pull/9","title":"Nine","state":"OPEN","author":{"login":"eve"},"reviews":{"nodes":[]}}}}}'
 }
 rm -f "$ZSE_REQ_DIR"/*.json(N) "$ZSE_REQ_DIR"/*.error(N)
 print -r -- $((EPOCHSECONDS - 2 * 86400)) >"$ZSE_REQ_DIR/last-slack-search"
 _z_req_fetch slack
-check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r4/pull/4"
+check "slack urls"        "$(${ZSE_JQ:-jq} -r '[.[].url] | join(",")' "$ZSE_REQ_DIR/slack.json")" "https://github.com/o/r1/pull/1,https://github.com/o/r4/pull/4,https://github.com/o/r8/pull/8"
+check "slack shifts"      "$(${ZSE_JQ:-jq} -c . "$ZSE_REQ_DIR/shifts.json")" '[{"start":"2026-11-24T00:00:00","end":"2026-11-25T00:00:00"}]'
 check "slack window"      "$([[ $(<$ZSE_REQ_DIR/prompt) =~ 'on or after ([0-9-]+)' ]] && print $match[1])" "$(TZ=UTC strftime '%Y-%m-%d' $((EPOCHSECONDS - 2 * 86400 - 3600)))"
 check "slack last search" "$(( $(<$ZSE_REQ_DIR/last-slack-search) >= EPOCHSECONDS - 5 ))" 1
 lines=("${(@f)$(FZF_COLUMNS=100 _z_req_lines)}")
-check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1"
-plain=${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "slack keys"        "${(j:,:)${lines[@]%%$'\t'*}}" ",,https://github.com/o/r8/pull/8,https://github.com/o/r4/pull/4,https://github.com/o/r1/pull/1"
+check "slack sh tag"      "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)4]}" "sh"
+plain=${${lines[5]#*$'\t'}//$'\e'\[[0-9;]#m/}
 check "slack reviewed"    "${plain##*reviewed }"            "$(_z_age 2026-11-26T12:00:00Z) ago"
-check "slack via"         "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)4]}" "#team-platform"
+check "slack via"         "${${${lines[4]#*$'\t'}//$'\e'\[[0-9;]#m/}[(w)4]}" "#team-platform"
 # A second run keeps the earlier entries (the search only sees new ones)
 claude() { :; }
 _z_req_fetch slack
-check "slack keeps old"   "$(${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 2
+check "slack keeps old"   "$(${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 3
+check "shifts once a day" "$(wc -l <"$ZSE_REQ_DIR/shift-calls" | tr -d ' ')" 1
 claude() { print ERROR; }
 _z_req_fetch slack
-check "slack error"       "$([[ -r $ZSE_REQ_DIR/slack.error ]] && ${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 2
+check "slack error"       "$([[ -r $ZSE_REQ_DIR/slack.error ]] && ${ZSE_JQ:-jq} length "$ZSE_REQ_DIR/slack.json")" 3
 unfunction gh
 rm -rf "$ZSE_REQ_DIR" "$ZSE_STATE_DIR/rev-r3-3-x"
 unfunction claude

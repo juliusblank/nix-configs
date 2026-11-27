@@ -371,7 +371,9 @@ sessions: stop them with `zse stop --all` before you change it, and run
     requests: PRs that request your review on GitHub (`gh`) and PRs that
     request the platform-team (`team`; no drafts, no PRs by Claudius or
     eng-automations, updated in the last 7 days), and PR links from Slack
-    (`dm`, `@` mentions, `#team-platform`; Claude searches with the Slack
+    (`dm`, `@` mentions, and SH requests in `#team-platform` (`sh`): only
+    those sent during your Platform Support shifts, from incident.io, looked
+    up once a day; Claude searches with the Slack
     connector, about 1–2 min, from the last search on, at most 7 days;
     your own and closed PRs are left out; a PR you reviewed after the
     request says `reviewed 2d ago`). Each source searches
