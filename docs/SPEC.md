@@ -84,6 +84,7 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 | 43 | Plugin hooks that need `node` fail outside a Node devshell | Done (local only) — `tktl-eng-frontend@taktile-skills = false` and `tktl-eng-frontend@synced = false` (the same plugin from claude.ai's org plugin sync, `~/.claude/plugins/synced`, which a `@taktile-skills` key does not cover; found when the error came back, #225) in `hosts/concinnity/home.nix`; the next deploy uninstalls it (`claude-plugin-sync`). No upstream change: the devshell-only toolchain is specific to this setup (taktile-org/taktile-skills#347 closed). Finding: every turn ended with "Ran 2 stop hooks … Stop hook error: … exit 127"; the second Stop hook is `tktl-eng-frontend` 0.19.0 (`node "${CLAUDE_PLUGIN_ROOT}/hooks/decide-ui.mjs" stop`, also on SessionStart, PreToolUse, PostToolUse; 0.2.0 had no hooks), and `node` is not on the global PATH, so the shell returns 127 before the script can exit 0 outside decide-ui. For decide-ui work: set it to `true` and work in a shell with `node`. |
 | 44 | Review sessions: PR status without asking Claude | Done (local) — `zse-ci` (`home/modules/zse-ci.sh`, `zse-ci.jq`); the picker badge is in `zse pick` (#42 phase 2, #223). Original plan: after submitting feedback in a `review` session, the user often asks Claude "what's the status of the PR / ticket?" (a prompt, tokens, waiting). Plan: `zse-ci` becomes the review status pane, still `gh` only, every 30 s (`ZSE_CI_INTERVAL`): PR state, review decision, mergeable state, CI summary, and **since my last review** — commits after the `commit_id` of my latest review (or comment, if I never reviewed) and comments / reviews by others after it, with the newest one or two lines. Something new → highlighted in the pane, `✱` appended to the tab name (`✓ <repo> PR #<n> <hint> ✱`), and a state file `~/.cache/zse/activity/<session>.pr` that the #42 picker shows as a badge for every session; cleared by my next review or comment. Keys: `r` refresh now, `t` ticket status (the Linear issue named in the PR title or branch, through `claude -p` with Haiku and the Linear connector, cached; on demand only, not every 30 s), `q` quit. `/tktl-eng-delivery:review <URL>` stays the way to have Claude look at the new commits. Depends on #42 phase 1 (PR keys in the registry: `zse-meta pr`, `url`); the picker badge on #42 phase 2. Later, maybe: the same pane for the own PR of a `ticket` session. |
 | 45 | zse: system resources per session | Planned — see how much CPU and memory the machine has left and how much of it each zse session uses (claude, MCP servers, node, devshell processes, git, …). **Attribution:** each session has one Zellij server process (`zellij --server ~/.cache/zj/contract_version_1/<session>`); a session's usage is the sum over that server's process tree (`ps -axo pid,ppid,rss,%cpu,etime,command`, no extra tool). Background Claude sessions outside Zellij (`claude --bg`, a project master's ticket sub-sessions) count for the session whose repo they run in (`claude agents --json` gives cwd and pid). Processes left over after `zse stop` / `kill` (an MCP server or node whose parent is gone, reparented to launchd) are listed as **orphans**, with their command and age. **System:** memory pressure (`memory_pressure`), memory used / compressed / swap (`vm_stat`, `sysctl vm.swapusage`), load average, CPU count. **Views:** `zse top` — one line per session (CPU %, RSS, process count, top process), sorted by RSS, plus the system line and orphans; refreshes every few seconds, `k` on a line runs `zse stop` for it (with the #42 activity guard). `zse ls` gets an RSS column; the #42 phase 2 picker shows it per session and marks a session above a threshold (for example 4 GB RSS or 100 % CPU for 5 min). **Open:** sampling cost (one `ps` per refresh; cache for the picker), whether `top -l 1` / `powermetrics` give better CPU numbers than `ps %cpu`, and whether a launchd agent should warn (notification) on high memory pressure. Depends on #42 phase 1 (registry); the picker column on phase 2. |
+| 47 | zse: review requests in the picker | Planned — a second view in `zse pick` (`Ctrl-T`) lists open review requests from GitHub (you, platform-team) and Slack (DMs, mentions, `#team-platform`, last 7 days, via `claude -p` and the Slack MCP); `Enter` starts or switches to the review session. Spec in *zse: review requests in the picker* below. |
 
 ### zse sessions: names, activity, picker, colours (roadmap #42)
 
@@ -134,6 +135,40 @@ The roadmap is the single prioritized backlog for this repo. It is reviewed peri
 **Tests (each phase):** `just check`, `just build concinnity`; zsh unit-style checks (`zsh home/modules/zse_test.zsh`) for name building, repo map, hint fallback and length limit (fixture titles); manual: start one session per use case, resume, `zse kill` (worktree prompt), `zse restore`, old-name sessions still work, `zse migrate` of a stopped and a running session resumes the same conversation; phase 2: busy / waiting / idle transitions, `zse stop --all` with and without `--force`; phase 3: colours on light and dark backgrounds.
 
 **Docs:** `docs/usage/zellij.md` per phase.
+
+### zse: review requests in the picker (roadmap #47)
+
+**Goal:** start a review from the picker, without copying a PR URL from Slack or GitHub into a new shell.
+
+**Sources:**
+
+| Source | Query | Group |
+|---|---|---|
+| GitHub, you | `gh search prs --state=open -- user-review-requested:@me` (only you, not your teams) | `github` |
+| GitHub, platform-team | `gh search prs --state=open -- team-review-requested:taktile-org/platform-team draft:false -author:app/taktile-claudius -author:app/eng-automations updated:>=<7 days ago>` (about 50 PRs; without the filters more than 300) | `platform-team` |
+| Slack | `claude -p` (Haiku) with the Slack MCP search tools only: PR links in DMs to you, messages that mention you, and `#team-platform` | `slack` |
+
+The Slack search covers the time since the last search (minus 1 h overlap), at most 7 days. `~/.cache/zse/requests/last-slack-search` stores the time of the last successful search. Claude returns JSON lines (`url`, `source` = `dm` / `mention` / `#channel`, `from`, `at`, `text`); a run that fails or times out (120 s) changes nothing and the view says so.
+
+**Cache:** `~/.cache/zse/requests/<source>.json`, one file per source, so that a slow source does not block a fast one. Slack entries are merged with the earlier ones (by PR URL) and dropped after 7 days. Entries of PRs that are closed or merged are dropped (one `gh api graphql` call for the PRs that only Slack knows).
+
+**View:** `Ctrl-T` in `zse pick` switches between sessions and requests (prompt `requests>`). Opening the view:
+
+1. shows the cache at once (with its age in the header);
+2. starts the three sources in the background, every time (a lock file per source stops a second run of the same source while one runs);
+3. each source, when it is done, writes its cache and sends `reload` to the picker through `fzf --listen` (`$FZF_PORT`), only while the requests view is open (`transform` checks `$FZF_PROMPT`). New entries thus appear while the view is open. `--track` with `--id-nth` (the PR URL) keeps the cursor on its row.
+
+One row per PR (merged by URL): sources (`gh`, `team`, `dm`, `@`, `#team-platform`), age of the oldest request, repo and number, title, author. Order: groups `github`, `platform-team`, `slack` (a PR in more than one source goes to the first), oldest request first.
+
+A PR that already has a review session, or that you reviewed after the latest request, stays in the list, dimmed, with a note (`session rev-… — Enter switches`, `reviewed 2d ago`).
+
+**Enter:** `zse -l review <url>` (a new session starts in the background, then the picker switches to it), or `zse switch <name>` when a session exists. Preview: `gh pr view` (title, author, size, CI, review decision) and the Slack message text.
+
+**Not in scope:** Slack threads without a PR link; requests in other tools; notifications or polling while the picker is closed.
+
+**Tests:** zsh checks with stubbed `gh` and `claude` (merge by URL, 7-day cut, closed PRs dropped, dimmed rows, last-search window); `just check`, `just build concinnity`; manual: open the view, see GitHub rows first and Slack rows later, Enter on a new and on an existing review.
+
+**Docs:** `docs/usage/zellij.md` (`zse pick`). Two PRs: (1) view, GitHub sources, dynamic reload; (2) Slack source.
 
 ## Hosts
 
