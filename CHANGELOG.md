@@ -1,6 +1,46 @@
 # Changelog
 
 Generated from conventional commit messages via [git-cliff](https://github.com/orhun/git-cliff).
+## v2026.11.8 — 2026-11-27
+
+### Bug Fixes
+- **concinnity:** claude-plugin-sync finds git during activation (#216)
+- **concinnity:** disable tktl-eng-frontend; SPEC prek sandbox (#33), node hooks (#43) (#217)
+- **home:** zse tab names in background sessions; detached HEAD in the shell pane (#220)
+- **home:** review session start — worktree wait, synced plugin, sandbox (#225)
+- **home:** zse pick aligns the name and review columns (#42) (#229)
+- **home:** zse pick switches to review requests with Tab (#47) (#233)
+- **home:** zse requests keep every Slack PR link; CI pane drops replaced runs (#47) (#235)
+
+### Chores
+- **changelog:** update CHANGELOG.md for v2026.11.7 (#203)
+
+### Documentation
+- **spec:** #42 phase 3 also colours Claude's prompt bar (/color, from #207) (#219)
+- **spec:** review status pane without asking Claude (#44) (#218)
+- **spec:** zse system resources per session (#45) (#222)
+- **spec:** review requests in the zse picker (#47) (#230)
+
+### Features
+- **home:** zse panes export DELIVERY_SESSION for the delivery plugins (#208)
+- **home:** set git delivery.branchPrefix for the delivery plugins (#209)
+- **concinnity:** switch to the tktl-eng-delivery plugin (#212)
+- **concinnity:** run git fetch, pull and push outside the Claude Code sandbox (#213)
+- **home:** AeroSpace bindings for tiles and accordion layout (#210)
+- **concinnity:** install and update Claude Code plugins on deploy (#214)
+- **home:** zse session names, activity, picker and colours (#215)
+- **home:** zse activity, picker and stop guard (#42 phase 2) (#223)
+- **home:** review status pane — PR status without asking Claude (#44) (#221)
+- **home:** zse colours per session type and shade (#42 phase 3) (#224)
+- **home:** zse pick groups by type, cycles, tints rows (#42) (#226)
+- **home:** review states in zse-ci, the picker and zse ls (#42, #44) (#227)
+- **home:** zse tints the Ghostty background per session (#42) (#228)
+- **home:** zse pick shows the PR author after a review's name (#42) (#231)
+- **home:** review requests view in zse pick — GitHub and Slack (#47) (#232)
+- **home:** zse pick columns, request sources and order (#47) (#234)
+- **home:** zse finds Slack and Linear review requests without model choices (#47) (#237)
+- **home:** review sessions start /review-plus:review (#48) (#239)
+- **home:** zse review requests sort by a source score (#47) (#238)
 ## v2026.11.7 — 2026-11-20
 
 ### Bug Fixes
