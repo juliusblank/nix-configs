@@ -981,15 +981,18 @@ typeset -ga ZSE_REQ_SOURCES=(github team rereview slack)
 typeset -gA ZSE_REQ_LABEL=(github 'requested from you' team 'platform-team' rereview 'new commits' slack 'Slack')
 typeset -gA ZSE_REQ_TAG=(github gh team team slack slack)
 # The requests view: one icon per source (Nerd Font: Slack, GitHub), in
-# this order; the rows sort by their first source, then oldest first.
+# this order; the rows sort by their score (ZSE_REQ_WEIGHT), then oldest
+# first.
 # Linear (no logo in the Nerd Font: a circled L) and "new commits since my
 # review" (a clock with an arrow).
 typeset -gA ZSE_REQ_ICON=(slack $'\uf198' linear $'\U000f0c0d' github $'\uf09b' rereview $'\U000f02da' team '#')
 typeset -ga ZSE_REQ_RANK=(slack linear github rereview team)
-# The order of the rows: Slack (DMs, mentions, SH in your shift) first,
-# then the direct requests (Linear, GitHub), then new commits since your
-# review, then the team.
-typeset -gA ZSE_REQ_TIER=(slack 0 linear 1 github 1 rereview 2 team 3)
+# The order of the rows: a row's score is the sum of the weights of its
+# sources, highest first. Each weight is larger than the sum of all lower
+# ones, so Slack (DMs, mentions, SH in your shift) comes first, then the
+# direct requests (Linear, GitHub), then new commits since your review,
+# then the team; inside each level, more sources come first.
+typeset -gA ZSE_REQ_WEIGHT=(slack 16 linear 4 github 4 rereview 2 team 1)
 # Platform Support (incident.io): SH requests count only in your shifts.
 typeset -g ZSE_REQ_SCHEDULE=${ZSE_REQ_SCHEDULE:-01KY4FJZ1S64RZPPN1JR95R9TQ}
 typeset -gA ZSE_REQ_QUERY=(
@@ -1341,17 +1344,17 @@ _z_req_lines() {
   for src in $ZSE_REQ_SOURCES; do
     [[ -r $ZSE_REQ_DIR/$src.json ]] && files+="$ZSE_REQ_DIR/$src.json"
   done
-  local order tier
+  local order weight
   order=$(print -rl -- $ZSE_REQ_RANK | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != ""))')
-  tier=$(for src in ${(k)ZSE_REQ_TIER}; do print -r -- "$src ${ZSE_REQ_TIER[$src]}"; done \
+  weight=$(for src in ${(k)ZSE_REQ_WEIGHT}; do print -r -- "$src ${ZSE_REQ_WEIGHT[$src]}"; done \
     | ${ZSE_JQ:-jq} -Rsc 'split("\n") | map(select(. != "") | split(" ") | {key: .[0], value: (.[1] | tonumber)}) | from_entries')
-  (($#files)) && rows=(${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" --argjson tier "$tier" '
+  (($#files)) && rows=(${(f)"$(${ZSE_JQ:-jq} -rs --argjson order "$order" --argjson weight "$weight" '
       [.[][]] | group_by(.url)
       | map({url: .[0].url, repo: .[0].repo, number: .[0].number, title: .[0].title,
              author: .[0].author, at: (map(.at) | min),
              reviewed: (map(.reviewed // empty) | max),
              groups: (map(.group // .source) | unique | sort_by(. as $s | $order | index($s)))})
-      | map(. + {g: ([.groups[] | $tier[.] // 9] | min)})
+      | map(. + {g: (0 - ([.groups[] | $weight[.] // 0] | add))})
       | sort_by(.g, .at)[]
       | [.g, .url, .repo, .number, (.title | gsub("\t"; " ")), .author, .at, (.groups | join(",")),
          (if .reviewed != null and .reviewed > .at then .reviewed else "" end)] | @tsv
