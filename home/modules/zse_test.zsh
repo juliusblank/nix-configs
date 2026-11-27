@@ -182,6 +182,33 @@ check "pick author align" "${#${row_a%%running*}}"           "${#${row_b%%runnin
 check "pick new first"    "${(j:,:)${(@M)picked:#rev-*}}"     "rev-b,rev-a"
 unfunction zellij
 rm -rf "$XDG_CACHE_HOME"; unset XDG_CACHE_HOME
+# Stacks and ticket groups in the sessions view (review sessions)
+export XDG_CACHE_HOME=$(mktemp -d)
+mkdir -p "$XDG_CACHE_HOME/zse/activity"
+printf 'state=submitted\nlabel=commented\nhead=x/base\nbase=main\nticket=PCS-100\n' >"$XDG_CACHE_HOME/zse/activity/rev-s1.pr"
+printf 'state=submitted\nlabel=commented\nhead=x/top\nbase=x/base\nticket=PCS-100\n' >"$XDG_CACHE_HOME/zse/activity/rev-s2.pr"
+printf 'state=submitted\nlabel=commented\nhead=y\nbase=main\nticket=OPT-555\n' >"$XDG_CACHE_HOME/zse/activity/rev-s3.pr"
+printf 'state=submitted\nlabel=commented\nhead=z\nbase=main\nticket=OPT-555\n' >"$XDG_CACHE_HOME/zse/activity/rev-s4.pr"
+zellij() { :; }
+for n in rev-s1 rev-s2 rev-s3 rev-s4; do
+  _z_reg_write $n review /tmp ""
+  _z_reg_set $n owner o; _z_reg_set $n repo s
+done
+_z_reg_set rev-s1 last_started 2026-11-20T00:00:00Z
+_z_reg_set rev-s2 last_started 2026-11-26T00:00:00Z
+_z_reg_set rev-s3 last_started 2026-11-21T00:00:00Z
+_z_reg_set rev-s4 last_started 2026-11-25T00:00:00Z
+_z_reg_set rev-s4 title "Four"
+lines=("${(@f)$(FZF_COLUMNS=140 _z_pick_lines)}")
+picked=(${lines[@]%%$'\t'*})
+check "pick stack order"  "${(j:,:)${(@M)picked:#rev-s*}}" "rev-s1,rev-s2,rev-s4,rev-s3"
+row=${(M)lines:#rev-s2$'\t'*}; row=${${row#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "pick stack tree"   "${${row#*└ }%% *}" "rev-s2"
+row=${(M)lines:#rev-s4$'\t'*}; row=${${row#*$'\t'}//$'\e'\[[0-9;]#m/}
+check "pick ticket title" "$([[ $row == *"  OPT-555 · Four"* ]] && print yes)" yes
+for n in rev-s1 rev-s2 rev-s3 rev-s4; do rm -f "$ZSE_STATE_DIR/$n"; done
+unfunction zellij
+rm -rf "$XDG_CACHE_HOME"; unset XDG_CACHE_HOME
 # Review requests (#47): merge by URL, groups, review sessions by URL
 ZSE_REQ_DIR=$(mktemp -d)
 gh() {
@@ -230,6 +257,24 @@ check "req status failed" "${${(f)$(FZF_COLUMNS=100 _z_req_lines)}[2]//$'\e'\[[0
   check "req score order" "${(j:,:)keys}" "2,1,3,7,4,6,5"
   rm -rf "$ZSE_REQ_DIR"
   unfunction _t_req
+}
+# Stacks and ticket groups in the requests view
+() {
+  local ZSE_REQ_DIR=$(mktemp -d)
+  print -r -- '[
+    {"url":"https://github.com/o/s/pull/1","repo":"o/s","number":1,"title":"Base","author":"a","at":"2026-11-20T00:00:00Z","source":"github","head":"x/base","base":"main","ticket":"PCS-100"},
+    {"url":"https://github.com/o/s/pull/2","repo":"o/s","number":2,"title":"Top","author":"a","at":"2026-11-21T00:00:00Z","source":"github","head":"x/top","base":"x/base","ticket":"PCS-100"},
+    {"url":"https://github.com/o/s/pull/3","repo":"o/s","number":3,"title":"Alone","author":"a","at":"2026-11-19T00:00:00Z","source":"github","head":"y","base":"main"},
+    {"url":"https://github.com/o/s/pull/4","repo":"o/s","number":4,"title":"Tick A","author":"a","at":"2026-11-18T00:00:00Z","source":"team","head":"z1","base":"main","ticket":"OPT-555"},
+    {"url":"https://github.com/o/s/pull/5","repo":"o/s","number":5,"title":"Tick B","author":"a","at":"2026-11-22T00:00:00Z","source":"github","head":"z2","base":"main","ticket":"OPT-555"}]' >"$ZSE_REQ_DIR/github.json"
+  lines=("${(@f)$(FZF_COLUMNS=120 _z_req_lines)}")
+  local -a keys=("${(@)${(@)lines[3,-1]%%$'\t'*}##*/}")
+  check "group order"       "${(j:,:)keys}" "3,1,2,5,4"
+  local top=${${lines[5]#*$'\t'}//$'\e'\[[0-9;]#m/} hdr=${${lines[1]#*$'\t'}//$'\e'\[[0-9;]#m/}
+  check "group tree"        "${${top#*PCS-100 }## #}" "└ Top"
+  check "group ticket col"  "${#${hdr%%TICKET*}} ${#${hdr%%TITLE*}}" "${#${top%%PCS-100*}} ${#${top%%└*}}"
+  check "group alone"       "${${${lines[3]#*$'\t'}//$'\e'\[[0-9;]#m/}##*  }" "Alone"
+  rm -rf "$ZSE_REQ_DIR"
 }
 # Slack and Linear: zse reads the raw tool results (stream-json) and finds
 # the links itself; own and bot messages, other channels, closed and old
