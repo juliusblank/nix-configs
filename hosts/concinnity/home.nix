@@ -386,6 +386,8 @@ in
   #   they can reach any host, and `git push` runs pre-push hooks unsandboxed. A
   #   `git fetch` inside a script (for example a plugin's `worktree.sh`) does not
   #   match and stays sandboxed.
+  # - `open`: macOS `open` hands a file or URL to LaunchServices, which the
+  #   sandbox blocks; review-plus opens its diagram PNG with it.
   # The excluded commands still go through Claude Code's normal permission
   # prompt — they just skip the sandbox wrapper.
   home.activation.claudePlugins =
@@ -437,6 +439,7 @@ in
             # taktile-infra: the first attempt failed, Claude retried
             # unsandboxed after a prompt). Local writes inside the repo only.
             "git worktree *"
+            "open *"
           ];
         }
       );
