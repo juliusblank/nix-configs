@@ -5,11 +5,23 @@
   ...
 }:
 
+let
+  aikidoNixCa = "/Library/Application Support/AikidoSecurity/EndpointProtection/run/endpoint-protection-nix-combined-ca.pem";
+in
 {
   nix.settings.experimental-features = [
     "nix-command"
     "flakes"
   ];
+
+  # Aikido endpoint protection intercepts TLS. Its Nix bundle has the system
+  # roots plus the Aikido CA. ssl-cert-file is for the daemon's own downloads
+  # (Aikido writes the same line into the nix.conf store file, but a deploy
+  # that changes nix.conf drops it). NIX_SSL_CERT_FILE is for shells, Nix
+  # programs (for example Python in a devshell) and, through nix-darwin, the
+  # daemon and its fetchers (in `environment` below). If Aikido goes away,
+  # remove both.
+  nix.settings.ssl-cert-file = aikidoNixCa;
 
   # No nix binary cache on the work machine — avoid pulling personal store paths
   # onto a work-managed device.
@@ -61,12 +73,6 @@
     home = "/Users/julius.blank";
   };
 
-  # Ensure Homebrew paths are available in the shell
-  environment.systemPath = [
-    "/opt/homebrew/bin"
-    "/opt/homebrew/sbin"
-  ];
-
   # home-manager owns compinit (with -C caching) and starship replaces the prompt.
   # Disabling these avoids a redundant ~700ms compinit + ~16ms promptinit in /etc/zshrc.
   programs.zsh = {
@@ -75,13 +81,24 @@
     promptInit = "";
   };
 
-  # System-level packages — keep minimal; most GUI apps are managed by IRU.
-  # NB: the Claude *desktop app* (Claude.app chat client) is provided by IRU;
-  # `claude-code` here is the CLI dev tool, a separate product not shipped by IRU.
-  environment.systemPackages = with pkgs; [
-    vim
-    claude-code
-  ];
+  environment = {
+    # The Aikido CA bundle (see nix.settings.ssl-cert-file above)
+    variables.NIX_SSL_CERT_FILE = aikidoNixCa;
+
+    # Ensure Homebrew paths are available in the shell
+    systemPath = [
+      "/opt/homebrew/bin"
+      "/opt/homebrew/sbin"
+    ];
+
+    # System-level packages — keep minimal; most GUI apps are managed by IRU.
+    # NB: the Claude *desktop app* (Claude.app chat client) is provided by IRU;
+    # `claude-code` here is the CLI dev tool, a separate product not shipped by IRU.
+    systemPackages = with pkgs; [
+      vim
+      claude-code
+    ];
+  };
 
   security.pam.services.sudo_local.touchIdAuth = true;
 

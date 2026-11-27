@@ -396,6 +396,16 @@ must have fields `access_key_id` and `secret_access_key`. The session cache item
   the same module so 1Password-backed SSH signing survives the removal. Aikido's
   cert bundle path (concinnity-only) is preserved via `programs.git.settings.http.sslCAInfo`
   in `hosts/concinnity/home.nix`.
+- **Aikido CA for Nix (concinnity).** Aikido intercepts TLS. Nix and Nix-built
+  programs read `NIX_SSL_CERT_FILE` (default `/etc/ssl/certs/ca-certificates.crt`,
+  without the Aikido CA), so downloads from Nix programs failed (for example the
+  first cfn-lint schema download, or a fetcher in a build).
+  `hosts/concinnity/configuration.nix` sets `nix.settings.ssl-cert-file` and
+  `environment.variables.NIX_SSL_CERT_FILE` (which nix-darwin also gives to the
+  daemon) to Aikido's `endpoint-protection-nix-combined-ca.pem` (system roots plus
+  the Aikido CA). Aikido edits the `nix.conf` store file in place for
+  `ssl-cert-file`; that edit is lost when `nix.conf` changes, so the setting
+  is declared here. If Aikido is removed, remove both settings.
 
 ### GitHub checkout layout (`~/github/` on concinnity)
 
