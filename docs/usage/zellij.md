@@ -192,8 +192,11 @@ finds it again (by owner, repo and PR number). To review new pushes, run
 `/review-plus:review <PR URL>` again in the session (it interviews only the
 new findings). The
 `review` command (plugin `tktl-eng-delivery` from the `taktile-skills`
-marketplace) handles PR checkout under
-`.claude/worktrees/pr-<n>`. An old-style `review-<repo>-pr<n>` session has no
+marketplace) reviews in `.claude/worktrees/pr-<n>`. A new session makes this
+worktree before claude starts, detached at the PR head (`git fetch origin
+pull/<n>/head`, in your terminal): inside the Claude Code sandbox the SSH
+fetch fails and the checkout cannot write files such as `.mcp.json`. If the
+fetch fails, zse warns and the review command makes the worktree itself. An old-style `review-<repo>-pr<n>` session has no
 owner in its name: if it belongs to another checkout (same repo name, other
 owner), `zse` stops with an error instead of resuming that review. No tig pane — review is read-first, not commit-first. Instead, the **review status pane (`zse-ci`)** under the shell answers "what is the status of the PR?" without asking Claude. Every 30 s (`ZSE_CI_INTERVAL`), from `gh` only (HTTPS, no SSH): the PR state, review decision, mergeable state, a CI summary (failing and running checks by name), and what is **new since your last review or comment**: commits after the commit you reviewed, and reviews and comments by others, with their first line. Something new is highlighted. On every poll the pane writes the **review state** to `~/.cache/zse/activity/<session>.pr` (for `zse pick` and `zse ls`) and puts its marker at the end of the tab name:
 

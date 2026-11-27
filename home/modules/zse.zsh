@@ -264,6 +264,30 @@ _z_ticket_worktree() {
   fi
 }
 
+# _z_review_worktree ROOT WT PR — the review's worktree `.claude/worktrees/WT`,
+# detached at the PR head, made before claude starts: in the user's terminal
+# the fetch can use the SSH agent, and the checkout can write files such as
+# `.mcp.json` that the Claude Code sandbox does not let it write. An existing
+# worktree stays as it is (a re-review moves it). A failure only warns: the
+# review command can still make the worktree itself.
+_z_review_worktree() {
+  emulate -L zsh
+  local root="$1" wt="$2" pr="$3" dir
+  dir="$root/.claude/worktrees/$wt"
+  [[ -e $dir/.git || $pr != <-> ]] && return 0
+  print -r "zse: fetching PR #$pr in $root …"
+  if ! git -C "$root" fetch --quiet origin "pull/$pr/head"; then
+    print -u2 -r "zse: ⚠ git fetch of PR #$pr failed; the review command makes the worktree."
+    return 0
+  fi
+  mkdir -p "${dir:h}"
+  if ! git -C "$root" worktree add --quiet --detach "$dir" FETCH_HEAD >/dev/null; then
+    print -u2 -r "zse: ⚠ git worktree add $dir failed; the review command makes the worktree."
+    return 0
+  fi
+  print -r "zse: ✓ $wt at the PR head ($(git -C "$dir" rev-parse --short HEAD))"
+}
+
 # ----- Names: <type>-<repo>-<id>-<hint> -----
 
 # _z_repo_short REPO — short repo name for session names: the entry in
@@ -1795,17 +1819,18 @@ _zse_start() {
     return 1
   fi
 
-  # Ticket / explore: create or reuse the worktree before claude starts
-  # (`claude --worktree` reuses it as-is). A new branch starts at the fetched
-  # origin default branch: ticket `<prefix>/<ID>` (`_z_ticket_worktree`),
-  # explore `explore/<slug>`. Skipped outside a git repo.
+  # Ticket / explore / review: create or reuse the worktree before claude
+  # starts (`claude --worktree` reuses it as-is). A new branch starts at the
+  # fetched origin default branch: ticket `<prefix>/<ID>`
+  # (`_z_ticket_worktree`), explore `explore/<slug>`; a review worktree is
+  # detached at the PR head (`_z_review_worktree`). Skipped outside a git repo.
   local root wt=${meta[wt]:-$(_z_worktree_name "$name")}
-  if [[ $use_case == (ticket|explore) ]] && root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
-    if [[ $use_case == ticket ]]; then
-      _z_ticket_worktree "$root" "$wt" || return 1
-    else
-      _z_branch_worktree "$root" "$wt" "explore/$wt" || return 1
-    fi
+  if [[ $use_case == (ticket|explore|review) ]] && root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
+    case $use_case in
+      ticket) _z_ticket_worktree "$root" "$wt" || return 1 ;;
+      explore) _z_branch_worktree "$root" "$wt" "explore/$wt" || return 1 ;;
+      review) _z_review_worktree "$root" "$wt" "${meta[pr]:-}" ;;
+    esac
   fi
 
   # The panes read the name keys at start (`zse-meta`): register them first.

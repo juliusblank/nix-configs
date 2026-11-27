@@ -110,6 +110,23 @@ check "group code-resume" "$(_z_group code-resume)"          code
 check "group none"        "$(_z_group '')"                   other
 rm -f "$ZSE_STATE_DIR"/(tkt-[abc]|code-[xy])
 
+# Review worktree: detached at the PR head before claude starts; an
+# existing one stays; a failed fetch only warns.
+() {
+  local t=$(mktemp -d) head
+  git init -q -b main "$t/origin" && git -C "$t/origin" commit -q --allow-empty -m base
+  git -C "$t/origin" commit -q --allow-empty -m pr
+  head=$(git -C "$t/origin" rev-parse HEAD)
+  git -C "$t/origin" update-ref refs/pull/7/head "$head"
+  git -C "$t/origin" reset -q --hard HEAD~1
+  git clone -q "$t/origin" "$t/repo"
+  _z_review_worktree "$t/repo" pr-7 7 >/dev/null
+  check "review wt head"    "$(git -C "$t/repo/.claude/worktrees/pr-7" rev-parse HEAD 2>/dev/null)" "$head"
+  check "review wt detached" "$(git -C "$t/repo/.claude/worktrees/pr-7" symbolic-ref -q HEAD || print detached)" detached
+  check "review wt fail ok" "$(_z_review_worktree "$t/repo" pr-8 8 >/dev/null 2>&1; print $?; [[ -e $t/repo/.claude/worktrees/pr-8 ]] && print exists)" 0
+  rm -rf "$t"
+}
+
 # Age
 check "age bad"           "$(_z_age nonsense)" -
 check "age min"           "$(_z_age "$(TZ=UTC strftime '%Y-%m-%dT%H:%M:%SZ' $((EPOCHSECONDS - 300)))")" 5m
