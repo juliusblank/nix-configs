@@ -445,6 +445,15 @@ let
     `review-<repo>-pr<n>`, else the name; `pr` the `-pr<n>` number; `ticket`
     / `slug` / `url` the name. `conv` has no fallback (zse-claude derives it).
   */
+  /**
+    The command a review session sends as its first prompt. A local wrapper
+    under test (`review-plus@jbl-personal`: tktl-eng-delivery:review plus a
+    diagram, an interview and a summary); decide whether it moves upstream
+    into tktl-eng-delivery:review or goes away (SPEC roadmap #48). The review
+    banner says that a local wrapper runs.
+  */
+  reviewCommand = "/review-plus:review";
+
   zseMeta = pkgs.writeShellScriptBin "zse-meta" ''
     set -uo pipefail
     key=''${1:?usage: zse-meta KEY}
@@ -548,7 +557,8 @@ let
     ┃  REVIEW   ┃
     ┗━━━━━━━━━━━┛
     ART
-        printf '→ /tktl-eng-delivery:review %s is auto-sent in the claude pane (tktl-eng-delivery)\n' "$($meta url)"
+        printf '→ ${reviewCommand} %s is auto-sent in the claude pane\n' "$($meta url)"
+        printf '\033[33m! Local wrapper (review-plus@jbl-personal), not the shared tktl-eng-delivery:review. Decide: upstream or drop (SPEC #48).\033[0m\n'
         ;;
       explore)
         cat <<'ART'
@@ -997,13 +1007,13 @@ let
   dailyClaudePane = mkClaudePane "daily" "--own";
   # Ticket: the worktree is the ticket ID (`zse-meta wt`), not the session name.
   ticketClaudePane = mkClaudePane "ticket" ''--own --worktree \"$(${zseMeta}/bin/zse-meta wt)\"'';
-  # Explicit namespace (`/tktl-eng-delivery:review`) over the shorthand (`/review`) so
-  # the command stays unambiguous: other plugins have their own `review`.
+  # `reviewCommand` (see above) with its explicit namespace, so the command
+  # stays unambiguous: other plugins have their own `review`.
   # `--first-prompt`: the review runs on the first start only; a restored
   # session resumes its conversation.
   # The PR URL from the registry (`zse-meta url`; old-style sessions: the
   # `review-<repo>-pr<n>` name, which the command also accepts).
-  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"/tktl-eng-delivery:review $(${zseMeta}/bin/zse-meta url)\"'';
+  reviewClaudePane = mkClaudePane "review" ''--own --first-prompt \"${reviewCommand} $(${zseMeta}/bin/zse-meta url)\"'';
   # Review-doc: `/tktl-eng-delivery:review-doc <url>` on the first start, URL from the registry.
   reviewDocClaudePane = mkClaudePane "review-doc" ''--own --first-prompt \"/tktl-eng-delivery:review-doc $(${zseMeta}/bin/zse-meta url)\"'';
   # Explore: own conversation in the slug's worktree; `/explore status` on the
@@ -1040,7 +1050,7 @@ in
   #              `tkt-<ID>-<hint>`; worktree `.claude/worktrees/<ID>` from
   #              the delivery plugin's `worktree.sh` (zse's own fallback).
   #              Shell shows a one-time `/tktl-eng-delivery:ticket-start` banner.
-  #   review   — `zse-claude --own --first-prompt "/tktl-eng-delivery:review <PR URL>"` ·
+  #   review   — `zse-claude --own --first-prompt "<reviewCommand> <PR URL>"` ·
   #              shell · CI pane (`zse-ci`, no tig). Session name
   #              `rev-<repo>-<n>-<hint>` from a PR URL. The review command
   #              auto-fires on the first start only; a restored session

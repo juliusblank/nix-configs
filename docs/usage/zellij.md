@@ -39,7 +39,7 @@ gives them the new names.
 | **code** (default) | `code.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own` |
 | **project** | `project.kdl` | tabs: master (claude · (shell · (git \| agents status))) + agents (full-screen) | master: `zse-claude --own`; agents: `claude agents --cwd <repo>` |
 | **ticket** | `ticket.kdl` | claude · (shell · tig) · compact bar | `zse-claude --own --worktree <ID>` (`zse-meta wt`) |
-| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review <PR URL>"` (`zse-meta url`; review on first start; own conversation) |
+| **review** | `review.kdl` | claude · (shell · CI) · compact bar (no tig) | `zse-claude --own --first-prompt "/review-plus:review <PR URL>"` (`zse-meta url`; review on first start; own conversation) |
 | **review-doc** | `review-doc.kdl` | claude · shell · compact bar (no tig, no CI) | `zse-claude --own --first-prompt "/tktl-eng-delivery:review-doc <url>"` (`zse-meta url`; review on first start; own conversation) |
 | **daily** | `daily.kdl` | claude · tasks (40 %) · compact bar | `zse-claude --own`; tasks pane runs `scripts/tasks-pane` |
 | **explore** | `explore.kdl` | claude · (shell · exploration) · compact bar (no tig) | `zse-claude --own --first-prompt "/explore status <slug>" --worktree <slug>` |
@@ -114,8 +114,9 @@ banner on resume. `zse kill` deletes the sentinel so a reused session name
 re-welcomes. `code` and `code-resume` have no banner — those shell panes
 are plain zsh.
 
-For `review`, the claude pane auto-sends `/tktl-eng-delivery:review <PR URL>` on
-the first start (not on restore); the banner just reports what's running. The
+For `review`, the claude pane auto-sends `/review-plus:review <PR URL>` on
+the first start (not on restore); the banner reports what's running and
+that this is a local wrapper (SPEC roadmap #48). The
 same holds for `explore` with `/explore status <slug>`. The tab is renamed to
 `◆ <ID> <hint>`, `✓ <repo> PR #<n> <hint>`, `▲ <slug>`, `✦ <slug>`, `¶ <title>` (the icons of
 `zse pick`). For `ticket` and
@@ -177,12 +178,19 @@ which reuses the worktree and resumes the ticket's own conversation. Later,
 ### review
 
 A short-lived PR review with its own conversation (`--own`). On the first
-start the pane opens with `/tktl-eng-delivery:review <PR URL>` as its first
-user message (`--first-prompt`); after `zse stop` / `zse restore` it resumes
+start the pane opens with `/review-plus:review <PR URL>` as its first
+user message (`--first-prompt`). `review-plus` (marketplace `jbl-personal`)
+is a local wrapper under test: it runs `/tktl-eng-delivery:review`, shows
+the draft comments, draws a high-level diagram when the PR changes
+infrastructure or the structure (opens the PNG, prints a `file://` link;
+files in `~/.cache/review-plus/<repo>-pr<n>/`), interviews you one finding
+at a time (keep / edit / discard), and ends with a summary, a suggested
+review state and a question whether to post; after `zse stop` / `zse restore` it resumes
 the conversation and does not run the review again. The session is
 `rev-<repo>-<n>-<hint>` (from `zse -l review <PR URL>`); the same URL later
 finds it again (by owner, repo and PR number). To review new pushes, run
-`/tktl-eng-delivery:review <PR URL>` again in the session. The
+`/review-plus:review <PR URL>` again in the session (it interviews only the
+new findings). The
 `review` command (plugin `tktl-eng-delivery` from the `taktile-skills`
 marketplace) handles PR checkout under
 `.claude/worktrees/pr-<n>`. An old-style `review-<repo>-pr<n>` session has no
