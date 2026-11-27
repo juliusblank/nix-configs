@@ -420,6 +420,9 @@ in
             "ticket@jbl-personal" = false;
             "review@jbl-personal" = false;
             "project@jbl-personal" = false;
+            # A local wrapper around tktl-eng-delivery:review, under test
+            # (SPEC roadmap #48); the zse review layout sends its command.
+            "review-plus@jbl-personal" = true;
             "aws-serverless@claude-plugins-official" = true;
             "deploy-on-aws@claude-plugins-official" = true;
           };
