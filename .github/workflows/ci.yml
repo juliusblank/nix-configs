@@ -92,7 +92,7 @@ jobs:
 
       # v31+ installs a Nix whose installer puts the build users at UID 351+ on
       # macOS 15; the v27 installer used 301-306, which macOS 15 already uses.
-      - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@v32
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
